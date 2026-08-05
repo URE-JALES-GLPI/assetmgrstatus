@@ -1,0 +1,58 @@
+<?php
+
+include('../../../inc/includes.php');
+
+use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
+
+Session::checkLoginUser();
+Session::checkRight(MaintenanceRecord::RIGHT_VIEW, UPDATE);
+
+global $CFG_GLPI;
+
+$itemtype = $_POST['itemtype'] ?? '';
+$items_id = (int)($_POST['items_id'] ?? 0);
+$status   = $_POST['status']   ?? '';
+$reason   = trim($_POST['reason'] ?? '');
+$expected_return_date = trim($_POST['expected_return_date'] ?? '');
+$users_id_tech = (int)($_POST['users_id_tech'] ?? Session::getLoginUserID());
+$view_mode = $_POST['view_mode'] ?? 'list';
+
+if (!$itemtype || !$items_id || !$status || !$reason) {
+    Session::addMessageAfterRedirect('Dados inválidos.', false, ERROR);
+    Html::back();
+    exit;
+}
+
+// Componentes
+$comp_checks = $_POST['comp_check'] ?? [];
+$comp_descs  = $_POST['comp_desc']  ?? [];
+$components  = [];
+foreach ($comp_checks as $ck) {
+    $components[$ck] = trim($comp_descs[$ck] ?? '');
+}
+
+// Fotos
+$photos = [];
+if (!empty($_FILES['photos']['name'][0])) {
+    $files = [];
+    foreach ($_FILES['photos'] as $field => $values) {
+        foreach ($values as $idx => $value) {
+            $files[$idx][$field] = $value;
+        }
+    }
+    $photos = MaintenanceRecord::handlePhotoUpload($files);
+}
+
+MaintenanceRecord::saveRecord(
+    $itemtype,
+    $items_id,
+    $status,
+    $reason,
+    $components,
+    $photos,
+    $users_id_tech,
+    ($status === MaintenanceRecord::STATUS_MANUTENCAO && $expected_return_date) ? $expected_return_date : null
+);
+
+Session::addMessageAfterRedirect('Status atualizado com sucesso!', false, INFO);
+Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view_mode));

@@ -1,0 +1,56 @@
+/* ---- Cards transferidos (laranja) na manutenção ---- */
+.am-asset-card.am-card-transferred {
+    border-color: #f97316 !important;
+    box-shadow: 0 0 0 2px rgba(249,115,22,.15);
+}
+.am-asset-card.am-card-transferred .am-asset-card-header {
+    background: #fff7ed;
+}
+.am-badge-transferred {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+.am-row-transferred {
+    background: #fff7ed !important;
+}
+.am-row-transferred:hover {
+    background: #ffedd5 !important;
+}
+.am-transfer-lock-banner {
+    background: #f97316;
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 5px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px 8px 0 0;
+}
+
+/* ---- Cards do Técnico ---- */
+.am-tc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:18px; }
+.am-tc-card { background:#fff; border:1.5px solid #e8eaf0; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; transition:box-shadow .18s; }
+.am-tc-card:hover { box-shadow:0 8px 32px rgba(0,0,0,.1); }
+.am-tc-card-header { display:flex; align-items:flex-start; justify-content:space-between; padding:16px 18px 12px; gap:10px; }
+.am-tc-card-body { padding:0 18px 12px; display:flex; flex-direction:column; gap:7px; flex:1; }
+.am-tc-info-row { display:flex; align-items:center; gap:8px; font-size:.83rem; color:#374151; }
+.am-tc-info-row .ti { color:#9ca3af; font-size:.9rem; flex-shrink:0; }
+.am-tc-reason { font-size:.8rem; color:#6b7280; background:#f8f9fb; border-radius:8px; padding:8px 10px; margin-top:4px; line-height:1.4; }
+.am-tc-times { display:flex; border-top:1.5px solid #f0f2f8; border-bottom:1.5px solid #f0f2f8; }
+.am-tc-time-item { flex:1; padding:8px 12px; text-align:center; border-right:1px solid #f0f2f8; }
+.am-tc-time-item:last-child { border-right:none; }
+.am-tc-time-label { font-size:.7rem; font-weight:700; text-transform:uppercase; color:#9ca3af; display:block; margin-bottom:2px; }
+.am-tc-time-val { font-size:.8rem; font-weight:700; color:#374151; }
+.am-tc-card-footer { display:flex; gap:8px; padding:12px 18px; }
+
+/* dark mode */
+@media (prefers-color-scheme: dark), .dark {
+    .am-tc-card { background:#1e2333; border-color:#2d3550; }
+    .am-tc-info-row { color:#cbd5e1; }
+    .am-tc-reason { background:#151929; color:#94a3b8; }
+    .am-tc-times, .am-tc-time-item { border-color:#2d3550; }
+    .am-tc-time-val { color:#e2e8f0; }
+    .am-row-transferred { background:#2d1a0a !important; }
+}

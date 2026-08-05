@@ -1,0 +1,45 @@
+<?php
+
+include('../../../inc/includes.php');
+
+use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
+use GlpiPlugin\Assetmgrstatus\Transfer;
+
+Session::checkLoginUser();
+if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) {
+    Html::displayRightError(); exit;
+}
+
+global $CFG_GLPI;
+
+$action      = $_POST['action']      ?? '';
+$transfer_id = (int)($_POST['transfer_id'] ?? 0);
+
+if (!$action || !$transfer_id) {
+    Session::addMessageAfterRedirect('Dados inválidos.', false, ERROR);
+    Html::back();
+    exit;
+}
+
+if ($action === 'pegar') {
+    $ok = Transfer::pegar($transfer_id);
+    if ($ok) {
+        Session::addMessageAfterRedirect('Você assumiu esta transferência! Status alterado para Em Manutenção.', false, INFO);
+    } else {
+        Session::addMessageAfterRedirect('Não foi possível assumir — transferência já foi assumida ou inválida.', false, ERROR);
+    }
+    Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
+
+} elseif ($action === 'finalizar') {
+    $ok = Transfer::finalizar($transfer_id);
+    if ($ok) {
+        Session::addMessageAfterRedirect('Transferência finalizada com sucesso! Status aplicados no inventário.', false, INFO);
+    } else {
+        Session::addMessageAfterRedirect('Não foi possível finalizar — transferência não está no status Pronto.', false, ERROR);
+    }
+    Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
+
+} else {
+    Session::addMessageAfterRedirect('Ação inválida.', false, ERROR);
+    Html::back();
+}
