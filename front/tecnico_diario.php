@@ -63,6 +63,14 @@ Html::header('Diário de Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
             </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
+            <?php
+            // URL do ativo
+            $tipo_url = str_replace('Glpi\\CustomAsset\\', '', str_replace('Asset', '', $item['itemtype']));
+            $asset_url = $CFG_GLPI['root_doc'] . '/front/asset/asset.form.php?class=' . urlencode($tipo_url) . '&id=' . (int)$item['items_id'];
+            ?>
+            <a href="<?= $asset_url ?>" target="_blank" class="am-btn am-btn-secondary" style="padding:6px 10px;width:auto;" title="Ver ativo" onclick="event.stopPropagation()">
+                <i class="ti ti-eye"></i>
+            </a>
             <?php if ($has_problems && !$is_done): ?>
             <span style="background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;border-radius:8px;padding:4px 10px;font-size:.72rem;font-weight:700;"><i class="ti ti-alert-triangle"></i> <?= count($orig_comps) ?> problema(s)</span>
             <?php endif; ?>
@@ -135,9 +143,9 @@ function amToggleDiarioCard(id){var b=document.getElementById('body-'+id),c=docu
 function amAddQuickAction(id,txt){var ta=document.getElementById('log-'+id);if(ta.value&&!ta.value.endsWith('\n'))ta.value+='\n';ta.value+='• '+txt+'\n';}
 function amToggleComp(cb){var id=cb.dataset.itemId,comp=cb.dataset.comp,lbl=document.getElementById('comp-label-'+id+'-'+comp),icon=lbl.querySelector('.ti');if(cb.checked){lbl.className='am-diario-comp-toggle resolved';icon.className='ti ti-circle-check';}else{lbl.className='am-diario-comp-toggle problem';icon.className='ti ti-alert-triangle';}}
 function amGetComps(id){var c={};document.querySelectorAll('.am-comp-resolve-cb[data-item-id="'+id+'"]').forEach(function(cb){c[cb.dataset.comp]=cb.checked?'resolved':'problem';});return c;}
-function amSalvarParcial(id,tid,cb){fetch(_diarioBase,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',item_id:id,transfer_id:tid,log:document.getElementById('log-'+id).value,components:amGetComps(id),_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){var m=document.getElementById('save-msg-'+id);m.style.display='inline';setTimeout(function(){m.style.display='none';},2000);if(cb)cb();}});}
-function amMarcarConcluido(id,tid){var unresvd=document.querySelectorAll('.am-comp-resolve-cb[data-item-id="'+id+'"]:not(:checked)').length;if(unresvd>0&&!confirm('⚠️ Ainda há '+unresvd+' componente(s) com problema não resolvido(s).\n\nDeseja marcar como concluído mesmo assim?'))return;amSalvarParcial(id,tid,function(){fetch(_diarioBase,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'done',item_id:id,transfer_id:tid,log:document.getElementById('log-'+id).value,components:amGetComps(id),_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok)window.location.reload();});});}
-function amReabrirItem(id,tid){fetch(_diarioBase,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reopen',item_id:id,transfer_id:tid,_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok)window.location.reload();});}
+function amSalvarParcial(id,tid,cb){fetch(_diarioBase,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({action:'save',item_id:id,transfer_id:tid,log:document.getElementById('log-'+id).value,components:amGetComps(id),_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok){var m=document.getElementById('save-msg-'+id);m.style.display='inline';setTimeout(function(){m.style.display='none';},2000);if(cb)cb();}}).catch(function(e){console.error('Erro salvar:',e);});}
+function amMarcarConcluido(id,tid){var unresvd=document.querySelectorAll('.am-comp-resolve-cb[data-item-id="'+id+'"]:not(:checked)').length;if(unresvd>0&&!confirm('⚠️ Ainda há '+unresvd+' componente(s) com problema não resolvido(s).\n\nDeseja marcar como concluído mesmo assim?'))return;amSalvarParcial(id,tid,function(){fetch(_diarioBase,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({action:'done',item_id:id,transfer_id:tid,log:document.getElementById('log-'+id).value,components:amGetComps(id),_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok)window.location.reload();}).catch(function(e){console.error('Erro done:',e);});});}
+function amReabrirItem(id,tid){fetch(_diarioBase,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({action:'reopen',item_id:id,transfer_id:tid,_glpi_csrf_token:_csrf})}).then(function(r){return r.json();}).then(function(d){if(d.ok)window.location.reload();}).catch(function(e){console.error('Erro reopen:',e);});}
 document.addEventListener('DOMContentLoaded',function(){var f=document.querySelector('.am-diario-card:not(.am-diario-done)');if(f){var id=f.id.replace('diario-card-','');document.getElementById('body-'+id).style.display='block';document.getElementById('chevron-'+id).style.transform='rotate(180deg)';}});
 </script>
 <?php Html::footer(); ?>

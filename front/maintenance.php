@@ -658,6 +658,31 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
 </div>
 
 <script>
+// Injeta filtros em todos os forms de ação dos modais
+document.addEventListener('DOMContentLoaded', function() {
+    var filters = {
+        'view_mode':     '<?= $view_mode ?>',
+        'filter_type':   '<?= htmlspecialchars($filter_type) ?>',
+        'filter_status': '<?= htmlspecialchars($filter_status) ?>',
+        'filter_search': '<?= htmlspecialchars($filter_search) ?>',
+    };
+    // Seleciona todos os forms que fazem POST para o plugin (exceto busca)
+    document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
+        var action = form.getAttribute('action') || '';
+        if (action.indexOf('assetmgrstatus') === -1) return;
+        if (form.id === 'am-search-form') return;
+        Object.entries(filters).forEach(function([name, value]) {
+            if (!form.querySelector('[name="' + name + '"]')) {
+                var input = document.createElement('input');
+                input.type  = 'hidden';
+                input.name  = name;
+                input.value = value;
+                form.appendChild(input);
+            }
+        });
+    });
+});
+
 function amUpdateBulkBar() {
     var checkboxes = document.querySelectorAll('.am-bulk-checkbox');
     var checked    = document.querySelectorAll('.am-bulk-checkbox:checked');

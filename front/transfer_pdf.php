@@ -282,6 +282,7 @@ header('Content-Type: text/html; charset=UTF-8');
                 <th>Status Final</th>
                 <th>Motivo / Observação</th>
                 <th>Componentes Afetados</th>
+                <th>O Que Foi Feito</th>
             </tr>
         </thead>
         <tbody>
@@ -309,6 +310,26 @@ header('Content-Type: text/html; charset=UTF-8');
                 } else {
                     echo '<span style="color:#9ca3af;">—</span>';
                 }
+                ?>
+            </td>
+            <td style="font-size:10px;color:#4b5563;">
+                <?php
+                // Busca work_log do diário de manutenção
+                $wlog_iter = $DB->request(['SELECT'=>['work_log','work_components'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$item['items_id']],'LIMIT'=>1]);
+                $wlog = '';
+                if ($wlog_iter->count() > 0) {
+                    $wrow = $wlog_iter->current();
+                    $wlog = $wrow['work_log'] ?? '';
+                    // Adiciona componentes resolvidos
+                    $wcomps = $wrow['work_components'] ? json_decode($wrow['work_components'], true) : [];
+                    $resolved = [];
+                    foreach ($wcomps as $ck => $cs) {
+                        if ($cs === 'resolved') $resolved[] = $comp_list[$ck] ?? $ck;
+                    }
+                    if ($resolved) $wlog .= ($wlog ? "
+" : '') . 'Resolvido: ' . implode(', ', $resolved);
+                }
+                echo $wlog ? nl2br(htmlspecialchars($wlog)) : '<span style="color:#9ca3af;">—</span>';
                 ?>
             </td>
         </tr>

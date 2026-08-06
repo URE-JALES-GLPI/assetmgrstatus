@@ -15,7 +15,10 @@ $status   = $_POST['status']   ?? '';
 $reason   = trim($_POST['reason'] ?? '');
 $expected_return_date = trim($_POST['expected_return_date'] ?? '');
 $users_id_tech = (int)($_POST['users_id_tech'] ?? Session::getLoginUserID());
-$view_mode = $_POST['view_mode'] ?? 'list';
+$view_mode     = $_POST['view_mode']     ?? 'list';
+$filter_type   = $_POST['filter_type']   ?? '';
+$filter_status = $_POST['filter_status'] ?? '';
+$filter_search = $_POST['filter_search'] ?? '';
 
 if (!$itemtype || !$items_id || !$status || !$reason) {
     Session::addMessageAfterRedirect('Dados inválidos.', false, ERROR);
@@ -55,4 +58,5 @@ MaintenanceRecord::saveRecord(
 );
 
 Session::addMessageAfterRedirect('Status atualizado com sucesso!', false, INFO);
-Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view_mode));
+$qs = http_build_query(['view'=>$view_mode,'type'=>$filter_type,'status'=>$filter_status,'search'=>$filter_search]);
+Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);
