@@ -177,7 +177,7 @@ class MaintenanceRecord extends CommonDBTM
                 $current_reason = $row['reason'] ?? '';
             }
             $can_edit = Session::haveRight(self::RIGHT_VIEW, UPDATE);
-            echo '<div style="font-family:Inter,sans-serif;padding:8px 0;">';
+            echo '<div class="am-tab-content" style="font-family:Inter,sans-serif;padding:8px 0;">';
 
             // Status atual + motivo
             if ($current_status) {
@@ -265,7 +265,7 @@ class MaintenanceRecord extends CommonDBTM
             echo '<div style="background:#d1fae5;border:1.5px solid #a7f3d0;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:.88rem;color:#065f46;"><i class="ti ti-circle-check" style="font-size:1.2rem;flex-shrink:0;"></i><strong>Última manutenção há ' . $days . ' dias — dentro do prazo.</strong></div>';
         }
 
-        echo '<div style="padding:0 0 16px;font-family:\'Inter\',\'Segoe UI\',sans-serif;">';
+        echo '<div class="am-tab-content" style="padding:0 0 16px;font-family:\'Inter\',\'Segoe UI\',sans-serif;">';
         if (empty($history)) {
             echo '<div style="text-align:center;padding:40px;color:#9ca3af;"><i class="ti ti-clipboard-off" style="font-size:2.5rem;display:block;margin-bottom:10px;opacity:.4;"></i><p>Nenhum registro para este ativo.</p></div>';
         } else {
@@ -419,6 +419,23 @@ class MaintenanceRecord extends CommonDBTM
             }
         }
         return $results;
+    }
+
+    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], int $page = 1, int $per_page = 24): array
+    {
+        $all      = self::getAssets($type_filter, $search, $status_filter, $component_filters);
+        $total    = count($all);
+        $per_page = max(1, $per_page);
+        $pages    = max(1, (int)ceil($total / $per_page));
+        $page     = max(1, min($page, $pages));
+
+        return [
+            'total'    => $total,
+            'page'     => $page,
+            'per_page' => $per_page,
+            'pages'    => $pages,
+            'rows'     => array_slice($all, ($page - 1) * $per_page, $per_page),
+        ];
     }
 
     // ---- Salva registros ----

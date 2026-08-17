@@ -17,13 +17,15 @@ $filter_comp   = array_filter($filter_comp, fn($v) => in_array($v, ['has', 'not'
 
 // Helper para montar querystring preservando o array comp[]
 function am_qs(array $overrides = []): string {
-    global $filter_type, $filter_search, $filter_status, $filter_comp, $view_mode;
+    global $filter_type, $filter_search, $filter_status, $filter_comp, $view_mode, $page;
     $params = [
         'type'   => $overrides['type']   ?? $filter_type,
         'search' => $overrides['search'] ?? $filter_search,
         'status' => $overrides['status'] ?? $filter_status,
         'view'   => $overrides['view']   ?? $view_mode,
     ];
+    $has_filter_override = isset($overrides['type']) || isset($overrides['search']) || isset($overrides['status']) || isset($overrides['comp']);
+    $params['page'] = $has_filter_override ? 1 : ($overrides['page'] ?? $page);
     $comp = $overrides['comp'] ?? $filter_comp;
     if (!is_array($comp)) $comp = [];
     $qs = http_build_query($params);
@@ -33,10 +35,12 @@ function am_qs(array $overrides = []): string {
     return $qs;
 }
 $view_mode     = $_GET['view']   ?? 'list';
+$page          = max(1, (int)($_GET['page'] ?? 1));
 
 Html::header('Manutenção de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
 
-$assets       = MaintenanceRecord::getAssets($filter_type, $filter_search, $filter_status, $filter_comp);
+$paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $page);
+$assets       = $paged['rows'];
 $types        = MaintenanceRecord::getAssetTypes();
 $status_opts  = MaintenanceRecord::getStatusOptions();
 $comp_list    = MaintenanceRecord::getComponents();
@@ -81,7 +85,7 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-file-spreadsheet"></i> Excel
             </a>
-            <div style="font-size:.85rem;color:#9ca3af;"><?= count($assets) ?> ativo(s)</div>
+            <div style="font-size:.85rem;color:#9ca3af;"><?= $paged['total'] ?> ativo(s)</div>
         </div>
     </div>
 
@@ -306,6 +310,31 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
             </tbody>
         </table>
         <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($paged['pages'] > 1): ?>
+    <div class="am-pagination">
+        <div class="am-pagination-info"><?= $paged['total'] ?> ativo(s) — página <?= $paged['page'] ?> de <?= $paged['pages'] ?></div>
+        <div class="am-pagination-pages">
+            <a class="am-page-link <?= $paged['page'] <= 1 ? 'disabled' : '' ?>" href="?<?= am_qs(['page' => $paged['page'] - 1]) ?>">Anterior</a>
+            <?php
+            $pg_total = $paged['pages'];
+            $pg_cur   = $paged['page'];
+            $pg_window = $pg_total <= 10 ? range(1, $pg_total) : array_values(array_unique(array_merge(
+                [1],
+                range(max(2, $pg_cur - 2), min($pg_total - 1, $pg_cur + 2)),
+                [$pg_total]
+            )));
+            $pg_last = 0;
+            foreach ($pg_window as $pg_n):
+                if ($pg_n - $pg_last > 1): ?><span class="am-page-link disabled" style="background:transparent;box-shadow:none;">…</span><?php endif;
+                $pg_last = $pg_n;
+            ?>
+            <a class="am-page-link <?= $pg_n === $pg_cur ? 'active' : '' ?>" href="?<?= am_qs(['page' => $pg_n]) ?>"><?= $pg_n ?></a>
+            <?php endforeach; ?>
+            <a class="am-page-link <?= $paged['page'] >= $paged['pages'] ? 'disabled' : '' ?>" href="?<?= am_qs(['page' => $paged['page'] + 1]) ?>">Próxima</a>
+        </div>
     </div>
     <?php endif; ?>
 

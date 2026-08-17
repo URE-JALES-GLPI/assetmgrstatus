@@ -39,10 +39,16 @@ Html::header('Marcar como Pronto', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatu
             <i class="ti ti-check"></i>
             <h2>Marcar como Pronto — Transferência #<?= str_pad($transfer_id, 4, '0', STR_PAD_LEFT) ?></h2>
         </div>
-        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php"
-           class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
-            <i class="ti ti-arrow-left"></i> Voltar
-        </a>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <button id="am-theme-btn" onclick="amToggleTheme()"
+                class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
+                <i class="ti ti-moon"></i>
+            </button>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-arrow-left"></i> Voltar
+            </a>
+        </div>
     </div>
 
     <!-- Info da transferência -->

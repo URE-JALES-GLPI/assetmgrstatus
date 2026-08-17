@@ -80,6 +80,14 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         usort($transfers, fn($a, $b) => strtotime($a['date_creation']) <=> strtotime($b['date_creation']));
     }
 
+    // Paginação
+    $tc_page     = max(1, (int)($_GET['page'] ?? 1));
+    $tc_per_page = 12;
+    $tc_total    = count($transfers);
+    $tc_pages    = max(1, (int)ceil($tc_total / $tc_per_page));
+    $tc_page     = min($tc_page, $tc_pages);
+    $transfers   = array_slice($transfers, ($tc_page - 1) * $tc_per_page, $tc_per_page);
+
     // Monta lista de técnicos únicos que já pegaram algum card
     $techs_in_transfers = [];
     foreach (Transfer::getAll() as $t) {
@@ -241,6 +249,34 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         </div>
         <?php endforeach; ?>
     </div>
+
+    <?php if ($tc_pages > 1): ?>
+    <div class="am-pagination">
+        <div class="am-pagination-info"><?= $tc_total ?> transferência(s) — página <?= $tc_page ?> de <?= $tc_pages ?></div>
+        <div class="am-pagination-pages">
+            <?php
+            $tc_qs = fn($p) => http_build_query([
+                'status' => $filter_status,
+                'tech'   => $filter_tech ?: '',
+                'date'   => $filter_date,
+                'sort'   => $filter_sort,
+                'page'   => $p,
+            ]);
+            $tc_window = $tc_pages <= 10 ? range(1, $tc_pages) : array_values(array_unique(array_merge(
+                [1],
+                range(max(2, $tc_page - 2), min($tc_pages - 1, $tc_page + 2)),
+                [$tc_pages]
+            )));
+            $tc_last = 0;
+            foreach ($tc_window as $tc_n):
+                if ($tc_n - $tc_last > 1): ?><span class="am-page-link disabled" style="background:transparent;box-shadow:none;">…</span><?php endif;
+                $tc_last = $tc_n;
+            ?>
+            <a class="am-page-link <?= $tc_n === $tc_page ? 'active' : '' ?>" href="?<?= $tc_qs($tc_n) ?>"><?= $tc_n ?></a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
     <?php endif; ?>
 </div>
 

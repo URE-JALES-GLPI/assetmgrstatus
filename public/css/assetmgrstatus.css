@@ -880,3 +880,80 @@ body.am-dark-mode .am-tc-time-val { color: #e2e8f0 !important; }
 
 /* ---- Dark mode: área ao redor (wrapper do GLPI) ---- */
 body.am-dark-mode .legacy { background: #0f1117 !important; }
+
+/* ================================================
+   Dark mode — estilos inline legados das páginas
+   (divs com style="background:#fff" etc.)
+   ================================================ */
+body.am-dark-mode .am-page [style*="background:#fff"] { background: #1a1f2e !important; }
+body.am-dark-mode .am-page [style*="background:#f8f9fb"],
+body.am-dark-mode .am-page [style*="background:#fafbff"],
+body.am-dark-mode .am-page [style*="background:#f9fafb"],
+body.am-dark-mode .am-page [style*="background:#f0f2f8"] { background: #151929 !important; }
+body.am-dark-mode .am-page [style*="background:#f0f0ff"] { background: #1e1b4b !important; border-color: #3730a3 !important; color: #a5b4fc !important; }
+body.am-dark-mode .am-page [style*="border:1.5px solid #e8eaf0"],
+body.am-dark-mode .am-page [style*="border:1px solid #e8eaf0"],
+body.am-dark-mode .am-page [style*="border:2px solid #e8eaf0"],
+body.am-dark-mode .am-page [style*="border-bottom:1px solid #f0f2f8"],
+body.am-dark-mode .am-page [style*="border-top:1.5px solid #f0f2f8"] { border-color: #2d3550 !important; }
+body.am-dark-mode .am-page [style*="color:#555"] { color: #94a3b8 !important; }
+body.am-dark-mode .am-page [style*="color:#374151"] { color: #cbd5e1 !important; }
+body.am-dark-mode .am-page [style*="color:#4b5563"] { color: #cbd5e1 !important; }
+body.am-dark-mode .am-page [style*="background:#fff"][style*="color:#1e40af"] { background: #1e1b4b !important; color: #a5b4fc !important; }
+body.am-dark-mode .am-page [style*="background:#fff7ed"] { background: #2d2010 !important; border-color: #78350f !important; }
+body.am-dark-mode .am-page [style*="background:#fef2f2"] { background: #2d1515 !important; border-color: #7f1d1d !important; }
+body.am-dark-mode .am-page [style*="background:#d1fae5"] { background: #0d2b1f !important; border-color: #065f46 !important; }
+
+/* ---- Dark mode: diário do técnico ---- */
+body.am-dark-mode .am-diario-card { background: #1a1f2e !important; border-color: #2d3550 !important; }
+body.am-dark-mode .am-diario-card.am-diario-done { background: #0d2b1f !important; border-color: #065f46 !important; }
+body.am-dark-mode .am-diario-body { border-color: #2d3550 !important; }
+body.am-dark-mode .am-diario-status-icon.pending { background: #151929 !important; color: #64748b !important; }
+body.am-dark-mode .am-diario-status-icon.warning { background: #2d2010 !important; color: #fbbf24 !important; }
+body.am-dark-mode .am-diario-status-icon.done { background: #0d2b1f !important; color: #34d399 !important; }
+body.am-dark-mode .am-diario-comp-toggle.problem { background: #2d2010 !important; border-color: #78350f !important; color: #fbbf24 !important; }
+body.am-dark-mode .am-diario-comp-toggle.resolved { background: #0d2b1f !important; border-color: #065f46 !important; color: #6ee7b7 !important; }
+body.am-dark-mode .am-diario-quick-btn { background: #151929 !important; color: #cbd5e1 !important; }
+body.am-dark-mode .am-diario-quick-btn:hover { background: #1e1b4b !important; color: #a5b4fc !important; }
+
+/* ---- Dark mode: marcar como pronto ---- */
+body.am-dark-mode .am-pronto-card { background: #1a1f2e !important; border-color: #2d3550 !important; }
+body.am-dark-mode .am-pronto-extra { border-color: #2d3550 !important; }
+
+/* ---- Dark mode: transferência ---- */
+body.am-dark-mode .am-row-transferred { background: #2d2010 !important; }
+
+/* ---- Dark mode: aba do ativo no GLPI (conteúdo do plugin) ---- */
+body.am-dark-mode .am-tab-content { color: #e2e8f0; }
+body.am-dark-mode .am-tab-content [style*="background:#f8f9fb"],
+body.am-dark-mode .am-tab-content [style*="background:#fafbff"],
+body.am-dark-mode .am-tab-content [style*="background:#f9fafb"] { background: #151929 !important; }
+body.am-dark-mode .am-tab-content [style*="background:#fff"] { background: #1a1f2e !important; }
+body.am-dark-mode .am-tab-content [style*="background:#f0f0ff"] { background: #1e1b4b !important; border-color: #3730a3 !important; color: #a5b4fc !important; }
+body.am-dark-mode .am-tab-content [style*="background:#fee2e2"] { background: #2d1515 !important; color: #fca5a5 !important; }
+body.am-dark-mode .am-tab-content [style*="background:#fff7ed"] { background: #2d2010 !important; border-color: #78350f !important; color: #fbbf24 !important; }
+body.am-dark-mode .am-tab-content [style*="background:#fef2f2"] { background: #2d1515 !important; border-color: #7f1d1d !important; color: #fca5a5 !important; }
+body.am-dark-mode .am-tab-content [style*="background:#d1fae5"] { background: #0d2b1f !important; border-color: #065f46 !important; color: #6ee7b7 !important; }
+body.am-dark-mode .am-tab-content [style*="border:1.5px solid #e8eaf0"],
+body.am-dark-mode .am-tab-content [style*="border:1px solid #e8eaf0"],
+body.am-dark-mode .am-tab-content [style*="border-bottom:1px solid #f0f2f8"] { border-color: #2d3550 !important; }
+body.am-dark-mode .am-tab-content [style*="color:#1f2937"] { color: #e2e8f0 !important; }
+body.am-dark-mode .am-tab-content [style*="color:#4b5563"] { color: #cbd5e1 !important; }
+body.am-dark-mode .am-tab-content [style*="color:#6b7280"] { color: #94a3b8 !important; }
+body.am-dark-mode .am-tab-content [style*="color:#3730a3"] { color: #a5b4fc !important; }
+
+/* ================================================
+   Paginação
+   ================================================ */
+.am-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 20px; background: #fff; border: 1.5px solid #e8eaf0; border-radius: 12px; padding: 10px 16px; flex-wrap: wrap; }
+.am-pagination-info { font-size: .82rem; color: #6b7280; font-weight: 600; }
+.am-pagination-pages { display: flex; gap: 6px; flex-wrap: wrap; }
+.am-page-link { padding: 6px 12px; border-radius: 8px; font-size: .82rem; font-weight: 600; color: #6b7280; text-decoration: none; background: #f4f6fb; transition: all .18s; }
+.am-page-link:hover { background: #eef2ff; color: #4f46e5; }
+.am-page-link.active { background: #4f46e5; color: #fff; }
+.am-page-link.disabled { opacity: .4; pointer-events: none; }
+body.am-dark-mode .am-pagination { background: #1a1f2e !important; border-color: #2d3550 !important; }
+body.am-dark-mode .am-pagination-info { color: #94a3b8 !important; }
+body.am-dark-mode .am-page-link { background: #151929 !important; color: #94a3b8 !important; }
+body.am-dark-mode .am-page-link:hover { background: #1e1b4b !important; color: #a5b4fc !important; }
+body.am-dark-mode .am-page-link.active { background: #4f46e5 !important; color: #fff !important; }

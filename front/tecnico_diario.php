@@ -25,7 +25,10 @@ Html::header('Diário de Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
 </div>
 <div class="am-page-header">
     <div class="am-page-title"><i class="ti ti-clipboard-text"></i><h2>Diário de Manutenção</h2></div>
-    <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Voltar</a>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <button id="am-theme-btn" onclick="amToggleTheme()" class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro"><i class="ti ti-moon"></i></button>
+        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Voltar</a>
+    </div>
 </div>
 <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:14px;padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap;align-items:center;">
     <div><span style="font-size:.72rem;color:#9ca3af;text-transform:uppercase;font-weight:700;display:block;">Destino</span><strong><?= htmlspecialchars($entity_name) ?></strong></div>
