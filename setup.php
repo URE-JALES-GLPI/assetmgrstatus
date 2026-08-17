@@ -1,6 +1,6 @@
 <?php
 
-define('PLUGIN_ASSETMGRSTATUS_VERSION', '1.0.0');
+define('PLUGIN_ASSETMGRSTATUS_VERSION', '2.0.0');
 define('PLUGIN_ASSETMGRSTATUS_MIN_GLPI', '10.0.0');
 define('PLUGIN_ASSETMGRSTATUS_MAX_GLPI', '12.0.0');
 
@@ -9,9 +9,9 @@ function plugin_version_assetmgrstatus(): array
     return [
         'name'         => 'Asset Maintenance & Status',
         'version'      => PLUGIN_ASSETMGRSTATUS_VERSION,
-        'author'       => 'Seu Nome',
+        'author'       => 'Leonardo Poiatti Fação',
         'license'      => 'GPL v2+',
-        'homepage'     => '',
+        'homepage'     => 'https://github.com/poiattileo/assetmgrstatus',
         'requirements' => ['glpi' => ['min' => PLUGIN_ASSETMGRSTATUS_MIN_GLPI, 'max' => PLUGIN_ASSETMGRSTATUS_MAX_GLPI]],
     ];
 }
@@ -48,8 +48,11 @@ function plugin_init_assetmgrstatus(): void
     Plugin::registerClass('PluginAssetmgrstatusProfile', ['addtabon' => 'Profile']);
 
     if (Session::getLoginUserID()) {
-        $PLUGIN_HOOKS['add_css']['assetmgrstatus']        = ['public/css/assetmgrstatus.css?1785237375'];
-        $PLUGIN_HOOKS['add_javascript']['assetmgrstatus'] = ['public/js/assetmgrstatus.js?1785237375'];
+        $css_version = @filemtime(__DIR__ . '/public/css/assetmgrstatus.css') ?: time();
+        $js_version  = @filemtime(__DIR__ . '/public/js/assetmgrstatus.js') ?: time();
+
+        $PLUGIN_HOOKS['add_css']['assetmgrstatus']        = ['public/css/assetmgrstatus.css?v=' . $css_version];
+        $PLUGIN_HOOKS['add_javascript']['assetmgrstatus'] = ['public/js/assetmgrstatus.js?v=' . $js_version];
 
         if (Session::haveRight('plugin_assetmgrstatus', READ)) {
             $PLUGIN_HOOKS['menu_toadd']['assetmgrstatus'] = [
