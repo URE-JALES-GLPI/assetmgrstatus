@@ -281,12 +281,21 @@ header('Content-Type: text/html; charset=UTF-8');
                 <th>Tipo</th>
                 <th>Status Final</th>
                 <th>Motivo / Observação</th>
-                <th>Componentes Afetados</th>
+                <th>Componentes Afetados / Resolvidos</th>
                 <th>O Que Foi Feito</th>
             </tr>
         </thead>
         <tbody>
-        <?php foreach ($items as $i => $item): ?>
+        <?php foreach ($items as $i => $item):
+            $wrow_iter = $DB->request(['SELECT'=>['work_log','work_components'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$item['items_id']],'LIMIT'=>1]);
+            $wrow = $wrow_iter->count() > 0 ? $wrow_iter->current() : null;
+            $wlog   = $wrow['work_log'] ?? '';
+            $wcomps = ($wrow['work_components'] ?? '') ? json_decode($wrow['work_components'], true) : [];
+            $resolved = [];
+            foreach ($wcomps as $ck => $cs) {
+                if ($cs === 'resolved') $resolved[$ck] = $comp_list[$ck] ?? $ck;
+            }
+        ?>
         <tr>
             <td><?= $i + 1 ?></td>
             <td><strong><?= htmlspecialchars($item['item_name']) ?></strong></td>
@@ -300,37 +309,21 @@ header('Content-Type: text/html; charset=UTF-8');
             <td style="font-size:10px;color:#4b5563;">
                 <?php
                 $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
-                if (!empty($fcomps)) {
-                    $parts = [];
-                    foreach ($fcomps as $ckey => $cdesc) {
-                        $clabel = $comp_list[$ckey] ?? $ckey;
-                        $parts[] = '<strong>' . htmlspecialchars($clabel) . '</strong>' . ($cdesc ? ': ' . htmlspecialchars($cdesc) : '');
-                    }
-                    echo implode('<br>', $parts);
-                } else {
-                    echo '<span style="color:#9ca3af;">—</span>';
+                $comps_html = [];
+                foreach ($fcomps as $ckey => $cdesc) {
+                    $clabel = $comp_list[$ckey] ?? $ckey;
+                    $comps_html[] = '<span style="color:#b91c1c;">◆</span> <strong>' . htmlspecialchars($clabel) . '</strong>' . ($cdesc ? ': ' . htmlspecialchars($cdesc) : '');
                 }
+                foreach ($resolved as $rlabel) {
+                    $comps_html[] = '<span style="color:#059669;font-weight:700;">✓ ' . htmlspecialchars($rlabel) . ' (resolvido)</span>';
+                }
+                echo !empty($comps_html)
+                    ? implode('<br>', $comps_html)
+                    : '<span style="color:#9ca3af;">—</span>';
                 ?>
             </td>
             <td style="font-size:10px;color:#4b5563;">
-                <?php
-                // Busca work_log do diário de manutenção
-                $wlog_iter = $DB->request(['SELECT'=>['work_log','work_components'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$item['items_id']],'LIMIT'=>1]);
-                $wlog = '';
-                if ($wlog_iter->count() > 0) {
-                    $wrow = $wlog_iter->current();
-                    $wlog = $wrow['work_log'] ?? '';
-                    // Adiciona componentes resolvidos
-                    $wcomps = $wrow['work_components'] ? json_decode($wrow['work_components'], true) : [];
-                    $resolved = [];
-                    foreach ($wcomps as $ck => $cs) {
-                        if ($cs === 'resolved') $resolved[] = $comp_list[$ck] ?? $ck;
-                    }
-                    if ($resolved) $wlog .= ($wlog ? "
-" : '') . 'Resolvido: ' . implode(', ', $resolved);
-                }
-                echo $wlog ? nl2br(htmlspecialchars($wlog)) : '<span style="color:#9ca3af;">—</span>';
-                ?>
+                <?= $wlog ? nl2br(htmlspecialchars($wlog)) : '<span style="color:#9ca3af;">—</span>' ?>
             </td>
         </tr>
         <?php endforeach; ?>
