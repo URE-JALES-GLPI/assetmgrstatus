@@ -13,6 +13,9 @@ if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::have
 global $CFG_GLPI;
 
 $filter_status = $_GET['status'] ?? '';
+$filter_tech   = (int)($_GET['tech'] ?? 0);
+$filter_date   = $_GET['date'] ?? '';
+$filter_sort   = $_GET['sort'] ?? 'recent';
 $transfers     = Transfer::getAll($filter_status);
 
 Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
@@ -47,9 +50,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>STATUS</label>
             <div class="am-type-tabs">
-                <a href="?" class="am-type-tab <?= $filter_status==='' ? 'active' : '' ?>">Todos</a>
+                <a href="?<?= http_build_query(['tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                   class="am-type-tab <?= $filter_status==='' ? 'active' : '' ?>">Todos</a>
                 <?php foreach (Transfer::getStatusOptions() as $key => $label): ?>
-                <a href="?status=<?= $key ?>" class="am-type-tab <?= $filter_status===$key ? 'active' : '' ?>">
+                <a href="?<?= http_build_query(['status' => $key, 'tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                   class="am-type-tab <?= $filter_status===$key ? 'active' : '' ?>">
                     <span style="color:<?= Transfer::getStatusColor($key) ?>;font-weight:700;"><?= htmlspecialchars($label) ?></span>
                 </a>
                 <?php endforeach; ?>
@@ -59,10 +64,20 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 
     <?php
     // Filtra por técnico se solicitado
-    $filter_tech = (int)($_GET['tech'] ?? 0);
     if ($filter_tech) {
         $transfers = array_filter($transfers, fn($t) => (int)$t['users_id_tech'] === $filter_tech);
         $transfers = array_values($transfers);
+    }
+
+    // Filtra por dia específico (data de criação)
+    if ($filter_date) {
+        $transfers = array_filter($transfers, fn($t) => date('Y-m-d', strtotime($t['date_creation'])) === $filter_date);
+        $transfers = array_values($transfers);
+    }
+
+    // Ordenação: mais antigos primeiro
+    if ($filter_sort === 'old') {
+        usort($transfers, fn($a, $b) => strtotime($a['date_creation']) <=> strtotime($b['date_creation']));
     }
 
     // Monta lista de técnicos únicos que já pegaram algum card
@@ -79,12 +94,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>TÉCNICO</label>
             <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['status' => $filter_status]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status, 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
                    class="am-type-tab <?= !$filter_tech ? 'active' : '' ?>">
                     Todos
                 </a>
                 <?php foreach ($techs_in_transfers as $uid => $uname): ?>
-                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid, 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
                    class="am-type-tab <?= $filter_tech === $uid ? 'active' : '' ?>">
                     <i class="ti ti-user-check"></i> <?= htmlspecialchars($uname) ?>
                 </a>
@@ -93,6 +108,37 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Filtro de data e ordenação -->
+    <div class="am-filters-bar" style="margin-bottom:16px;">
+        <div class="am-filter-group">
+            <label>DATA</label>
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                <div class="am-type-tabs">
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'recent']) ?>"
+                       class="am-type-tab <?= $filter_sort !== 'old' && !$filter_date ? 'active' : '' ?>">
+                        Mais recente
+                    </a>
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'old']) ?>"
+                       class="am-type-tab <?= $filter_sort === 'old' && !$filter_date ? 'active' : '' ?>">
+                        Mais antigo
+                    </a>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="date" class="am-input" value="<?= htmlspecialchars($filter_date) ?>"
+                           title="Filtrar por dia"
+                           onchange="var u=new URL(window.location.href);u.searchParams.set('date',this.value);u.searchParams.delete('sort');window.location.href=u.href;"
+                           style="padding:7px 10px;margin-top:0;font-size:.82rem;width:auto;">
+                    <?php if ($filter_date): ?>
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => $filter_sort]) ?>"
+                       class="am-type-tab active" title="Limpar filtro de data">
+                        <i class="ti ti-x"></i> Limpar
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <?php if (empty($transfers)): ?>
     <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhuma transferência encontrada.</p></div>
