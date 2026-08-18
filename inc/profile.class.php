@@ -138,9 +138,14 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             <small style='color:#6b7280;'>Permite criar e visualizar transferências de ativos entre entidades (UREs e escolas)</small>
             </td><td>";
         if ($canedit) {
-            Dropdown::showYesNo('rights_transfer', ($r_transfer & READ) ? 1 : 0);
+            Dropdown::showFromArray('rights_transfer', [
+                0                  => '— Sem acesso —',
+                READ               => '🔍 Visualizar',
+                READ|CREATE|UPDATE => '✏️ Visualizar e Criar',
+            ], ['value' => $r_transfer]);
         } else {
-            echo ($r_transfer & READ) ? '✅ Permitido' : '❌ Negado';
+            $labels = [0 => 'Sem acesso', READ => 'Visualizar', READ|CREATE|UPDATE => 'Visualizar e Criar'];
+            echo $labels[$r_transfer] ?? 'Sem acesso';
         }
         echo "</td></tr>";
 

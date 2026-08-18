@@ -383,8 +383,12 @@ class MaintenanceRecord extends CommonDBTM
                 'ORDER' => ['glpi_assets_assets.name ASC'],
             ];
 
-            foreach ($DB->request($criteria) as $row) {
-                // Filtro fino "sem problema" feito em PHP (precisa NÃO ter cada componente em $not_filters)
+            $rows = iterator_to_array($DB->request($criteria));
+            if (empty($rows)) continue;
+
+            // Filtro fino "sem problema" feito em PHP (precisa NÃO ter cada componente em $not_filters)
+            $filtered = [];
+            foreach ($rows as $row) {
                 if (!empty($not_filters)) {
                     $comps_decoded = $row['last_components'] ? json_decode($row['last_components'], true) : [];
                     $skip = false;
@@ -396,15 +400,47 @@ class MaintenanceRecord extends CommonDBTM
                     }
                     if ($skip) continue;
                 }
+                $filtered[] = $row;
+            }
+            if (empty($filtered)) continue;
 
-                $days = self::getDaysSinceLastMaintenance($itemtype, (int)$row['id']);
+            $ids = array_map('intval', array_column($filtered, 'id'));
+
+            // Batch: última manutenção realizada por ativo (1 query por tipo)
+            $last_maintenance = [];
+            foreach ($DB->request([
+                'SELECT'  => ['items_id', 'MAX' => 'date_creation AS last_date'],
+                'FROM'    => 'glpi_plugin_assetmgrstatus_histories',
+                'WHERE'   => ['itemtype' => $itemtype, 'items_id' => $ids, 'record_type' => self::RECORD_MANUTENCAO],
+                'GROUPBY' => ['items_id'],
+            ]) as $m) {
+                $last_maintenance[(int)$m['items_id']] = $m['last_date'];
+            }
+
+            // Batch: última mudança de status não desfeita por ativo (1 query por tipo)
+            $last_status_change = [];
+            foreach ($DB->request([
+                'SELECT'  => ['items_id', 'MAX' => 'date_creation AS last_date'],
+                'FROM'    => 'glpi_plugin_assetmgrstatus_histories',
+                'WHERE'   => ['itemtype' => $itemtype, 'items_id' => $ids, 'record_type' => self::RECORD_STATUS_CHANGE, 'is_undone' => 0],
+                'GROUPBY' => ['items_id'],
+            ]) as $s) {
+                $last_status_change[(int)$s['items_id']] = $s['last_date'];
+            }
+
+            $now_ts = time();
+            foreach ($filtered as $row) {
+                $last_date = $last_maintenance[(int)$row['id']] ?? null;
+                $days      = ($last_date === null) ? null : (int)(new \DateTime($last_date))->diff(new \DateTime())->days;
                 $row['alert_60days']           = ($days === null || $days > 60);
                 $row['days_since_maintenance'] = $days;
                 $row['asset_type_key']         = $system_name;
                 $row['asset_type_label']       = $def['label'];
                 $row['asset_icon']             = $def['icon'];
                 $row['itemtype']               = $itemtype;
-                $row['can_undo']               = self::getUndoableChange($itemtype, (int)$row['id']) !== null;
+
+                $undo_date = $last_status_change[(int)$row['id']] ?? null;
+                $row['can_undo'] = ($undo_date !== null && (($now_ts - strtotime($undo_date)) / 3600) <= 48);
 
                 // Prazo de retorno previsto (só relevante se status = manutencao)
                 $row['expected_return_overdue'] = false;

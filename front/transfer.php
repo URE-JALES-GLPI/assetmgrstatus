@@ -12,6 +12,9 @@ if (!Session::haveRight('plugin_assetmgrstatus_transfer', READ) && !Session::hav
 
 global $CFG_GLPI;
 
+$can_transfer = Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) || Session::haveRight('plugin_assetmgrstatus_transfer', UPDATE)
+    || Session::haveRight('plugin_assetmgrstatus', CREATE) || Session::haveRight('plugin_assetmgrstatus', UPDATE);
+
 $filter_type   = $_GET['type']   ?? '';
 $filter_search = $_GET['search'] ?? '';
 $filter_status = $_GET['status'] ?? '';
@@ -98,6 +101,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
     </div>
 
     <!-- Bulk bar -->
+    <?php if ($can_transfer): ?>
     <div id="am-transfer-bulk-bar" class="am-bulk-bar" style="display:none;">
         <span id="am-transfer-bulk-count" style="color:#fff;font-size:.85rem;font-weight:600;"></span>
         <button class="am-btn" style="background:#fff;color:#1e40af;padding:7px 18px;font-size:.85rem;" onclick="amOpenTransferModal()">
@@ -107,6 +111,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
             <i class="ti ti-x"></i> Limpar
         </button>
     </div>
+    <?php endif; ?>
 
     <!-- Listagem -->
     <?php if (empty($assets)): ?>
@@ -200,6 +205,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
 </div>
 
 <!-- Modal de Transferência -->
+<?php if ($can_transfer): ?>
 <div id="am-modal-transfer" class="am-modal-overlay" onclick="event.stopPropagation()">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:580px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#0f172a,#1e40af);">
@@ -267,6 +273,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
         </form>
     </div>
 </div>
+<?php endif; ?>
 
 <style>
 .am-card-transferred { border-color: #f97316 !important; }
@@ -282,6 +289,7 @@ function amUpdateTransferBar() {
     var checked = document.querySelectorAll('.am-tr-checkbox:checked');
     var bar = document.getElementById('am-transfer-bulk-bar');
     var count = document.getElementById('am-transfer-bulk-count');
+    if (!bar) return;
     if (checked.length > 0) {
         bar.style.display = 'flex';
         count.textContent = checked.length + ' ativo(s) selecionado(s)';

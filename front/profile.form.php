@@ -11,7 +11,7 @@ $pid              = (int)($_POST['profiles_id']        ?? 0);
 $rights_main      = (int)($_POST['rights_main']        ?? 0);
 $rights_tecnico   = ((int)($_POST['rights_tecnico']    ?? 0) === 1 ? READ : 0)
                   | ((int)($_POST['rights_tecnico_panel'] ?? 0) === 1 ? READ : 0);
-$rights_transfer  = (int)($_POST['rights_transfer']    ?? 0) === 1 ? READ : 0;
+$rights_transfer  = (int)($_POST['rights_transfer']    ?? 0);
 
 if (!$pid) { Html::back(); exit; }
 

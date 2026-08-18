@@ -3,8 +3,6 @@
 namespace GlpiPlugin\Assetmgrstatus;
 
 use Session;
-use User;
-use Entity;
 
 if (!defined('GLPI_ROOT')) die("Sorry. You can't access directly to this file");
 
@@ -86,6 +84,18 @@ class Transfer
         return $result;
     }
 
+    // Tipos de ativo aceitos (whitelist — espelha MaintenanceRecord::getAssetTypes)
+    public static function getValidItemtypes(): array
+    {
+        $valid = [];
+        foreach (array_keys(MaintenanceRecord::getAssetTypes()) as $system_name) {
+            $valid[] = in_array($system_name, ['Desktop', 'Notebook', 'Celular', 'Tablet'])
+                ? 'Glpi\\CustomAsset\\' . $system_name . 'Asset'
+                : 'Glpi\\CustomAsset\\' . $system_name;
+        }
+        return $valid;
+    }
+
     // -------------------------------------------------------
     // Criar transferência e marcar ativos como transferidos
     // -------------------------------------------------------
@@ -94,6 +104,55 @@ class Transfer
     {
         global $DB;
         $now = date('Y-m-d H:i:s');
+
+        // ---- Validação server-side dos itens ----
+        $valid_types = self::getValidItemtypes();
+        $valid_items = [];
+        $ids_by_type = [];
+        foreach ($items as $item) {
+            $itemtype = (string)($item['itemtype'] ?? '');
+            $items_id = (int)($item['id'] ?? 0);
+            if ($items_id <= 0 || !in_array($itemtype, $valid_types, true)) continue;
+            $key = $itemtype . ':' . $items_id;
+            if (isset($valid_items[$key])) continue; // remove duplicados
+            $valid_items[$key] = ['id' => $items_id, 'itemtype' => $itemtype, 'name' => (string)($item['name'] ?? '')];
+            $ids_by_type[$itemtype][] = $items_id;
+        }
+        if (empty($valid_items)) return 0;
+
+        // Valida em lote: ativo existe, não deletado e pertence à entidade ativa
+        $active_entity = (int)Session::getActiveEntity();
+        $origin_entities = [];
+        foreach ($ids_by_type as $itemtype => $ids) {
+            foreach ($DB->request([
+                'SELECT' => ['id', 'entities_id'],
+                'FROM'   => 'glpi_assets_assets',
+                'WHERE'  => ['id' => $ids, 'is_deleted' => 0],
+            ]) as $asset) {
+                if ((int)$asset['entities_id'] !== $active_entity) continue;
+                $origin_entities[(int)$asset['id']] = (int)$asset['entities_id'];
+            }
+        }
+
+        // Nomes das entidades de origem em lote (1 query)
+        $origin_names = [];
+        $origin_ids = array_values(array_unique($origin_entities));
+        if ($origin_ids) {
+            foreach ($DB->request([
+                'SELECT' => ['id', 'name'],
+                'FROM'   => 'glpi_entities',
+                'WHERE'  => ['id' => $origin_ids],
+            ]) as $e) {
+                $origin_names[(int)$e['id']] = $e['name'];
+            }
+        }
+
+        $final_items = [];
+        foreach ($valid_items as $key => $item) {
+            if (!isset($origin_entities[$item['id']])) continue; // não existe/não é da entidade ativa
+            $final_items[$key] = $item;
+        }
+        if (empty($final_items)) return 0;
 
         $DB->insert('glpi_plugin_assetmgrstatus_transfers', [
             'entity_dest'      => $entity_dest,
@@ -107,33 +166,20 @@ class Transfer
 
         $transfer_id = $DB->insertId();
 
-        foreach ($items as $item) {
-            // Busca entidade de origem do ativo antes de transferir
-            $asset_iter = $DB->request([
-                'SELECT' => ['entities_id'],
-                'FROM'   => 'glpi_assets_assets',
-                'WHERE'  => ['id' => (int)$item['id']],
-                'LIMIT'  => 1,
-            ]);
-            $origin_entity_id   = 0;
-            $origin_entity_name = '';
-            if ($asset_iter->count() > 0) {
-                $origin_entity_id = (int)$asset_iter->current()['entities_id'];
-                $ent_iter = $DB->request(['SELECT' => ['name'], 'FROM' => 'glpi_entities', 'WHERE' => ['id' => $origin_entity_id], 'LIMIT' => 1]);
-                if ($ent_iter->count() > 0) $origin_entity_name = $ent_iter->current()['name'];
-            }
+        foreach ($final_items as $item) {
+            $origin_entity_id = $origin_entities[$item['id']];
 
             $DB->insert('glpi_plugin_assetmgrstatus_transfer_items', [
                 'transfers_id'       => $transfer_id,
-                'items_id'           => (int)$item['id'],
+                'items_id'           => $item['id'],
                 'itemtype'           => $item['itemtype'],
-                'item_name'          => $item['name'] ?? '',
+                'item_name'          => $item['name'],
                 'origin_entity_id'   => $origin_entity_id,
-                'origin_entity_name' => $origin_entity_name,
+                'origin_entity_name' => $origin_names[$origin_entity_id] ?? '',
             ]);
 
             // Marca o ativo como transferido (bloqueia edição na manutenção)
-            self::lockAsset($item['itemtype'], (int)$item['id'], $transfer_id);
+            self::lockAsset($item['itemtype'], $item['id'], $transfer_id);
         }
 
         return $transfer_id;
@@ -293,33 +339,61 @@ class Transfer
         $where = [];
         if ($status_filter) $where['status'] = $status_filter;
 
-        $iter = $DB->request([
+        $rows = iterator_to_array($DB->request([
             'FROM'  => 'glpi_plugin_assetmgrstatus_transfers',
             'WHERE' => $where,
             'ORDER' => ['date_creation DESC'],
-        ]);
+        ]));
+        if (empty($rows)) return [];
+
+        // Batch 1: contagem de itens por transferência (1 query)
+        $counts = [];
+        foreach ($DB->request([
+            'SELECT' => ['transfers_id', 'COUNT' => 'id AS total'],
+            'FROM'   => 'glpi_plugin_assetmgrstatus_transfer_items',
+            'WHERE'  => ['transfers_id' => array_column($rows, 'id')],
+            'GROUPBY'=> ['transfers_id'],
+        ]) as $c) {
+            $counts[(int)$c['transfers_id']] = (int)$c['total'];
+        }
+
+        // Batch 2: nomes das entidades de destino (1 query)
+        $entity_ids = array_filter(array_unique(array_column($rows, 'entity_dest')));
+        $entity_names = [];
+        if ($entity_ids) {
+            foreach ($DB->request([
+                'SELECT' => ['id', 'name'],
+                'FROM'   => 'glpi_entities',
+                'WHERE'  => ['id' => $entity_ids],
+            ]) as $e) {
+                $entity_names[(int)$e['id']] = $e['name'];
+            }
+        }
+
+        // Batch 3: nomes dos usuários (técnico + criador) (1 query)
+        $user_ids = array_filter(array_unique(array_merge(
+            array_column($rows, 'users_id_tech'),
+            array_column($rows, 'users_id_created')
+        )));
+        $user_names = [];
+        if ($user_ids) {
+            foreach ($DB->request([
+                'SELECT' => ['id', 'name'],
+                'FROM'   => 'glpi_users',
+                'WHERE'  => ['id' => $user_ids],
+            ]) as $u) {
+                $user_names[(int)$u['id']] = $u['name'];
+            }
+        }
 
         $result = [];
-        foreach ($iter as $row) {
-            $count_iter = $DB->request([
-                'SELECT' => ['COUNT' => 'id AS total'],
-                'FROM'   => 'glpi_plugin_assetmgrstatus_transfer_items',
-                'WHERE'  => ['transfers_id' => $row['id']],
-            ]);
-            $row['items_count'] = (int)($count_iter->current()['total'] ?? 0);
-
-            $ent = new Entity();
-            $row['entity_dest_name'] = ($ent->getFromDB((int)$row['entity_dest']))
-                ? $ent->getName() : 'Desconhecida';
-
-            $u = new User();
-            $row['tech_name'] = ($row['users_id_tech'] && $u->getFromDB($row['users_id_tech']))
-                ? $u->getName() : null;
-
-            $u2 = new User();
-            $row['creator_name'] = ($row['users_id_created'] && $u2->getFromDB($row['users_id_created']))
-                ? $u2->getName() : 'Sistema';
-
+        foreach ($rows as $row) {
+            $row['items_count']      = $counts[(int)$row['id']] ?? 0;
+            $row['entity_dest_name'] = $entity_names[(int)$row['entity_dest']] ?? 'Desconhecida';
+            $row['tech_name']        = ($row['users_id_tech'] && isset($user_names[(int)$row['users_id_tech']]))
+                ? $user_names[(int)$row['users_id_tech']] : null;
+            $row['creator_name']     = ($row['users_id_created'] && isset($user_names[(int)$row['users_id_created']]))
+                ? $user_names[(int)$row['users_id_created']] : 'Sistema';
             $result[] = $row;
         }
         return $result;

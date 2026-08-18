@@ -6,7 +6,8 @@ use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
-if (!Session::haveRight('plugin_assetmgrstatus_transfer', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) {
+if (!Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) && !Session::haveRight('plugin_assetmgrstatus_transfer', UPDATE)
+    && !Session::haveRight('plugin_assetmgrstatus', CREATE) && !Session::haveRight('plugin_assetmgrstatus', UPDATE)) {
     Html::displayRightError(); exit;
 }
 
@@ -31,6 +32,12 @@ if (!is_array($items) || empty($items)) {
 }
 
 $transfer_id = Transfer::create($entity_dest, $reason, $items, $transfer_type);
+
+if (!$transfer_id) {
+    Session::addMessageAfterRedirect('Nenhum ativo válido pôde ser transferido. Verifique se os ativos existem e estão na entidade ativa.', false, ERROR);
+    Html::back();
+    exit;
+}
 
 $pdf_url      = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer_pdf.php?id=' . $transfer_id . '&stage=transfer';
 $redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer.php';
