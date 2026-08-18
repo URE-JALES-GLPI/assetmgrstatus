@@ -30,7 +30,8 @@ if (!class_exists('DBConnection')) {
 
 // Em CLI o GLPI nem sempre carrega o config.php — garante as constantes de conexão
 if (!defined('DB_HOST')) {
-    $config_file = dirname(__DIR__, 2) . '/config/config.php';
+    $config_dir  = defined('GLPI_CONFIG_DIR') ? GLPI_CONFIG_DIR : (dirname(__DIR__, 2) . '/config');
+    $config_file = $config_dir . '/config.php';
     if (file_exists($config_file)) {
         require_once $config_file;
     }
