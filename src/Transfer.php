@@ -230,9 +230,12 @@ class Transfer
         foreach ($by_type as $type => $ids) {
             try {
                 $rows = $DB->request([
-                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assets.name', 'glpi_assets_assets.serial', 'glpi_assets_assets.otherserial', 'glpi_states.name AS state_name'],
+                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assets.name', 'glpi_assets_assets.serial', 'glpi_assets_assets.otherserial', 'glpi_states.name AS state_name', 'glpi_assets_assetmodels.name AS model_name'],
                     'FROM'       => 'glpi_assets_assets',
-                    'LEFT JOIN'  => ['glpi_states' => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']]],
+                    'LEFT JOIN'  => [
+                        'glpi_states'           => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']],
+                        'glpi_assets_assetmodels' => ['ON' => ['glpi_assets_assets' => 'models_id', 'glpi_assets_assetmodels' => 'id']],
+                    ],
                     'WHERE'      => ['glpi_assets_assets.id' => $ids],
                 ]);
                 foreach ($rows as $r) $details[$type][(int)$r['id']] = $r;
@@ -247,7 +250,9 @@ class Transfer
             $serial = trim((string)($d['serial'] ?? ''));
             $inv    = trim((string)($d['otherserial'] ?? ''));
             $state  = trim((string)($d['state_name'] ?? ''));
+            $model  = trim((string)($d['model_name'] ?? ''));
             $extra  = trim(implode(' | ', array_filter([
+                $model  ? "Modelo: $model" : '',
                 $serial ? "Serial: $serial" : '',
                 $inv    ? "Patrimônio: $inv" : '',
                 $state  ? "Estado: $state" : '',
