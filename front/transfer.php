@@ -265,7 +265,6 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
                         <?php
                         $tcats = $DB->request([
                             'FROM'  => 'glpi_itilcategories',
-                            'WHERE' => ['is_deleted' => 0],
                             'ORDER' => ['completename ASC'],
                         ]);
                         foreach ($tcats as $tcat): ?>
