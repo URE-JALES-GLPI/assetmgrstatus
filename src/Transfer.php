@@ -220,10 +220,40 @@ class Transfer
         $lines[] = "Origem: " . ($origin_name ?: '—');
         $lines[] = "Destino: " . ($dest_name ?: '—');
         $lines[] = "Criado por: " . self::getUserName(Session::getLoginUserID());
+        $lines[] = "Data: " . date('d/m/Y H:i');
         $lines[] = "";
+
+        // Busca detalhes dos ativos em lote (serial, patrimônio, estado)
+        $details = [];
+        $by_type = [];
+        foreach ($items as $item) $by_type[$item['itemtype']][] = (int)$item['id'];
+        foreach ($by_type as $type => $ids) {
+            try {
+                $rows = $DB->request([
+                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assets.name', 'glpi_assets_assets.serial', 'glpi_assets_assets.otherserial', 'glpi_states.name AS state_name'],
+                    'FROM'       => 'glpi_assets_assets',
+                    'LEFT JOIN'  => ['glpi_states' => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']]],
+                    'WHERE'      => ['glpi_assets_assets.id' => $ids],
+                ]);
+                foreach ($rows as $r) $details[$type][(int)$r['id']] = $r;
+            } catch (\Throwable $e) {
+                // versão do GLPI sem glpi_assets_assets — segue sem detalhes
+            }
+        }
+
         $lines[] = "Ativos (" . count($items) . "):";
         foreach ($items as $item) {
-            $lines[] = "  • " . $item['name'] . " (" . str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']) . ")";
+            $d      = $details[$item['itemtype']][(int)$item['id']] ?? [];
+            $serial = trim((string)($d['serial'] ?? ''));
+            $inv    = trim((string)($d['otherserial'] ?? ''));
+            $state  = trim((string)($d['state_name'] ?? ''));
+            $extra  = trim(implode(' | ', array_filter([
+                $serial ? "Serial: $serial" : '',
+                $inv    ? "Patrimônio: $inv" : '',
+                $state  ? "Estado: $state" : '',
+            ])));
+            $label = str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']);
+            $lines[] = "  • " . $item['name'] . " (" . $label . ")" . ($extra ? " — " . $extra : '');
         }
 
         $ticket = new Ticket();
