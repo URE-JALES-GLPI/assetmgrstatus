@@ -183,6 +183,9 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <?php if ($t['tech_name']): ?>
                 <div class="am-tc-info-row"><i class="ti ti-user-check"></i><span><?= htmlspecialchars($t['tech_name']) ?></span></div>
                 <?php endif; ?>
+                <?php if ($t['creator_name']): ?>
+                <div class="am-tc-info-row"><i class="ti ti-user"></i><span>Por: <?= htmlspecialchars($t['creator_name']) ?></span></div>
+                <?php endif; ?>
                 <?php if ($t['reason']): ?>
                 <div class="am-tc-reason"><?= htmlspecialchars(mb_substr($t['reason'], 0, 90)) ?><?= strlen($t['reason']) > 90 ? '...' : '' ?></div>
                 <?php endif; ?>
