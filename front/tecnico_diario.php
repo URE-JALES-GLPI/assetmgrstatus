@@ -140,7 +140,7 @@ Html::header('Diário de Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
 .am-diario-quick-btn:hover{background:#e0e7ff;color:#4f46e5;}
 </style>
 <script>
-var _diarioBase='<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/diario_save.php';
+var _diarioBase='../ajax/diario_save.php';
 var _csrf='<?= Session::getNewCSRFToken() ?>';
 function amToggleDiarioCard(id){var b=document.getElementById('body-'+id),c=document.getElementById('chevron-'+id),h=b.style.display==='none';b.style.display=h?'block':'none';c.style.transform=h?'rotate(180deg)':'';}
 function amAddQuickAction(id,txt){var ta=document.getElementById('log-'+id);if(ta.value&&!ta.value.endsWith('\n'))ta.value+='\n';ta.value+='• '+txt+'\n';}
