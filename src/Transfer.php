@@ -227,15 +227,19 @@ class Transfer
         }
 
         $ticket = new Ticket();
+        // Constantes de tipo/prioridade/status variam entre versões do GLPI — usa fallback numérico
+        $type     = defined('Ticket::DEMAND') ? Ticket::DEMAND : (defined('Ticket::REQUEST') ? Ticket::REQUEST : 2);
+        $priority = defined('Ticket::PRIORITY_MEDIUM') ? Ticket::PRIORITY_MEDIUM : 3;
+        $status   = defined('Ticket::INCOMING') ? Ticket::INCOMING : 1;
         try {
             $ticket_id = $ticket->add([
                 'name'              => 'Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . ($origin_name ?: 'Origem') . ' → ' . ($dest_name ?: 'Destino'),
                 'content'           => implode("\n", $lines),
                 'entities_id'       => $origin_entity_id,
                 'itilcategories_id' => $category_id,
-                'type'              => Ticket::REQUEST,
-                'priority'          => Ticket::PRIORITY_MEDIUM,
-                'status'            => Ticket::INCOMING,
+                'type'              => $type,
+                'priority'          => $priority,
+                'status'            => $status,
                 '_users_id_requester' => Session::getLoginUserID(),
                 'date'              => date('Y-m-d H:i:s'),
             ]);
