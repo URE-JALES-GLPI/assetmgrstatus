@@ -30,15 +30,24 @@ if (!class_exists('DBConnection')) {
 
 // Em CLI o GLPI nem sempre carrega o config.php — garante as constantes de conexão
 if (!defined('DB_HOST')) {
-    $config_dir  = defined('GLPI_CONFIG_DIR') ? GLPI_CONFIG_DIR : (dirname(__DIR__, 2) . '/config');
-    $config_file = $config_dir . '/config.php';
-    if (file_exists($config_file)) {
-        require_once $config_file;
+    $glpi_root  = defined('GLPI_ROOT') ? GLPI_ROOT : dirname(__DIR__, 2);
+    $candidates = [];
+    if (defined('GLPI_CONFIG_DIR')) $candidates[] = GLPI_CONFIG_DIR . '/config.php';
+    $candidates[] = $glpi_root . '/config/config.php';
+    $candidates = array_unique($candidates);
+
+    $found = false;
+    foreach ($candidates as $config_file) {
+        if (file_exists($config_file)) {
+            require_once $config_file;
+            $found = true;
+            break;
+        }
     }
-}
-if (!defined('DB_HOST')) {
-    fwrite(STDERR, "Erro: config do GLPI não encontrado (config/config.php).\n");
-    exit(1);
+    if (!$found) {
+        fwrite(STDERR, "Erro: config do GLPI não encontrado. Caminhos testados:\n  " . implode("\n  ", $candidates) . "\n");
+        exit(1);
+    }
 }
 
 // Em CLI o GLPI nem sempre cria o $DB global — conecta explicitamente
