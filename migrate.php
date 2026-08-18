@@ -28,37 +28,29 @@ if (!class_exists('DBConnection')) {
     exit(1);
 }
 
-// Em CLI o GLPI nem sempre carrega o config.php — garante as constantes de conexão
-if (!defined('DB_HOST')) {
-    $glpi_root  = defined('GLPI_ROOT') ? GLPI_ROOT : dirname(__DIR__, 2);
-    $candidates = [];
-    if (defined('GLPI_CONFIG_DIR')) $candidates[] = GLPI_CONFIG_DIR . '/config.php';
-    $candidates[] = $glpi_root . '/config/config.php';
-    $candidates = array_unique($candidates);
+// Carrega o config de conexão do GLPI — versões novas usam config_db.php
+// (define a classe DB com as credenciais); versões antigas usam config.php.
+if (!class_exists('DB')) {
+    $glpi_root = defined('GLPI_ROOT') ? GLPI_ROOT : dirname(__DIR__, 2);
+    $config_files = [];
+    if (defined('GLPI_CONFIG_DIR')) {
+        $config_files[] = GLPI_CONFIG_DIR . '/config_db.php';
+        $config_files[] = GLPI_CONFIG_DIR . '/config.php';
+    }
+    $config_files[] = $glpi_root . '/config/config_db.php';
+    $config_files[] = $glpi_root . '/config/config.php';
 
-    $found = false;
-    foreach ($candidates as $config_file) {
+    foreach (array_unique($config_files) as $config_file) {
         if (file_exists($config_file)) {
             require_once $config_file;
-            $found = true;
             break;
         }
-    }
-    if (!$found) {
-        fwrite(STDERR, "Erro: config do GLPI não encontrado. Caminhos testados:\n  " . implode("\n  ", $candidates) . "\n");
-        exit(1);
     }
 }
 
 // Em CLI o GLPI nem sempre cria o $DB global — conecta explicitamente
 if (!isset($GLOBALS['DB']) || $GLOBALS['DB'] === null) {
-    $db_class = null;
-    foreach (['DBmysql', 'DB'] as $candidate) {
-        if (class_exists($candidate)) {
-            $db_class = $candidate;
-            break;
-        }
-    }
+    $db_class = class_exists('DB') ? 'DB' : (class_exists('DBmysql') ? 'DBmysql' : null);
     if ($db_class === null) {
         fwrite(STDERR, "Erro: não foi possível carregar a classe de conexão do GLPI.\n");
         exit(1);
