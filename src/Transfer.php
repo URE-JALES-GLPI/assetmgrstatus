@@ -223,24 +223,36 @@ class Transfer
         $lines[] = "Data: " . date('d/m/Y H:i');
         $lines[] = "";
 
-        // Busca detalhes dos ativos em lote (serial, patrimônio, estado)
+        // Busca detalhes dos ativos em lote (serial, patrimônio, estado) — query base separada do modelo
         $details = [];
         $by_type = [];
         foreach ($items as $item) $by_type[$item['itemtype']][] = (int)$item['id'];
         foreach ($by_type as $type => $ids) {
             try {
                 $rows = $DB->request([
-                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assets.name', 'glpi_assets_assets.serial', 'glpi_assets_assets.otherserial', 'glpi_states.name AS state_name', 'glpi_assets_assetmodels.name AS model_name'],
+                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assets.name', 'glpi_assets_assets.serial', 'glpi_assets_assets.otherserial', 'glpi_states.name AS state_name'],
                     'FROM'       => 'glpi_assets_assets',
-                    'LEFT JOIN'  => [
-                        'glpi_states'           => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']],
-                        'glpi_assets_assetmodels' => ['ON' => ['glpi_assets_assets' => 'models_id', 'glpi_assets_assetmodels' => 'id']],
-                    ],
+                    'LEFT JOIN'  => ['glpi_states' => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']]],
                     'WHERE'      => ['glpi_assets_assets.id' => $ids],
                 ]);
                 foreach ($rows as $r) $details[$type][(int)$r['id']] = $r;
             } catch (\Throwable $e) {
-                // versão do GLPI sem glpi_assets_assets — segue sem detalhes
+                error_log('[assetmgrstatus] detalhes ativo (' . $type . '): ' . $e->getMessage());
+            }
+        }
+
+        // Modelo em consulta separada (tabela pode não existir em todas versões)
+        foreach ($by_type as $type => $ids) {
+            try {
+                $rows = $DB->request([
+                    'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assetmodels.name AS model_name'],
+                    'FROM'       => 'glpi_assets_assets',
+                    'LEFT JOIN'  => ['glpi_assets_assetmodels' => ['ON' => ['glpi_assets_assets' => 'models_id', 'glpi_assets_assetmodels' => 'id']]],
+                    'WHERE'      => ['glpi_assets_assets.id' => $ids],
+                ]);
+                foreach ($rows as $r) $details[$type][(int)$r['id']]['model_name'] = $r['model_name'];
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] modelo ativo (' . $type . '): ' . $e->getMessage());
             }
         }
 
