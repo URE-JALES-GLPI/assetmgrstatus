@@ -469,7 +469,7 @@ setInterval(amSoftRefresh, 10000);
 document.addEventListener("DOMContentLoaded", function() {
     var btn = document.getElementById("am-theme-btn");
     var dark = localStorage.getItem("am_theme") === "dark";
-    btn.innerHTML = dark ? "<i class="ti ti-sun"></i>" : "<i class="ti ti-moon"></i>";
+    btn.innerHTML = dark ? '<i class="ti ti-sun"></i>' : '<i class="ti ti-moon"></i>';
 });
 </script>
 <?php Html::footer(); ?>

@@ -102,7 +102,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
 
     <!-- Bulk bar -->
     <?php if ($can_transfer): ?>
-    <div id="am-transfer-bulk-bar" class="am-bulk-bar" style="display:none;">
+    <div id="am-transfer-bulk-bar" class="am-bulk-bar">
         <span id="am-transfer-bulk-count" style="color:#fff;font-size:.85rem;font-weight:600;"></span>
         <button class="am-btn" style="background:#fff;color:#1e40af;padding:7px 18px;font-size:.85rem;" onclick="amOpenTransferModal()">
             <i class="ti ti-transfer"></i> Transferir Selecionados
@@ -310,10 +310,10 @@ function amUpdateTransferBar() {
     var count = document.getElementById('am-transfer-bulk-count');
     if (!bar) return;
     if (checked.length > 0) {
-        bar.style.display = 'flex';
+        bar.classList.add('open');
         count.textContent = checked.length + ' ativo(s) selecionado(s)';
     } else {
-        bar.style.display = 'none';
+        bar.classList.remove('open');
     }
 }
 function amClearTransferSelection() {
@@ -402,7 +402,7 @@ document.addEventListener('keydown', function(e) {
 document.addEventListener("DOMContentLoaded", function() {
     var btn = document.getElementById("am-theme-btn");
     var dark = localStorage.getItem("am_theme") === "dark";
-    btn.innerHTML = dark ? "<i class="ti ti-sun"></i>" : "<i class="ti ti-moon"></i>";
+    btn.innerHTML = dark ? '<i class="ti ti-sun"></i>' : '<i class="ti ti-moon"></i>';
 });
 </script>
 <?php Html::footer(); ?>
