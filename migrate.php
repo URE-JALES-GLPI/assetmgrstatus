@@ -30,7 +30,18 @@ if (!class_exists('DBConnection')) {
 
 // Em CLI o GLPI nem sempre cria o $DB global — conecta explicitamente
 if (!isset($GLOBALS['DB']) || $GLOBALS['DB'] === null) {
-    $GLOBALS['DB'] = new DB();
+    $db_class = null;
+    foreach (['DBmysql', 'DB'] as $candidate) {
+        if (class_exists($candidate)) {
+            $db_class = $candidate;
+            break;
+        }
+    }
+    if ($db_class === null) {
+        fwrite(STDERR, "Erro: não foi possível carregar a classe de conexão do GLPI.\n");
+        exit(1);
+    }
+    $GLOBALS['DB'] = new $db_class();
 }
 
 require_once __DIR__ . '/hook.php';
