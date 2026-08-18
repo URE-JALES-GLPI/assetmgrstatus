@@ -247,7 +247,7 @@ class Transfer
                 $rows = $DB->request([
                     'SELECT'     => ['glpi_assets_assets.id', 'glpi_assets_assetmodels.name AS model_name'],
                     'FROM'       => 'glpi_assets_assets',
-                    'LEFT JOIN'  => ['glpi_assets_assetmodels' => ['ON' => ['glpi_assets_assets' => 'models_id', 'glpi_assets_assetmodels' => 'id']]],
+                    'LEFT JOIN'  => ['glpi_assets_assetmodels' => ['ON' => ['glpi_assets_assets' => 'assets_assetmodels_id', 'glpi_assets_assetmodels' => 'id']]],
                     'WHERE'      => ['glpi_assets_assets.id' => $ids],
                 ]);
                 foreach ($rows as $r) $details[$type][(int)$r['id']]['model_name'] = $r['model_name'];
