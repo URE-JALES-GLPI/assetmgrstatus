@@ -28,6 +28,11 @@ if (!class_exists('DBConnection')) {
     exit(1);
 }
 
+// Em CLI o GLPI nem sempre cria o $DB global — conecta explicitamente
+if (!isset($GLOBALS['DB']) || $GLOBALS['DB'] === null) {
+    $GLOBALS['DB'] = new DB();
+}
+
 require_once __DIR__ . '/hook.php';
 
 if (plugin_assetmgrstatus_schema()) {
