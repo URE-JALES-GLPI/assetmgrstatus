@@ -258,6 +258,25 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
                     <textarea name="reason" class="am-textarea" required placeholder="Descreva o motivo da transferência..."></textarea>
                 </div>
 
+                <div class="am-form-section">
+                    <label class="am-form-label">Categoria do Chamado <span class="am-required">*</span></label>
+                    <select name="ticket_category" class="am-input" required>
+                        <option value="">Selecione a categoria...</option>
+                        <?php
+                        $tcats = $DB->request([
+                            'FROM'  => 'glpi_itilcategories',
+                            'WHERE' => ['is_active' => 1, 'is_deleted' => 0],
+                            'ORDER' => ['completename ASC'],
+                        ]);
+                        foreach ($tcats as $tcat): ?>
+                        <option value="<?= (int)$tcat['id'] ?>"><?= htmlspecialchars($tcat['completename']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small style="display:block;margin-top:6px;color:#6b7280;font-size:.75rem;">
+                        <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI com todas as informações da transferência.
+                    </small>
+                </div>
+
                 <label class="am-agree-check">
                     <input type="checkbox" id="am-tr-agree" onchange="amToggleTransferSubmit()">
                     <span>Confirmo que as informações da transferência estão corretas e autorizo o envio dos ativos selecionados.</span>

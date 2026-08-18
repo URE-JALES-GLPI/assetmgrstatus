@@ -3,6 +3,9 @@
 namespace GlpiPlugin\Assetmgrstatus;
 
 use Session;
+use Ticket;
+use Document;
+use Document_Item;
 
 if (!defined('GLPI_ROOT')) die("Sorry. You can't access directly to this file");
 
@@ -18,6 +21,9 @@ class Transfer
 
     const RIGHT_TRANSFER = 'plugin_assetmgrstatus_transfer';
     const RIGHT_TECNICO  = 'plugin_assetmgrstatus_tecnico';
+
+    // Erro da última tentativa de abrir chamado/anexar PDF (vazio = sucesso)
+    public static string $last_ticket_error = '';
 
     public static function getStatusOptions(): array
     {
@@ -100,9 +106,10 @@ class Transfer
     // Criar transferência e marcar ativos como transferidos
     // -------------------------------------------------------
 
-    public static function create(int $entity_dest, string $reason, array $items, string $transfer_type = 'ure'): int
+    public static function create(int $entity_dest, string $reason, array $items, string $transfer_type = 'ure', int $ticket_category_id = 0): int
     {
         global $DB;
+        self::$last_ticket_error = '';
         $now = date('Y-m-d H:i:s');
 
         // ---- Validação server-side dos itens ----
@@ -182,7 +189,279 @@ class Transfer
             self::lockAsset($item['itemtype'], $item['id'], $transfer_id);
         }
 
+        // Abre chamado automático no GLPI (se categoria informada) e anexa o termo de retirada
+        if ($ticket_category_id > 0) {
+            $ticket_id = self::openTicketForTransfer($transfer_id, $entity_dest, $reason, $final_items, $origin_entities, $ticket_category_id);
+            if ($ticket_id) {
+                $DB->update('glpi_plugin_assetmgrstatus_transfers', ['tickets_id' => $ticket_id], ['id' => $transfer_id]);
+                self::attachStageDoc($transfer_id, 'transfer');
+            }
+        }
+
         return $transfer_id;
+    }
+
+    // -------------------------------------------------------
+    // Chamado automático (GLPI Ticket) + PDFs anexos
+    // -------------------------------------------------------
+
+    public static function openTicketForTransfer(int $transfer_id, int $entity_dest, string $reason, array $items, array $origin_entities, int $category_id): int
+    {
+        global $DB;
+        $origin_entity_id = (int)(reset($origin_entities) ?: Session::getActiveEntity());
+
+        $origin_name = '';
+        $ent_orig = new \Entity();
+        if ($origin_entity_id && $ent_orig->getFromDB($origin_entity_id)) $origin_name = $ent_orig->getName();
+        $dest_name = $entity_dest ? (($ent_dest = new \Entity()) && $ent_dest->getFromDB($entity_dest) ? $ent_dest->getName() : '') : 'URE';
+
+        $lines = [];
+        $lines[] = "Motivo: " . $reason;
+        $lines[] = "Origem: " . ($origin_name ?: '—');
+        $lines[] = "Destino: " . ($dest_name ?: '—');
+        $lines[] = "Criado por: " . self::getUserName(Session::getLoginUserID());
+        $lines[] = "";
+        $lines[] = "Ativos (" . count($items) . "):";
+        foreach ($items as $item) {
+            $lines[] = "  • " . $item['name'] . " (" . str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']) . ")";
+        }
+
+        $ticket = new Ticket();
+        try {
+            $ticket_id = $ticket->add([
+                'name'              => 'Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . ($origin_name ?: 'Origem') . ' → ' . ($dest_name ?: 'Destino'),
+                'content'           => implode("\n", $lines),
+                'entities_id'       => $origin_entity_id,
+                'itilcategories_id' => $category_id,
+                'type'              => Ticket::REQUEST,
+                'priority'          => Ticket::PRIORITY_MEDIUM,
+                'status'            => Ticket::INCOMING,
+                '_users_id_requester' => Session::getLoginUserID(),
+                'date'              => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            self::$last_ticket_error = 'Falha ao abrir chamado: ' . $e->getMessage();
+            return 0;
+        }
+        if (!$ticket_id) {
+            self::$last_ticket_error = 'Falha ao abrir chamado: ' . $ticket->getError();
+            return 0;
+        }
+        return (int)$ticket_id;
+    }
+
+    public static function getUserName(int $users_id): string
+    {
+        if ($users_id <= 0) return 'Sistema';
+        $u = new \User();
+        return $u->getFromDB($users_id) ? $u->getName() : 'Sistema';
+    }
+
+    // Anexa o PDF do termo (retirada ou devolução) ao chamado da transferência, se ainda não anexado
+    public static function attachStageDoc(int $transfer_id, string $stage): bool
+    {
+        $transfer = self::getById($transfer_id);
+        if (!$transfer || empty($transfer['tickets_id'])) return false;
+
+        $stage_name = ($stage === 'pronto' || $stage === 'final') ? 'Termo de Devolução' : 'Termo de Retirada';
+        $doc_name   = $stage_name . ' - Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '.pdf';
+
+        if (self::hasDocOnTicket((int)$transfer['tickets_id'], $doc_name)) return true;
+
+        $pdf_path = self::generateDocPdf($transfer_id, $stage);
+        if (!$pdf_path) return false;
+
+        $items = self::getItems($transfer_id);
+        $first = reset($items);
+        $origin_entity_id = (int)($first['origin_entity_id'] ?? 0);
+
+        $ok = self::attachDocToTicket((int)$transfer['tickets_id'], $origin_entity_id, $doc_name, $pdf_path);
+        if (file_exists($pdf_path)) @unlink($pdf_path);
+        return $ok;
+    }
+
+    public static function hasDocOnTicket(int $tickets_id, string $doc_name): bool
+    {
+        global $DB;
+        $iter = $DB->request([
+            'FROM'      => 'glpi_documents_items',
+            'LEFT JOIN' => ['glpi_documents' => ['FKEY' => ['glpi_documents' => 'id', 'glpi_documents_items' => 'documents_id']]],
+            'WHERE'     => [
+                'glpi_documents_items.itemtype' => 'Ticket',
+                'glpi_documents_items.items_id' => $tickets_id,
+                'glpi_documents.name'           => $doc_name,
+            ],
+            'LIMIT' => 1,
+        ]);
+        return $iter->count() > 0;
+    }
+
+    public static function attachDocToTicket(int $tickets_id, int $entities_id, string $doc_name, string $pdf_path): bool
+    {
+        if (!file_exists($pdf_path) || !is_readable($pdf_path)) {
+            self::$last_ticket_error = 'PDF do termo não pôde ser gerado.';
+            return false;
+        }
+
+        $doc = new Document();
+        $doc_id = $doc->add([
+            'name'         => $doc_name,
+            'filename'     => $pdf_path,
+            'mime'         => 'application/pdf',
+            'entities_id'  => max(0, $entities_id),
+            'is_recursive' => 0,
+            'users_id'     => Session::getLoginUserID(),
+            'is_deleted'   => 0,
+        ]);
+        if (!$doc_id) {
+            self::$last_ticket_error = 'Falha ao criar anexo: ' . $doc->getError();
+            return false;
+        }
+
+        $di = new Document_Item();
+        $di_id = $di->add([
+            'documents_id' => $doc_id,
+            'itemtype'     => 'Ticket',
+            'items_id'     => $tickets_id,
+        ]);
+        if (!$di_id) {
+            self::$last_ticket_error = 'Falha ao vincular anexo ao chamado: ' . $di->getError();
+            return false;
+        }
+        return true;
+    }
+
+    // Gera o PDF do termo no servidor (mPDF do GLPI) e devolve o caminho do arquivo temporário
+    public static function generateDocPdf(int $transfer_id, string $stage): ?string
+    {
+        $mpdf = null;
+        if (class_exists('Mpdf\Mpdf')) {
+            $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
+        } elseif (file_exists(GLPI_ROOT . '/lib/mpdf/autoload.php')) {
+            require_once GLPI_ROOT . '/lib/mpdf/autoload.php';
+            if (class_exists('Mpdf\Mpdf')) $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
+        }
+        if (!$mpdf) {
+            self::$last_ticket_error = 'mPDF indisponível — anexo não gerado.';
+            return null;
+        }
+
+        $html = self::renderDocHtml($transfer_id, $stage);
+        if ($html === '') return null;
+
+        $path = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+        try {
+            $mpdf->WriteHTML($html);
+            $mpdf->Output($path, \Mpdf\Output\Destination::FILE);
+        } catch (\Throwable $e) {
+            self::$last_ticket_error = 'Falha ao gerar PDF: ' . $e->getMessage();
+            return null;
+        }
+        return file_exists($path) ? $path : null;
+    }
+
+    // HTML do termo (versão impressa p/ mPDF — sem CSS grid, só tabelas)
+    public static function renderDocHtml(int $transfer_id, string $stage): string
+    {
+        global $DB;
+        $transfer = self::getById($transfer_id);
+        if (!$transfer) return '';
+
+        $items     = self::getItems($transfer_id);
+        $comp_list = MaintenanceRecord::getComponents();
+        $is_pronto = in_array($stage, ['pronto', 'final'], true);
+        $doc_title = $is_pronto ? 'Termo de Devolução de Equipamento' : 'Termo de Retirada de Equipamento';
+
+        $dest_name = ($transfer['entity_dest'] && (new \Entity())->getFromDB((int)$transfer['entity_dest'])) ? (new \Entity())->getName() : 'Unidade Regional de Ensino de Jales';
+        $origin_name = '';
+        if (!empty($items)) {
+            $first = reset($items);
+            $origin_name = $first['origin_entity_name'] ?? '';
+            if ($origin_name === '' && !empty($first['origin_entity_id'])) {
+                $eo = new \Entity();
+                if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName();
+            }
+        }
+        $tech_name    = self::getUserName((int)$transfer['users_id_tech']);
+        $creator_name = self::getUserName((int)$transfer['users_id_created']);
+
+        $logo_file = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
+        $logo_b64  = file_exists($logo_file) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo_file)) : '';
+
+        $h = '<html><head><meta charset="utf-8"><style>';
+        $h .= 'body{font-family:Arial,sans-serif;font-size:11px;color:#2d2d2d;line-height:1.4;}';
+        $h .= '.hdr{width:100%;border-bottom:2px solid #1a73b5;padding-bottom:8px;margin-bottom:12px;}';
+        $h .= '.hdr td{vertical-align:middle;}';
+        $h .= '.t1{font-size:15px;font-weight:bold;color:#1a73b5;}';
+        $h .= '.t2{font-size:9px;color:#9ca3af;text-align:right;}';
+        $h .= '.decl{background:#f0f7ff;border-left:3px solid #1a73b5;padding:8px 12px;font-size:10px;color:#1e3a5f;margin-bottom:12px;}';
+        $h .= 'table.info{width:100%;border-collapse:collapse;margin-bottom:12px;}';
+        $h .= 'table.info td{border:1px solid #e2e8f0;background:#f8f9fb;padding:5px 8px;font-size:10px;}';
+        $h .= 'table.info td b{display:block;font-size:8px;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;}';
+        $h .= 'h3{font-size:9.5px;color:#1a73b5;text-transform:uppercase;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin:10px 0 6px;}';
+        $h .= 'table.eq{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;}';
+        $h .= 'table.eq th{background:#1a73b5;color:#fff;padding:4px 6px;font-size:9px;text-align:left;}';
+        $h .= 'table.eq td{border-bottom:1px solid #f0f2f8;padding:4px 6px;}';
+        $h .= '.sign{width:100%;margin-top:16px;border-collapse:collapse;}';
+        $h .= '.sign td{width:50%;padding:6px 10px;font-size:10px;}';
+        $h .= '.sign .line{height:30px;border-bottom:1.5px solid #2d2d2d;margin-bottom:4px;}';
+        $h .= '.ftr{width:100%;border-top:1px solid #e2e8f0;margin-top:12px;padding-top:6px;font-size:8.5px;color:#9ca3af;}';
+        $h .= '</style></head><body>';
+
+        $h .= '<table class="hdr"><tr><td>';
+        $h .= $logo_b64
+            ? '<img src="' . $logo_b64 . '" style="height:52px;">'
+            : '<b style="font-size:13px;color:#1a73b5;">UNIDADE REGIONAL DE ENSINO — REGIÃO DE JALES</b>';
+        $h .= '</td><td class="t2"><div class="t1">' . $doc_title . '</div>Nº ' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . '</td></tr></table>';
+
+        if (!$is_pronto) {
+            $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) retirado(s) pelo responsável identificado abaixo. O responsável está ciente de que retirou exatamente o(s) equipamento(s) que foi(ram) apresentado(s) ao suporte técnico, conforme verificado no momento da retirada.</div>';
+            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($creator_name) . '</b>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:</p>';
+            $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars($dest_name) . '</td></tr>';
+            $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars($transfer['reason']) . '</td></tr></table>';
+            $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th>#</th><th>Nome do Equipamento</th><th>Tipo</th></tr>';
+            foreach ($items as $i => $item) {
+                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars($item['item_name']) . '</b></td><td>' . htmlspecialchars(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype'])) . '</td></tr>';
+            }
+            $h .= '</table>';
+        } else {
+            $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) devolvido(s) após a realização dos procedimentos de manutenção técnica. O responsável pelo recebimento está ciente das condições e do novo status de cada equipamento, conforme verificado no momento da devolução.</div>';
+            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($tech_name) . '</b>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:</p>';
+            $h .= '<table class="info"><tr><td><b>Data de Devolução</b>' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars($dest_name) . '</td></tr>';
+            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars($tech_name) . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars($creator_name) . '</td></tr>';
+            $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars($origin_name ?: 'Não informada') . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars($dest_name) . '</td></tr>';
+            $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars($origin_name ?: 'Escola de origem') . '</td></tr>';
+            if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars($transfer['reason']) . '</td></tr>';
+            $h .= '</table>';
+            $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th>#</th><th>Nome</th><th>Tipo</th><th>Status Final</th><th>Motivo / Observação</th><th>Componentes</th><th>O Que Foi Feito</th></tr>';
+            foreach ($items as $i => $item) {
+                $wrow = $DB->request(['SELECT' => ['work_log', 'work_components'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => (int)$item['items_id']], 'LIMIT' => 1])->current();
+                $wlog   = $wrow['work_log'] ?? '';
+                $wcomps = ($wrow['work_components'] ?? '') ? json_decode($wrow['work_components'], true) : [];
+                $resolved = [];
+                foreach ($wcomps as $ck => $cs) if ($cs === 'resolved') $resolved[] = $comp_list[$ck] ?? $ck;
+
+                $comp_txt = [];
+                $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
+                foreach ($fcomps as $ckey => $cdesc) $comp_txt[] = '◆ ' . ($comp_list[$ckey] ?? $ckey) . ($cdesc ? ': ' . $cdesc : '');
+                foreach ($resolved as $rl) $comp_txt[] = '✓ ' . $rl . ' (resolvido)';
+
+                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars($item['item_name']) . '</b></td>'
+                    . '<td>' . htmlspecialchars(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype'])) . '</td>'
+                    . '<td>' . ($item['final_status'] ? MaintenanceRecord::getStatusLabel($item['final_status']) : '—') . '</td>'
+                    . '<td>' . htmlspecialchars($item['final_reason'] ?? '—') . '</td>'
+                    . '<td>' . (!empty($comp_txt) ? htmlspecialchars(implode('; ', $comp_txt)) : '—') . '</td>'
+                    . '<td>' . ($wlog ? nl2br(htmlspecialchars($wlog)) : '—') . '</td></tr>';
+            }
+            $h .= '</table>';
+        }
+
+        $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
+            . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>';
+
+        $h .= '<table class="ftr"><tr><td>Unidade Regional de Ensino — Região de Jales | Suporte Técnico</td><td style="text-align:right;">Gerado em ' . date('d/m/Y \à\s H:i') . ' | Transferência #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '</td></tr></table>';
+        $h .= '</body></html>';
+        return $h;
     }
 
     // Bloqueia ativo: marca transfer_status = 'transferido'

@@ -96,6 +96,7 @@ function plugin_assetmgrstatus_schema(): bool
                 `status`           VARCHAR(50)  NOT NULL DEFAULT 'pendente',
                 `users_id_created` INT {$sign} NOT NULL DEFAULT '0',
                 `users_id_tech`    INT {$sign} NOT NULL DEFAULT '0',
+                `tickets_id`       INT {$sign} NOT NULL DEFAULT '0',
                 `date_pending`     DATETIME     DEFAULT NULL,
                 `date_creation`    DATETIME     DEFAULT NULL,
                 `date_manutencao`  DATETIME     DEFAULT NULL,
@@ -103,9 +104,14 @@ function plugin_assetmgrstatus_schema(): bool
                 `date_finalizado`  DATETIME     DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
-                KEY `entity_dest` (`entity_dest`)
+                KEY `entity_dest` (`entity_dest`),
+                KEY `tickets_id` (`tickets_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
         ") or die($DB->error());
+    } else {
+        plugin_assetmgrstatus_add_columns('glpi_plugin_assetmgrstatus_transfers', [
+            'tickets_id' => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `tickets_id` INT {$sign} NOT NULL DEFAULT '0' AFTER `users_id_tech`",
+        ]);
     }
 
     // -------------------------------------------------------

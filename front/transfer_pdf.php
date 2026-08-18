@@ -61,6 +61,11 @@ $time_total = Transfer::getElapsedTime($transfer['date_creation'],
 $is_pronto = in_array($stage, ['pronto', 'final']);
 $doc_title = $is_pronto ? 'Termo de Devolução de Equipamento' : 'Termo de Retirada de Equipamento';
 
+// Anexa o termo de devolução ao chamado automático (uma única vez) ao abrir o PDF de pronto
+if ($is_pronto) {
+    Transfer::attachStageDoc($transfer_id, 'pronto');
+}
+
 header('Content-Type: text/html; charset=UTF-8');
 ?>
 <!DOCTYPE html>

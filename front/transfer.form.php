@@ -17,9 +17,10 @@ $entity_dest  = (int)($_POST['entity_dest'] ?? 0);
 $reason       = trim($_POST['reason'] ?? '');
 $selected     = $_POST['selected_assets'] ?? '';
 $transfer_type = $_POST['transfer_type'] ?? 'ure';
+$ticket_category = (int)($_POST['ticket_category'] ?? 0);
 
-if ($entity_dest < 0 || !$reason || !$selected) {
-    Session::addMessageAfterRedirect('Dados inválidos para transferência.', false, ERROR);
+if ($entity_dest < 0 || !$reason || !$selected || !$ticket_category) {
+    Session::addMessageAfterRedirect('Dados inválidos para transferência (categoria do chamado é obrigatória).', false, ERROR);
     Html::back();
     exit;
 }
@@ -31,12 +32,20 @@ if (!is_array($items) || empty($items)) {
     exit;
 }
 
-$transfer_id = Transfer::create($entity_dest, $reason, $items, $transfer_type);
+$transfer_id = Transfer::create($entity_dest, $reason, $items, $transfer_type, $ticket_category);
 
 if (!$transfer_id) {
     Session::addMessageAfterRedirect('Nenhum ativo válido pôde ser transferido. Verifique se os ativos existem e estão na entidade ativa.', false, ERROR);
     Html::back();
     exit;
+}
+
+$ticket_warning = '';
+$transfer_row = Transfer::getById($transfer_id);
+$ticket_id = (int)($transfer_row['tickets_id'] ?? 0);
+if (Transfer::$last_ticket_error !== '') {
+    $ticket_warning = Transfer::$last_ticket_error;
+    Session::addMessageAfterRedirect('Transferência criada, mas o chamado não pôde ser aberto: ' . Transfer::$last_ticket_error, false, WARNING);
 }
 
 $pdf_url      = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer_pdf.php?id=' . $transfer_id . '&stage=transfer';
@@ -63,6 +72,11 @@ $redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer.
   <div class="icon">✅</div>
   <h2>Transferência realizada!</h2>
   <p>O card foi criado na aba Técnico.<br>Clique abaixo para abrir o PDF do termo de retirada.</p>
+  <?php if ($ticket_id): ?>
+  <p style="font-size:.85rem;color:#374151;">Chamado aberto automaticamente: <a href="<?= $CFG_GLPI['root_doc'] ?>/front/ticket.form.php?id=<?= $ticket_id ?>" target="_blank" style="color:#1e40af;font-weight:700;">Ticket #<?= $ticket_id ?></a></p>
+  <?php elseif ($ticket_warning): ?>
+  <p style="font-size:.8rem;color:#b45309;margin-bottom:16px;">⚠️ <?= htmlspecialchars($ticket_warning) ?></p>
+  <?php endif; ?>
   <a href="<?= $pdf_url ?>" target="_blank" class="btn-pdf" id="btn-pdf">
     🖨️ Abrir PDF em nova aba
   </a>
