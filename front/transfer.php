@@ -10,7 +10,7 @@ if (!Session::haveRight('plugin_assetmgrstatus_transfer', READ) && !Session::hav
     Html::displayRightError(); exit;
 }
 
-global $CFG_GLPI;
+global $CFG_GLPI, $DB;
 
 $can_transfer = Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) || Session::haveRight('plugin_assetmgrstatus_transfer', UPDATE)
     || Session::haveRight('plugin_assetmgrstatus', CREATE) || Session::haveRight('plugin_assetmgrstatus', UPDATE);
