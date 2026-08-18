@@ -40,6 +40,9 @@ $ok = Transfer::marcarPronto($transfer_id, $final_items);
 
 if ($ok) {
     Session::addMessageAfterRedirect('Transferência marcada como Pronta!', false, INFO);
+    if (Transfer::$last_ticket_error !== '') {
+        Session::addMessageAfterRedirect(Transfer::$last_ticket_error, false, WARNING);
+    }
     $pdf_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer_pdf.php?id=' . $transfer_id . '&stage=pronto';
     ?>
     <!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"></head><body>

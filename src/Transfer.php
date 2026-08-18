@@ -15,6 +15,7 @@ class Transfer
     const STATUS_MANUTENCAO  = 'em_manutencao';
     const STATUS_PRONTO      = 'pronto';
     const STATUS_FINALIZADO  = 'finalizado';
+    const STATUS_CANCELADA   = 'cancelada';
 
     const TRANSFER_TYPE_URE    = 'ure';
     const TRANSFER_TYPE_ESCOLA = 'escola';
@@ -32,6 +33,7 @@ class Transfer
             self::STATUS_MANUTENCAO => 'Em Manutenção',
             self::STATUS_PRONTO     => 'Pronto',
             self::STATUS_FINALIZADO => 'Finalizado',
+            self::STATUS_CANCELADA  => 'Cancelada',
         ];
     }
 
@@ -42,6 +44,7 @@ class Transfer
             self::STATUS_MANUTENCAO => '#3b82f6',
             self::STATUS_PRONTO     => '#10b981',
             self::STATUS_FINALIZADO => '#6b7280',
+            self::STATUS_CANCELADA  => '#ef4444',
             default                 => '#9ca3af',
         };
     }
@@ -53,6 +56,7 @@ class Transfer
             self::STATUS_MANUTENCAO => 'am-badge-garantia',
             self::STATUS_PRONTO     => 'am-badge-ativo',
             self::STATUS_FINALIZADO => 'am-badge-inservivel',
+            self::STATUS_CANCELADA  => 'am-badge-manutencao',
             default                 => '',
         };
     }
@@ -172,6 +176,7 @@ class Transfer
         ]);
 
         $transfer_id = $DB->insertId();
+        self::logStatus($transfer_id, self::STATUS_PENDENTE, 'Transferência criada');
 
         foreach ($final_items as $item) {
             $origin_entity_id = $origin_entities[$item['id']];
@@ -306,6 +311,142 @@ class Transfer
         if ($users_id <= 0) return 'Sistema';
         $u = new \User();
         return $u->getFromDB($users_id) ? $u->getName() : 'Sistema';
+    }
+
+    // -------------------------------------------------------
+    // Helpers do chamado (ciclo de vida da transferência)
+    // -------------------------------------------------------
+
+    public static function assignTicket(int $tickets_id, int $users_id): void
+    {
+        if ($tickets_id <= 0 || $users_id <= 0) return;
+        try {
+            $ticket = new Ticket();
+            $ticket->update([
+                'id'          => $tickets_id,
+                '_itil_assign' => [['users_id' => $users_id]],
+            ]);
+            if ($ticket->getError() !== '') {
+                self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $ticket->getError();
+            }
+        } catch (\Throwable $e) {
+            self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $e->getMessage();
+        }
+    }
+
+    public static function setTicketStatus(int $tickets_id, int $status): void
+    {
+        if ($tickets_id <= 0) return;
+        try {
+            $ticket = new Ticket();
+            $ticket->update(['id' => $tickets_id, 'status' => $status]);
+            if ($ticket->getError() !== '') {
+                self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $ticket->getError();
+            }
+        } catch (\Throwable $e) {
+            self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $e->getMessage();
+        }
+    }
+
+    public static function addTicketFollowup(int $tickets_id, string $content): void
+    {
+        if ($tickets_id <= 0) return;
+        try {
+            $tf = new \ITILFollowup();
+            $tf->add([
+                'itemtype'      => 'Ticket',
+                'items_id'      => $tickets_id,
+                'content'       => $content,
+                'users_id'      => Session::getLoginUserID(),
+                'is_private'    => 0,
+            ]);
+            if ($tf->getError() !== '') {
+                self::$last_ticket_error = 'Falha no acompanhamento do chamado: ' . $tf->getError();
+            }
+        } catch (\Throwable $e) {
+            self::$last_ticket_error = 'Falha no acompanhamento do chamado: ' . $e->getMessage();
+        }
+    }
+
+    // -------------------------------------------------------
+    // Timeline de status da transferência
+    // -------------------------------------------------------
+
+    public static function logStatus(int $transfer_id, string $status, string $note = ''): void
+    {
+        global $DB;
+        try {
+            $DB->insert('glpi_plugin_assetmgrstatus_transfer_history', [
+                'transfers_id'  => $transfer_id,
+                'status'        => $status,
+                'users_id'      => Session::getLoginUserID(),
+                'note'          => $note !== '' ? $note : null,
+                'date_creation' => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] timeline: ' . $e->getMessage());
+        }
+    }
+
+    public static function getTimeline(int $transfer_id): array
+    {
+        global $DB;
+        $rows = iterator_to_array($DB->request([
+            'FROM'  => 'glpi_plugin_assetmgrstatus_transfer_history',
+            'WHERE' => ['transfers_id' => $transfer_id],
+            'ORDER' => ['date_creation ASC', 'id ASC'],
+        ]));
+        if (empty($rows)) return [];
+
+        $user_ids = array_filter(array_unique(array_column($rows, 'users_id')));
+        $names = [];
+        if ($user_ids) {
+            foreach ($DB->request([
+                'SELECT' => ['id', 'name'],
+                'FROM'   => 'glpi_users',
+                'WHERE'  => ['id' => $user_ids],
+            ]) as $u) {
+                $names[(int)$u['id']] = $u['name'];
+            }
+        }
+        foreach ($rows as &$row) {
+            $row['user_name'] = ($row['users_id'] && isset($names[(int)$row['users_id']]))
+                ? $names[(int)$row['users_id']] : 'Sistema';
+        }
+        return $rows;
+    }
+
+    // -------------------------------------------------------
+    // Cancelar transferência (libera ativos + aviso no chamado)
+    // -------------------------------------------------------
+
+    public static function cancelar(int $transfer_id): bool
+    {
+        global $DB;
+        self::$last_ticket_error = '';
+        $row = self::getById($transfer_id);
+        if (!$row) return false;
+        if (!in_array($row['status'], [self::STATUS_PENDENTE, self::STATUS_MANUTENCAO], true)) return false;
+
+        foreach (self::getItems($transfer_id) as $item) {
+            self::unlockAsset($item['itemtype'], (int)$item['items_id']);
+        }
+
+        $DB->update('glpi_plugin_assetmgrstatus_transfers', [
+            'status'         => self::STATUS_CANCELADA,
+            'date_cancelado' => date('Y-m-d H:i:s'),
+        ], ['id' => $transfer_id]);
+
+        self::logStatus($transfer_id, self::STATUS_CANCELADA, 'Transferência cancelada');
+
+        if ((int)$row['tickets_id'] > 0) {
+            self::addTicketFollowup(
+                (int)$row['tickets_id'],
+                "⚠️ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **cancelada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nMotivo da transferência: " . ($row['reason'] ?? '—') . "\nOs ativos foram liberados e não farão parte desta transferência."
+            );
+        }
+
+        return true;
     }
 
     // Anexa o PDF do termo (retirada ou devolução) ao chamado da transferência, se ainda não anexado
@@ -574,6 +715,7 @@ class Transfer
     public static function pegar(int $transfer_id): bool
     {
         global $DB;
+        self::$last_ticket_error = '';
         $row = self::getById($transfer_id);
         if (!$row || $row['status'] !== self::STATUS_PENDENTE) return false;
 
@@ -582,6 +724,19 @@ class Transfer
             'users_id_tech'   => Session::getLoginUserID(),
             'date_manutencao' => date('Y-m-d H:i:s'),
         ], ['id' => $transfer_id]);
+
+        self::logStatus($transfer_id, self::STATUS_MANUTENCAO, 'Transferência assumida pelo técnico');
+
+        // Chamado: atribui técnico e marca como "Em atribuição" (2)
+        if ((int)$row['tickets_id'] > 0) {
+            $tech_id = Session::getLoginUserID();
+            self::assignTicket((int)$row['tickets_id'], $tech_id);
+            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::ASSIGNED') ? Ticket::ASSIGNED : 2);
+            self::addTicketFollowup(
+                (int)$row['tickets_id'],
+                "🔧 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **assumida** pelo técnico " . self::getUserName($tech_id) . " em " . date('d/m/Y H:i') . "."
+            );
+        }
 
         return true;
     }
@@ -593,6 +748,7 @@ class Transfer
     public static function marcarPronto(int $transfer_id, array $final_items): bool
     {
         global $DB;
+        self::$last_ticket_error = '';
         $row = self::getById($transfer_id);
         if (!$row || $row['status'] !== self::STATUS_MANUTENCAO) return false;
 
@@ -609,6 +765,15 @@ class Transfer
             'date_pronto' => date('Y-m-d H:i:s'),
         ], ['id' => $transfer_id]);
 
+        self::logStatus($transfer_id, self::STATUS_PRONTO, 'Todos os itens concluídos — aguardando devolução');
+
+        if ((int)$row['tickets_id'] > 0) {
+            self::addTicketFollowup(
+                (int)$row['tickets_id'],
+                "✅ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **marcada como Pronto** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nTodos os itens concluídos — aguardando devolução."
+            );
+        }
+
         return true;
     }
 
@@ -619,6 +784,7 @@ class Transfer
     public static function finalizar(int $transfer_id): bool
     {
         global $DB;
+        self::$last_ticket_error = '';
         $row = self::getById($transfer_id);
         if (!$row || $row['status'] !== self::STATUS_PRONTO) return false;
 
@@ -655,6 +821,17 @@ class Transfer
             'status'          => self::STATUS_FINALIZADO,
             'date_finalizado' => date('Y-m-d H:i:s'),
         ], ['id' => $transfer_id]);
+
+        self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada — status aplicados no inventário');
+
+        // Chamado: resolve (SOLVED=5) e registra acompanhamento final
+        if ((int)$row['tickets_id'] > 0) {
+            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::SOLVED') ? Ticket::SOLVED : 5);
+            self::addTicketFollowup(
+                (int)$row['tickets_id'],
+                "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado."
+            );
+        }
 
         return true;
     }

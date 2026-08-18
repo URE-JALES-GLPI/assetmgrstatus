@@ -28,6 +28,9 @@ if ($action === 'pegar') {
     } else {
         Session::addMessageAfterRedirect('Não foi possível assumir — transferência já foi assumida ou inválida.', false, ERROR);
     }
+    if (Transfer::$last_ticket_error !== '') {
+        Session::addMessageAfterRedirect(Transfer::$last_ticket_error, false, WARNING);
+    }
     Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
 
 } elseif ($action === 'finalizar') {
@@ -36,6 +39,21 @@ if ($action === 'pegar') {
         Session::addMessageAfterRedirect('Transferência finalizada com sucesso! Status aplicados no inventário.', false, INFO);
     } else {
         Session::addMessageAfterRedirect('Não foi possível finalizar — transferência não está no status Pronto.', false, ERROR);
+    }
+    if (Transfer::$last_ticket_error !== '') {
+        Session::addMessageAfterRedirect(Transfer::$last_ticket_error, false, WARNING);
+    }
+    Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
+
+} elseif ($action === 'cancelar') {
+    $ok = Transfer::cancelar($transfer_id);
+    if ($ok) {
+        Session::addMessageAfterRedirect('Transferência cancelada. Ativos liberados e chamado notificado.', false, INFO);
+    } else {
+        Session::addMessageAfterRedirect('Não foi possível cancelar — transferência já finalizada ou inválida.', false, ERROR);
+    }
+    if (Transfer::$last_ticket_error !== '') {
+        Session::addMessageAfterRedirect(Transfer::$last_ticket_error, false, WARNING);
     }
     Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
 

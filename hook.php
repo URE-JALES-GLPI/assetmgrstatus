@@ -102,6 +102,7 @@ function plugin_assetmgrstatus_schema(): bool
                 `date_manutencao`  DATETIME     DEFAULT NULL,
                 `date_pronto`      DATETIME     DEFAULT NULL,
                 `date_finalizado`  DATETIME     DEFAULT NULL,
+                `date_cancelado`   DATETIME     DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `entity_dest` (`entity_dest`),
@@ -110,7 +111,8 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     } else {
         plugin_assetmgrstatus_add_columns('glpi_plugin_assetmgrstatus_transfers', [
-            'tickets_id' => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `tickets_id` INT {$sign} NOT NULL DEFAULT '0' AFTER `users_id_tech`",
+            'tickets_id'      => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `tickets_id` INT {$sign} NOT NULL DEFAULT '0' AFTER `users_id_tech`",
+            'date_cancelado'  => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `date_cancelado` DATETIME DEFAULT NULL AFTER `date_finalizado`",
         ]);
     }
 
@@ -155,6 +157,24 @@ function plugin_assetmgrstatus_schema(): bool
                 KEY `items_id` (`items_id`),
                 KEY `itemtype` (`itemtype`),
                 KEY `users_id` (`users_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
+        ") or die($DB->error());
+    }
+
+    // -------------------------------------------------------
+    // 6. transfer_history — timeline de status das transferências
+    // -------------------------------------------------------
+    if (!$DB->tableExists('glpi_plugin_assetmgrstatus_transfer_history')) {
+        $DB->doQuery("
+            CREATE TABLE `glpi_plugin_assetmgrstatus_transfer_history` (
+                `id`            INT {$sign} NOT NULL AUTO_INCREMENT,
+                `transfers_id`  INT {$sign} NOT NULL DEFAULT '0',
+                `status`        VARCHAR(50)  NOT NULL DEFAULT '',
+                `users_id`      INT {$sign} NOT NULL DEFAULT '0',
+                `note`          VARCHAR(255) DEFAULT NULL,
+                `date_creation` DATETIME     DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `transfers_id` (`transfers_id`)
             ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
         ") or die($DB->error());
     }
@@ -210,6 +230,7 @@ function plugin_assetmgrstatus_uninstall(): bool
         'glpi_plugin_assetmgrstatus_transfers',
         'glpi_plugin_assetmgrstatus_transfer_items',
         'glpi_plugin_assetmgrstatus_views',
+        'glpi_plugin_assetmgrstatus_transfer_history',
     ] as $table) {
         if ($DB->tableExists($table)) {
             $DB->doQuery("DROP TABLE `{$table}`");

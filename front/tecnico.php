@@ -217,6 +217,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                         onclick="amOpenPegarModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', <?= $t['items_count'] ?>)">
                         <i class="ti ti-hand-grab"></i> Pegar
                     </button>
+                    <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
+                        title="Cancelar transferência"
+                        onclick="if(confirm('Cancelar a transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>?\nOs ativos serão liberados e o chamado receberá um aviso.'))amCancelar(<?= $t['id'] ?>)">
+                        <i class="ti ti-x"></i>
+                    </button>
 
                 <?php elseif ($t['status'] === Transfer::STATUS_MANUTENCAO): ?>
                     <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= $t['id'] ?>&stage=transfer"
@@ -231,6 +236,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                        class="am-btn" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1;">
                         <i class="ti ti-check"></i> Pronto
                     </a>
+                    <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
+                        title="Cancelar transferência"
+                        onclick="if(confirm('Cancelar a transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>?\nOs ativos serão liberados e o chamado receberá um aviso.'))amCancelar(<?= $t['id'] ?>)">
+                        <i class="ti ti-x"></i>
+                    </button>
 
                 <?php elseif ($t['status'] === Transfer::STATUS_PRONTO): ?>
                     <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= $t['id'] ?>&stage=pronto"
@@ -249,6 +259,30 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </a>
                 <?php endif; ?>
             </div>
+
+            <?php
+            $timeline = Transfer::getTimeline((int)$t['id']);
+            if (!empty($timeline)):
+            ?>
+            <details class="am-tc-timeline">
+                <summary><i class="ti ti-history"></i> Histórico <span style="font-weight:400;color:#9ca3af;">(<?= count($timeline) ?>)</span></summary>
+                <div style="display:flex;flex-direction:column;gap:10px;padding:10px 14px 14px;">
+                    <?php foreach ($timeline as $tl): ?>
+                    <div style="display:flex;gap:10px;align-items:flex-start;">
+                        <span style="min-width:10px;min-height:10px;width:10px;height:10px;border-radius:50%;background:<?= Transfer::getStatusColor($tl['status']) ?>;margin-top:5px;"></span>
+                        <div>
+                            <div style="font-size:.8rem;color:#374151;"><?= htmlspecialchars($tl['note'] ?: (Transfer::getStatusOptions()[$tl['status']] ?? $tl['status'])) ?></div>
+                            <div style="font-size:.7rem;color:#9ca3af;">
+                                <?= Transfer::getStatusOptions()[$tl['status']] ?? $tl['status'] ?> •
+                                <?= htmlspecialchars($tl['user_name']) ?> •
+                                <?= date('d/m/Y H:i', strtotime($tl['date_creation'])) ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </details>
+            <?php endif; ?>
         </div>
         <?php endforeach; ?>
     </div>
@@ -353,6 +387,16 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <script>
+function amCancelar(id) {
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php';
+    f.innerHTML = '<input type="hidden" name="action" value="cancelar">'
+        + '<input type="hidden" name="transfer_id" value="' + id + '">'
+        + '<input type="hidden" name="_glpi_csrf_token" value="<?= Session::getNewCSRFToken() ?>">';
+    document.body.appendChild(f);
+    f.submit();
+}
 function amOpenPegarModal(id, entity, count) {
     document.getElementById('am-pegar-id').value = id;
     document.getElementById('am-pegar-info').textContent = count + ' ativo(s) • ' + entity;

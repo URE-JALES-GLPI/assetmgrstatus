@@ -53,6 +53,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-transfer"></i><h2>Transferência de Ativos</h2></div>
         <div style="display:flex;gap:8px;align-items:center;">
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export_transfers.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" title="Exportar histórico de transferências em Excel"><i class="ti ti-file-spreadsheet"></i> Exportar</a>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Manutenção</a>
             <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>

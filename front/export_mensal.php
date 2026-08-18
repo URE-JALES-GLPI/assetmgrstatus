@@ -152,10 +152,10 @@ foreach ($assets as $asset) {
     $tipo = preg_replace('/Asset$/', '', $tipo); // remove 'Asset' do final se existir
     $fabricante=''; $modelo='';
     try {
-        $ar=$DB->request(['SELECT'=>['manufacturers_id','models_id'],'FROM'=>'glpi_assets_assets','WHERE'=>['id'=>(int)$asset['id']],'LIMIT'=>1])->current();
+        $ar=$DB->request(['SELECT'=>['manufacturers_id','assets_assetmodels_id'],'FROM'=>'glpi_assets_assets','WHERE'=>['id'=>(int)$asset['id']],'LIMIT'=>1])->current();
         if ($ar) {
             if ($ar['manufacturers_id']) { $mf=$DB->request(['SELECT'=>['name'],'FROM'=>'glpi_manufacturers','WHERE'=>['id'=>$ar['manufacturers_id']],'LIMIT'=>1])->current(); if($mf) $fabricante=$mf['name']; }
-            if ($ar['models_id']) { foreach(['glpi_assets_assetmodels','glpi_computermodels','glpi_phonemodels','glpi_tabletmodels','glpi_networkequipmentmodels'] as $mt) { try { $md=$DB->request(['SELECT'=>['name'],'FROM'=>$mt,'WHERE'=>['id'=>$ar['models_id']],'LIMIT'=>1])->current(); if($md){$modelo=$md['name'];break;} } catch(\Exception $e){} } }
+            if ($ar['assets_assetmodels_id']) { foreach(['glpi_assets_assetmodels','glpi_computermodels','glpi_phonemodels','glpi_tabletmodels','glpi_networkequipmentmodels'] as $mt) { try { $md=$DB->request(['SELECT'=>['name'],'FROM'=>$mt,'WHERE'=>['id'=>$ar['assets_assetmodels_id']],'LIMIT'=>1])->current(); if($md){$modelo=$md['name'];break;} } catch(\Exception $e){} } }
         }
     } catch(\Exception $e){}
     $cat = resolveCategoria($tipo,$modelo,$fabricante);

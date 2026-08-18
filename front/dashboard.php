@@ -57,6 +57,26 @@ $comp_list  = MaintenanceRecord::getComponents();
             <div class="am-dash-number" style="color:#ef4444;"><?= $stats['baixas_mes'] ?></div>
             <div class="am-dash-label">este mês</div>
         </div>
+        <?php
+        $em_atraso = 0;
+        try {
+            $em_atraso = (int)$DB->request([
+                'SELECT' => ['COUNT' => 'glpi_plugin_assetmgrstatus_records.id AS total'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_records',
+                'INNER JOIN' => ['glpi_assets_assets' => ['ON' => ['glpi_assets_assets' => 'id', 'glpi_plugin_assetmgrstatus_records' => 'items_id']]],
+                'WHERE'  => [
+                    'glpi_plugin_assetmgrstatus_records.expected_return_date' => ['<', date('Y-m-d')],
+                    'glpi_plugin_assetmgrstatus_records.am_status' => [MaintenanceRecord::STATUS_MANUTENCAO, MaintenanceRecord::STATUS_GARANTIA],
+                    'glpi_assets_assets.is_deleted' => 0,
+                ],
+            ])->current()['total'] ?? 0;
+        } catch (\Throwable $e) {}
+        ?>
+        <div class="am-dash-card">
+            <div class="am-dash-card-top"><span style="font-size:.8rem;font-weight:700;color:#f97316;"><i class="ti ti-calendar-exclamation"></i> Em atraso</span></div>
+            <div class="am-dash-number" style="color:#f97316;"><?= $em_atraso ?></div>
+            <div class="am-dash-label">devolução prevista vencida</div>
+        </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
