@@ -28,6 +28,18 @@ if (!class_exists('DBConnection')) {
     exit(1);
 }
 
+// Em CLI o GLPI nem sempre carrega o config.php — garante as constantes de conexão
+if (!defined('DB_HOST')) {
+    $config_file = dirname(__DIR__, 2) . '/config/config.php';
+    if (file_exists($config_file)) {
+        require_once $config_file;
+    }
+}
+if (!defined('DB_HOST')) {
+    fwrite(STDERR, "Erro: config do GLPI não encontrado (config/config.php).\n");
+    exit(1);
+}
+
 // Em CLI o GLPI nem sempre cria o $DB global — conecta explicitamente
 if (!isset($GLOBALS['DB']) || $GLOBALS['DB'] === null) {
     $db_class = null;
