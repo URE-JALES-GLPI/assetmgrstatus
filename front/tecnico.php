@@ -164,7 +164,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                         Transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>
                     </div>
                     <div style="font-weight:800;font-size:1rem;color:#1e2333;">
-                        <?= htmlspecialchars($t['entity_dest_name']) ?>
+                        <?= htmlspecialchars($t['origin_entity_name']) ?>
                     </div>
                 </div>
                 <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>"><?= $status_label ?></span>
@@ -211,7 +211,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             <div class="am-tc-card-footer">
                 <?php if ($t['status'] === Transfer::STATUS_PENDENTE): ?>
                     <button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;flex:1;"
-                        onclick="amOpenPegarModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['entity_dest_name'])) ?>', <?= $t['items_count'] ?>)">
+                        onclick="amOpenPegarModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', <?= $t['items_count'] ?>)">
                         <i class="ti ti-hand-grab"></i> Pegar
                     </button>
 

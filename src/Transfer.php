@@ -386,10 +386,36 @@ class Transfer
             }
         }
 
+        // Batch 4: entidade de ORIGEM por transferência (vem dos itens; 1 query)
+        $origins = [];
+        foreach ($DB->request([
+            'SELECT' => ['transfers_id', 'origin_entity_id', 'origin_entity_name'],
+            'FROM'   => 'glpi_plugin_assetmgrstatus_transfer_items',
+            'WHERE'  => ['transfers_id' => array_column($rows, 'id')],
+            'ORDER'  => ['id ASC'],
+        ]) as $oi) {
+            $tid = (int)$oi['transfers_id'];
+            if (isset($origins[$tid])) continue;
+            $origins[$tid] = [
+                'id'   => (int)$oi['origin_entity_id'],
+                'name' => (string)($oi['origin_entity_name'] ?? ''),
+            ];
+        }
+        // Preenche nome via glpi_entities quando o item não guardou o nome
+        foreach ($origins as $tid => $o) {
+            if ($o['name'] === '' && $o['id'] > 0 && isset($entity_names[$o['id']])) {
+                $origins[$tid]['name'] = $entity_names[$o['id']];
+            }
+        }
+
         $result = [];
         foreach ($rows as $row) {
+            $origin = $origins[(int)$row['id']] ?? null;
             $row['items_count']      = $counts[(int)$row['id']] ?? 0;
             $row['entity_dest_name'] = $entity_names[(int)$row['entity_dest']] ?? 'Desconhecida';
+            $row['origin_entity_name'] = $origin
+                ? ($origin['name'] !== '' ? $origin['name'] : 'Entidade #' . $origin['id'])
+                : '-';
             $row['tech_name']        = ($row['users_id_tech'] && isset($user_names[(int)$row['users_id_tech']]))
                 ? $user_names[(int)$row['users_id_tech']] : null;
             $row['creator_name']     = ($row['users_id_created'] && isset($user_names[(int)$row['users_id_created']]))
