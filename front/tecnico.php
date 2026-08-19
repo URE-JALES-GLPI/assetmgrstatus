@@ -186,6 +186,9 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <?php if ($t['creator_name']): ?>
                 <div class="am-tc-info-row"><i class="ti ti-user"></i><span>Por: <?= htmlspecialchars($t['creator_name']) ?></span></div>
                 <?php endif; ?>
+                <?php if ((int)$t['tickets_id'] > 0): ?>
+                <div class="am-tc-info-row"><i class="ti ti-ticket"></i><a href="<?= $CFG_GLPI['root_doc'] ?>/front/ticket.form.php?id=<?= (int)$t['tickets_id'] ?>" target="_blank" style="color:#4f46e5;font-weight:600;">Chamado #<?= (int)$t['tickets_id'] ?></a></div>
+                <?php endif; ?>
                 <?php if ($t['reason']): ?>
                 <div class="am-tc-reason"><?= htmlspecialchars(mb_substr($t['reason'], 0, 90)) ?><?= strlen($t['reason']) > 90 ? '...' : '' ?></div>
                 <?php endif; ?>
@@ -219,7 +222,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </button>
                     <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
                         title="Cancelar transferência"
-                        onclick="if(confirm('Cancelar a transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>?\nOs ativos serão liberados e o chamado receberá um aviso.'))amCancelar(<?= $t['id'] ?>)">
+                        onclick="amCancelar(<?= $t['id'] ?>)">
                         <i class="ti ti-x"></i>
                     </button>
 
@@ -238,7 +241,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </a>
                     <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
                         title="Cancelar transferência"
-                        onclick="if(confirm('Cancelar a transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>?\nOs ativos serão liberados e o chamado receberá um aviso.'))amCancelar(<?= $t['id'] ?>)">
+                        onclick="amCancelar(<?= $t['id'] ?>)">
                         <i class="ti ti-x"></i>
                     </button>
 
@@ -388,11 +391,18 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 
 <script>
 function amCancelar(id) {
+    var num = String(id).padStart(4, '0');
+    if (!confirm('Cancelar a transferência #' + num + '?\nOs ativos serão liberados e o chamado receberá um aviso.')) return;
+    var motivo = prompt('Motivo do cancelamento da transferência #' + num + ' (obrigatório):');
+    if (motivo === null) return;
+    motivo = motivo.trim();
+    if (!motivo) { alert('Informe o motivo para cancelar.'); return; }
     var f = document.createElement('form');
     f.method = 'POST';
     f.action = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php';
     f.innerHTML = '<input type="hidden" name="action" value="cancelar">'
         + '<input type="hidden" name="transfer_id" value="' + id + '">'
+        + '<input type="hidden" name="motivo" value="' + motivo.replace(/"/g, '&quot;') + '">'
         + '<input type="hidden" name="_glpi_csrf_token" value="<?= Session::getNewCSRFToken() ?>">';
     document.body.appendChild(f);
     f.submit();

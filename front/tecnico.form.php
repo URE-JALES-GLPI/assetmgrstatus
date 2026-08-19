@@ -46,7 +46,8 @@ if ($action === 'pegar') {
     Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
 
 } elseif ($action === 'cancelar') {
-    $ok = Transfer::cancelar($transfer_id);
+    $motivo = trim($_POST['motivo'] ?? '');
+    $ok = Transfer::cancelar($transfer_id, $motivo);
     if ($ok) {
         Session::addMessageAfterRedirect('Transferência cancelada. Ativos liberados e chamado notificado.', false, INFO);
     } else {
