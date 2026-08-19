@@ -88,7 +88,7 @@ function resolveCategoria(string $tipo, string $modelo, string $fabricante): str
         foreach ($modelo_nb_legado as $ml)     { if (strpos($m,strtoupper($ml))!==false) return 'Notebook Legado'; }
         return 'Notebook Sala de Aula';
     }
-    if ($t === 'celular') return 'Smartphone';
+    if ($t === 'celular') return 'Celular';
     if ($t === 'tablet') return 'Tablet';
     if ($t === 'switch') return 'Switch';
     if ($t === 'firewall') return 'Firewall';
@@ -100,7 +100,7 @@ function resolveCategoria(string $tipo, string $modelo, string $fabricante): str
     // Fallback por substring
     if (strpos($t,'desktop')!==false) return 'Desktop';
     if (strpos($t,'notebook')!==false||strpos($t,'laptop')!==false) return 'Notebook Sala de Aula';
-    if (strpos($t,'celular')!==false||strpos($t,'phone')!==false) return 'Smartphone';
+    if (strpos($t,'celular')!==false||strpos($t,'phone')!==false) return 'Celular';
     if (strpos($t,'tablet')!==false)   return 'Tablet';
     if (strpos($t,'switch')!==false)   return 'Switch';
     if (strpos($t,'firewall')!==false) return 'Firewall';
@@ -111,7 +111,7 @@ function resolveCategoria(string $tipo, string $modelo, string $fabricante): str
 }
 
 function getAba(string $cat): string {
-    $hw  = ['Desktop','Desktop Legado','Notebook Avançado','Notebook Básico Educacional','Notebook Multiplica','Notebook Sala de Aula','Notebook Legado','Smartphone','Tablet'];
+    $hw  = ['Desktop','Desktop Legado','Notebook Avançado','Notebook Básico Educacional','Notebook Multiplica','Notebook Sala de Aula','Notebook Legado','Celular','Tablet'];
     $net = ['Switch','Firewall','Rack de Rede'];
     if (in_array($cat,$hw))  return 'Equipamentos_de_Hardware';
     if (in_array($cat,$net)) return 'Equipamentos_de_Rede';
