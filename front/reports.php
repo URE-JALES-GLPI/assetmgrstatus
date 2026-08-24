@@ -16,7 +16,7 @@ $report_mode    = $_GET['mode']   ?? 'assets';
 $period_start   = $_GET['period_start'] ?? '';
 $period_end     = $_GET['period_end']   ?? '';
 
-Html::header('Relatórios — Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'reports');
+Html::header('Relatórios — Inventário', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'reports');
 
 $types       = MaintenanceRecord::getAssetTypes();
 $status_opts = MaintenanceRecord::getStatusOptions();

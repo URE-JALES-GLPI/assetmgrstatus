@@ -37,7 +37,7 @@ function am_qs(array $overrides = []): string {
 $view_mode     = $_GET['view']   ?? 'list';
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
-Html::header('Manutenção de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
+Html::header('Inventário de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
 
 $paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $page);
 $assets       = $paged['rows'];
@@ -53,8 +53,8 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
 
     <div class="am-page-header">
         <div class="am-page-title">
-            <i class="ti ti-tool"></i>
-            <h2>Manutenção de Ativos</h2>
+            <i class="ti ti-clipboard-list"></i>
+            <h2>Inventário de Ativos</h2>
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/dashboard.php"

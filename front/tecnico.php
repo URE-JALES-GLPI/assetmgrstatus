@@ -24,7 +24,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 <div class="container-fluid am-page">
 
     <div class="am-breadcrumb">
-        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">Manutenção</a>
+        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">Inventário</a>
         <i class="ti ti-chevron-right"></i>
         <span>Técnico</span>
     </div>
@@ -34,7 +34,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div style="display:flex;gap:8px;align-items:center;">
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
-                <i class="ti ti-arrow-left"></i> Manutenção
+                <i class="ti ti-arrow-left"></i> Inventário
             </a>
             <?php if (Session::haveRight('plugin_assetmgrstatus_transfer', READ)): ?>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.php"

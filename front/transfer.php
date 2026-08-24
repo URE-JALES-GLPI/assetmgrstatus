@@ -45,7 +45,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
 <div class="container-fluid am-page">
 
     <div class="am-breadcrumb">
-        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">Manutenção</a>
+        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">Inventário</a>
         <i class="ti ti-chevron-right"></i>
         <span>Transferência</span>
     </div>
@@ -53,7 +53,7 @@ Html::header('Transferência', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-transfer"></i><h2>Transferência de Ativos</h2></div>
         <div style="display:flex;gap:8px;align-items:center;">
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Manutenção</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Inventário</a>
             <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>
             <?php endif; ?>

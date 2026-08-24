@@ -15,7 +15,7 @@ $ent = new Entity(); $entity_name = ($ent->getFromDB((int)$transfer['entity_dest
 $u = new User(); $tech_name = ($transfer['users_id_tech'] && $u->getFromDB($transfer['users_id_tech'])) ? $u->getName() : '—';
 $total = count($items); $concluidos = 0;
 foreach ($items as $item) { if (($item['work_status'] ?? 'pending') === 'done') $concluidos++; }
-Html::header('Diário de Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
+Html::header('Diário — Inventário', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
 ?>
 <div class="container-fluid am-page">
 <div class="am-breadcrumb">
@@ -24,7 +24,7 @@ Html::header('Diário de Manutenção', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
     <span>Diário — Transferência #<?= str_pad($transfer_id,4,'0',STR_PAD_LEFT) ?></span>
 </div>
 <div class="am-page-header">
-    <div class="am-page-title"><i class="ti ti-clipboard-text"></i><h2>Diário de Manutenção</h2></div>
+    <div class="am-page-title"><i class="ti ti-clipboard-text"></i><h2>Diário — Inventário</h2></div>
     <div style="display:flex;gap:8px;align-items:center;">
         <button id="am-theme-btn" onclick="amToggleTheme()" class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro"><i class="ti ti-moon"></i></button>
         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Voltar</a>

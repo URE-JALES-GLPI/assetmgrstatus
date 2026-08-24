@@ -7,7 +7,7 @@ define('PLUGIN_ASSETMGRSTATUS_MAX_GLPI', '12.0.0');
 function plugin_version_assetmgrstatus(): array
 {
     return [
-        'name'         => 'Manutenção de Ativos',
+        'name'         => 'Inventário de Ativos',
         'version'      => PLUGIN_ASSETMGRSTATUS_VERSION,
         'author'       => 'Leonardo Poiatti Fação',
         'license'      => 'GPL v2+',

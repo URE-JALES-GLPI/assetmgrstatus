@@ -8,9 +8,9 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
 {
     static $rightname = 'plugin_assetmgrstatus';
 
-    static function getTypeName($nb = 0): string { return 'Manutenção'; }
-    static function getMenuName(): string { return 'Manutenção'; }
-    static function getIcon(): string { return 'ti ti-tool'; }
+    static function getTypeName($nb = 0): string { return 'Inventário'; }
+    static function getMenuName(): string { return 'Inventário'; }
+    static function getIcon(): string { return 'ti ti-clipboard-list'; }
 
     static function getMenuContent(): array
     {
@@ -29,9 +29,9 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
                     'links' => ['search' => $base . '/dashboard.php'],
                 ],
                 'maintenance' => [
-                    'title' => 'Manutenção',
+                    'title' => 'Inventário',
                     'page'  => $base . '/maintenance.php',
-                    'icon'  => 'ti ti-tool',
+                    'icon'  => 'ti ti-clipboard-list',
                     'links' => ['search' => $base . '/maintenance.php'],
                 ],
                 'transfer' => [

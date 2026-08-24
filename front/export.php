@@ -142,7 +142,7 @@ if ($format === 'pdf') {
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Relatório de Manutenção — <?= htmlspecialchars($asset_name) ?></title>
+<title>Relatório de Inventário — <?= htmlspecialchars($asset_name) ?></title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1f2937; padding: 30px; }
@@ -184,7 +184,7 @@ if ($format === 'pdf') {
 
 <div class="header">
     <div class="header-title">
-        <h1>Relatório de Manutenção</h1>
+        <h1>Relatório de Inventário</h1>
         <p><?= htmlspecialchars($asset_name) ?> <?= $pdf_mode === 'assets' ? '— Lista de Ativos' : '— Histórico de Movimentações' ?></p>
     </div>
     <div class="header-meta">
