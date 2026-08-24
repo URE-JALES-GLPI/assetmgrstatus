@@ -56,15 +56,6 @@ $comp_list    = MaintenanceRecord::getComponents();
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
 $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
-
-// Nome da entidade ativa para modal de Importar
-$active_entity_id   = Session::getActiveEntity();
-$active_entity_name = '';
-try {
-    $ent_iter = $DB->request(['SELECT' => ['completename'], 'FROM' => 'glpi_entities', 'WHERE' => ['id' => $active_entity_id], 'LIMIT' => 1]);
-    if ($ent_iter->count() > 0) $active_entity_name = $ent_iter->current()['completename'];
-} catch (\Throwable $e) {}
-if (!$active_entity_name) $active_entity_name = 'Entidade #' . $active_entity_id;
 ?>
 
 <div class="container-fluid am-page">
@@ -95,9 +86,6 @@ if (!$active_entity_name) $active_entity_name = 'Entidade #' . $active_entity_id
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-report"></i> Relatórios
             </a>
-            <button class="am-btn am-btn-primary" style="padding:8px 14px;font-size:.82rem;" onclick="amOpenImportModal()">
-                <i class="ti ti-download"></i> Importar
-            </button>
             <button id="am-theme-btn" onclick="amToggleTheme()"
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
@@ -743,49 +731,6 @@ if (!$active_entity_name) $active_entity_name = 'Entidade #' . $active_entity_id
     </div>
 </div>
 
-<!-- Modal Importar com checkbox de confirmação + entidade -->
-<div id="am-modal-import" class="am-modal-overlay" onclick="amCloseImportModal(event)">
-    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:480px;">
-        <div class="am-modal-header" style="background:linear-gradient(135deg,#0f172a,#1e40af);">
-            <div class="am-modal-title"><i class="ti ti-download"></i><span>Importar Ativos</span></div>
-            <button class="am-modal-close" onclick="amCloseImportModal()"><i class="ti ti-x"></i></button>
-        </div>
-        <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/import.form.php" enctype="multipart/form-data">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
-            <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
-            <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
-            <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filter_status) ?>">
-            <div class="am-modal-body" style="padding:24px;">
-                <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:16px;margin-bottom:18px;">
-                    <div style="font-size:.85rem;color:#1e40af;display:flex;align-items:center;gap:8px;font-weight:700;">
-                        <i class="ti ti-building" style="font-size:1.2rem;"></i>
-                        <span>Você está na entidade:</span>
-                    </div>
-                    <div style="margin-top:8px;background:#fff;border:1px solid #dbeafe;border-radius:8px;padding:10px 12px;font-size:.95rem;font-weight:800;color:#1e3a8a;display:flex;align-items:center;gap:8px;">
-                        <i class="ti ti-map-pin" style="color:#3b82f6;"></i> <?= htmlspecialchars($active_entity_name) ?>
-                    </div>
-                    <div style="font-size:.78rem;color:#64748b;margin-top:8px;line-height:1.4;">
-                        A importação será realizada <strong>nesta entidade</strong>. Verifique se está na entidade correta antes de confirmar.
-                    </div>
-                </div>
-                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:12px 14px;margin-bottom:16px;">
-                    <label style="font-size:.78rem;font-weight:700;text-transform:uppercase;color:#92400e;display:block;margin-bottom:8px;"><i class="ti ti-file-upload"></i> Arquivo para importar <span class="am-required">*</span></label>
-                    <input type="file" name="import_file" class="am-input" accept=".csv,.xlsx,.xls" required style="background:#fff;">
-                    <small style="color:#9ca3af;font-size:.72rem;margin-top:4px;display:block;">Formatos aceitos: CSV, XLSX, XLS</small>
-                </div>
-                <label class="am-agree-check" id="am-import-agree-label">
-                    <input type="checkbox" id="am-import-agree" onchange="amToggleImportBtn()">
-                    <span>Confirmo que quero <strong>importar</strong> para a entidade <strong><?= htmlspecialchars($active_entity_name) ?></strong></span>
-                </label>
-            </div>
-            <div class="am-modal-footer">
-                <button type="button" class="am-btn am-btn-secondary" onclick="amCloseImportModal()"><i class="ti ti-x"></i> Cancelar</button>
-                <button type="submit" id="am-import-btn" class="am-btn" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;opacity:.4;cursor:not-allowed;" disabled><i class="ti ti-download"></i> Confirmar Importação</button>
-            </div>
-        </form>
-    </div>
-</div>
-
 <script>
 // Injeta filtros em todos os forms de ação dos modais
 document.addEventListener('DOMContentLoaded', function() {
@@ -860,35 +805,6 @@ function amClearSelection() {
     if (master) master.checked = false;
     amUpdateBulkBar();
 }
-function amOpenImportModal() {
-    var m = document.getElementById('am-modal-import');
-    if (!m) return;
-    m.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    var cb = document.getElementById('am-import-agree');
-    if (cb) cb.checked = false;
-    amToggleImportBtn();
-}
-function amCloseImportModal(e) {
-    if (e && e.target !== document.getElementById('am-modal-import')) return;
-    var m = document.getElementById('am-modal-import');
-    if (m) m.classList.remove('open');
-    document.body.style.overflow = '';
-}
-function amToggleImportBtn() {
-    var cb = document.getElementById('am-import-agree');
-    var btn = document.getElementById('am-import-btn');
-    if (!cb || !btn) return;
-    btn.disabled = !cb.checked;
-    btn.style.opacity = cb.checked ? '1' : '.4';
-    btn.style.cursor = cb.checked ? 'pointer' : 'not-allowed';
-}
-document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') {
-        var m = document.getElementById('am-modal-import');
-        if (m) { m.classList.remove('open'); document.body.style.overflow=''; }
-    }
-});
 // Fallback JS: garante que ao clicar em tabs de tipo/status o outro filtro não se perca (caso PHP falhe)
 document.addEventListener('click', function(e){
   var tab = e.target.closest('.am-type-tab');
