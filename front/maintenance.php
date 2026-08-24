@@ -98,12 +98,6 @@ $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-dashboard"></i> Dashboard
             </a>
-            <?php if (Session::haveRight('plugin_assetmgrstatus_transfer', READ)): ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.php"
-               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
-                <i class="ti ti-transfer"></i> Transferência
-            </a>
-            <?php endif; ?>
             <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">

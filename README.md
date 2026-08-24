@@ -17,8 +17,8 @@ Plugin GLPI para **registro, acompanhamento e gerenciamento de manutenções de 
 * Desfazer alteração de status (janela de 48h).
 * Aba própria no ativo do GLPI com histórico e componentes.
 
-### Transferência (`front/transfer.php`)
-* Transferência de ativos entre URE e escolas.
+### Transferência (via Inventário)
+* Transferência de ativos entre URE e escolas direto pela barra de ação em massa do **Inventário** (botão **Transferir** ao lado de **Alterar Status em Massa**).
 * Ciclo completo: **pendente → em manutenção → pronto → finalizado**.
 * Bloqueio do ativo durante a transferência (impede edição no inventário).
 * Aplicação definitiva dos status finais no inventário ao finalizar.

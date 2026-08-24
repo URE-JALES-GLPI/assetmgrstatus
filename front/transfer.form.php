@@ -49,7 +49,7 @@ if (Transfer::$last_ticket_error !== '') {
 }
 
 $pdf_url      = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer_pdf.php?id=' . $transfer_id . '&stage=transfer';
-$redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer.php';
+$redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -80,7 +80,7 @@ $redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer.
   <a href="<?= $pdf_url ?>" target="_blank" class="btn-pdf" id="btn-pdf">
     🖨️ Abrir PDF em nova aba
   </a>
-  <a href="<?= $redirect_url ?>" class="btn-voltar">← Voltar para Transferência</a>
+  <a href="<?= $redirect_url ?>" class="btn-voltar">← Voltar para Inventário</a>
 </div>
 <script>
   // Tenta abrir automaticamente após 300ms (funciona na maioria dos navegadores pois é clique direto)

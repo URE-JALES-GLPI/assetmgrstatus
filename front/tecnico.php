@@ -36,12 +36,6 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-arrow-left"></i> Inventário
             </a>
-            <?php if (Session::haveRight('plugin_assetmgrstatus_transfer', READ)): ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.php"
-               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
-                <i class="ti ti-transfer"></i> Transferência
-            </a>
-            <?php endif; ?>
         </div>
     </div>
 

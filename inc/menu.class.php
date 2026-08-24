@@ -34,12 +34,6 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
                     'icon'  => 'ti ti-clipboard-list',
                     'links' => ['search' => $base . '/maintenance.php'],
                 ],
-                'transfer' => [
-                    'title' => 'Transferência',
-                    'page'  => $base . '/transfer.php',
-                    'icon'  => 'ti ti-transfer',
-                    'links' => ['search' => $base . '/transfer.php'],
-                ],
                 'tecnico' => [
                     'title' => 'Técnico',
                     'page'  => $base . '/tecnico.php',
