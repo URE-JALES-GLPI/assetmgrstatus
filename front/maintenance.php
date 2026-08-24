@@ -796,6 +796,16 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
         <form id="am-bulk-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk.form.php">
             <input type="hidden" name="selected_assets" id="am-bulk-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
+            <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
+            <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filter_status) ?>">
+            <input type="hidden" name="filter_search" value="<?= htmlspecialchars($filter_search) ?>">
+            <?php foreach ($filter_comp as $ck => $cv): ?>
+            <input type="hidden" name="filter_comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
+            <?php endforeach; ?>
+            <?php foreach ($filter_fabricante as $ffid): ?>
+            <input type="hidden" name="filter_fabricante[]" value="<?= (int)$ffid ?>">
+            <?php endforeach; ?>
             <div class="am-modal-body">
 
                 <div id="am-bulk-asset-list" style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:.85rem;color:#4b5563;max-height:100px;overflow-y:auto;"></div>
