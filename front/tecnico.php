@@ -453,7 +453,16 @@ function amUpdateTimers() {
 setInterval(amUpdateTimers, 1000);
 amUpdateTimers();
 
-// ---- Atualização suave via AJAX (sem F5 visual) ----
+// ---- Atualização suave via AJAX — só quando houver novidade (hash) ----
+var _amCheckBase = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/tecnico_check.php';
+var _amLastHash = null;
+var _amLastCount = document.querySelectorAll('.am-tc-card').length;
+// Inicializa hash na carga
+fetch(_amCheckBase + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ _amLastHash = d.hash; _amLastCount = d.count; })
+    .catch(function(){});
+
 function amSoftRefresh() {
     var modalOpen = document.querySelector('.am-modal-overlay.open');
     if (modalOpen) return; // não atualiza com modal aberto
@@ -490,6 +499,8 @@ function amSoftRefresh() {
                 // Notifica se chegou card novo
                 if (newCount > oldCount) {
                     amShowNewCardToast();
+                } else if (newCount !== oldCount || newContent.innerHTML !== container.innerHTML) {
+                    // Mudança de status (ex: Pendente → Manutenção) — atualiza silencioso
                 }
             }, 200);
         })
@@ -508,7 +519,24 @@ function amShowNewCardToast() {
     }, 4000);
 }
 
-setInterval(amSoftRefresh, 10000);
+function amCheckForUpdates() {
+    if (document.querySelector('.am-modal-overlay.open')) return;
+    fetch(_amCheckBase + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (_amLastHash === null) { _amLastHash = d.hash; _amLastCount = d.count; return; }
+            if (d.hash !== _amLastHash) {
+                // Houve novidade — atualiza hash e dispara refresh suave
+                var prevCount = _amLastCount;
+                _amLastHash = d.hash;
+                _amLastCount = d.count;
+                // Se aumentou contagem, o toast será exibido dentro do amSoftRefresh
+                // Mas já podemos antecipar se quiser: if (d.count > prevCount) ...
+                amSoftRefresh();
+            }
+        }).catch(function(){});
+}
+setInterval(amCheckForUpdates, 10000);
 </script>
 
 <script>
