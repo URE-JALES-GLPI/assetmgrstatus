@@ -980,26 +980,30 @@ function amClearSelection() {
     if (master) master.checked = false;
     amUpdateBulkBar();
 }
-function amOpenTransferModalFromBulk() {
-    var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
-    if (checkboxes.length === 0) return;
-    var items = [], names = [];
-    checkboxes.forEach(function(cb){
-        items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name});
-        names.push(cb.dataset.name);
-    });
-    var input = document.getElementById('am-tr-selected-assets');
-    var list  = document.getElementById('am-tr-asset-list');
-    if (input) input.value = JSON.stringify(items);
-    if (list) list.innerHTML = '<strong>' + items.length + ' ativo(s) selecionado(s):</strong><br>' + names.join(', ');
-    var agree = document.getElementById('am-tr-agree');
-    if (agree) agree.checked = false;
-    amToggleTransferSubmit();
-    var ureRadio = document.getElementById('am-tr-type-ure');
-    if (ureRadio) { ureRadio.checked = true; amSwitchTransferType('ure'); }
-    var modal = document.getElementById('am-modal-transfer');
-    if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
-}
+window.amOpenTransferModalFromBulk = function() {
+    try {
+        console.log('amOpenTransferModalFromBulk clicked');
+        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
+        console.log('checked', checkboxes.length);
+        if (checkboxes.length === 0) { alert('Selecione ao menos um ativo.'); return; }
+        var items = [], names = [];
+        checkboxes.forEach(function(cb){
+            items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name});
+            names.push(cb.dataset.name);
+        });
+        var input = document.getElementById('am-tr-selected-assets');
+        var list  = document.getElementById('am-tr-asset-list');
+        if (input) input.value = JSON.stringify(items); else console.warn('am-tr-selected-assets not found');
+        if (list) list.innerHTML = '<strong>' + items.length + ' ativo(s) selecionado(s):</strong><br>' + names.join(', '); else console.warn('am-tr-asset-list not found');
+        var agree = document.getElementById('am-tr-agree');
+        if (agree) agree.checked = false;
+        if (typeof amToggleTransferSubmit === 'function') amToggleTransferSubmit();
+        var ureRadio = document.getElementById('am-tr-type-ure');
+        if (ureRadio) { ureRadio.checked = true; if (typeof amSwitchTransferType === 'function') amSwitchTransferType('ure'); }
+        var modal = document.getElementById('am-modal-transfer');
+        if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; console.log('modal opened'); } else { console.error('am-modal-transfer not found'); alert('Modal não encontrado. Verifique se tem permissão de transferência.'); }
+    } catch(e){ console.error('amOpenTransferModalFromBulk error', e); alert('Erro ao abrir transferência: ' + e.message); }
+};
 function amCloseTransferModal(e) {
     if (e && e.target !== document.getElementById('am-modal-transfer')) return;
     var m = document.getElementById('am-modal-transfer');
@@ -1055,6 +1059,18 @@ document.addEventListener('keydown', function(e){
         var m = document.getElementById('am-modal-transfer');
         if (m && m.classList.contains('open')) { m.classList.remove('open'); document.body.style.overflow=''; }
     }
+});
+document.addEventListener('DOMContentLoaded', function(){
+    // Fallback: garante clique no Transferir mesmo se inline onclick falhar
+    var trBtn = document.querySelector('#am-bulk-bar button[onclick*="Transfer"]');
+    if (trBtn) {
+        trBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            if (typeof window.amOpenTransferModalFromBulk === 'function') window.amOpenTransferModalFromBulk();
+            else console.error('amOpenTransferModalFromBulk not found');
+        });
+    }
+    console.log('amOpenTransferModalFromBulk', typeof window.amOpenTransferModalFromBulk, 'modal', !!document.getElementById('am-modal-transfer'));
 });
 // Fallback JS: garante que ao clicar em tabs de tipo/status o outro filtro não se perca (caso PHP falhe)
 document.addEventListener('click', function(e){
