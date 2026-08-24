@@ -421,11 +421,13 @@ class Transfer
         $names = [];
         if ($user_ids) {
             foreach ($DB->request([
-                'SELECT' => ['id', 'name'],
+                'SELECT' => ['id', 'name', 'realname', 'firstname'],
                 'FROM'   => 'glpi_users',
                 'WHERE'  => ['id' => $user_ids],
             ]) as $u) {
-                $names[(int)$u['id']] = $u['name'];
+                $full = trim(($u['firstname'] ?? '') . ' ' . ($u['realname'] ?? ''));
+                if ($full === '') $full = $u['name'];
+                $names[(int)$u['id']] = $full;
             }
         }
         foreach ($rows as &$row) {
@@ -953,7 +955,7 @@ class Transfer
             }
         }
 
-        // Batch 3: nomes dos usuários (técnico + criador) (1 query)
+        // Batch 3: nomes dos usuários (técnico + criador) — nome completo (firstname + realname)
         $user_ids = array_filter(array_unique(array_merge(
             array_column($rows, 'users_id_tech'),
             array_column($rows, 'users_id_created')
@@ -961,11 +963,13 @@ class Transfer
         $user_names = [];
         if ($user_ids) {
             foreach ($DB->request([
-                'SELECT' => ['id', 'name'],
+                'SELECT' => ['id', 'name', 'realname', 'firstname'],
                 'FROM'   => 'glpi_users',
                 'WHERE'  => ['id' => $user_ids],
             ]) as $u) {
-                $user_names[(int)$u['id']] = $u['name'];
+                $full = trim(($u['firstname'] ?? '') . ' ' . ($u['realname'] ?? ''));
+                if ($full === '') $full = $u['name'];
+                $user_names[(int)$u['id']] = $full;
             }
         }
 

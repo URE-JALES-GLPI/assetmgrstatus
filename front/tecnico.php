@@ -19,6 +19,7 @@ $transfers     = Transfer::getAll($filter_status);
 Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
 ?>
 
+<style>@keyframes amSpin{to{transform:rotate(360deg)}}</style>
 <div class="container-fluid am-page">
 
     <div class="am-breadcrumb">
@@ -30,6 +31,10 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-tools"></i><h2>Painel do Técnico</h2></div>
         <div style="display:flex;gap:8px;align-items:center;">
+            <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
+                <i class="ti ti-refresh"></i> Atualizar
+            </button>
+            <span id="am-refresh-time" style="font-size:.72rem;color:#9ca3af;white-space:nowrap;"></span>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-arrow-left"></i> Inventário
@@ -524,6 +529,7 @@ function amCheckForUpdates() {
     fetch(_amCheckBase + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(r){ return r.json(); })
         .then(function(d){
+            amUpdateRefreshTime();
             if (_amLastHash === null) { _amLastHash = d.hash; _amLastCount = d.count; return; }
             if (d.hash !== _amLastHash) {
                 // Houve novidade — atualiza hash e dispara refresh suave
@@ -536,7 +542,32 @@ function amCheckForUpdates() {
             }
         }).catch(function(){});
 }
+function amUpdateRefreshTime(){
+    var el=document.getElementById('am-refresh-time');
+    if(el) el.textContent='Atualizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function amManualRefresh(btn){
+    if(!btn) btn=document.getElementById('am-refresh-btn');
+    var icon=btn ? btn.querySelector('.ti') : null;
+    var origClass=icon ? icon.className : '';
+    if(icon){ icon.className='ti ti-loader-2'; icon.style.display='inline-block'; icon.style.animation='amSpin 0.8s linear infinite'; }
+    if(btn) btn.disabled=true;
+    // Força refresh visual imediato
+    amSoftRefresh();
+    setTimeout(function(){
+        fetch(_amCheckBase + window.location.search, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r){ return r.json(); })
+            .then(function(d){ _amLastHash=d.hash; _amLastCount=d.count; })
+            .catch(function(){})
+            .finally(function(){
+                if(icon){ icon.className=origClass||'ti ti-refresh'; icon.style.animation=''; }
+                if(btn) btn.disabled=false;
+                amUpdateRefreshTime();
+            });
+    }, 900);
+}
 setInterval(amCheckForUpdates, 10000);
+amUpdateRefreshTime();
 </script>
 
 <script>
