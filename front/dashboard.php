@@ -16,8 +16,6 @@ $entity_id  = Session::getActiveEntity();
 $stats      = Stats::getAll($entity_id);
 $monthly    = Stats::getMonthlyHistory($entity_id);
 $alert_list = Stats::getAlertAssets($entity_id);
-$recent     = MaintenanceRecord::getHistory('', 0, 5);
-$comp_list  = MaintenanceRecord::getComponents();
 ?>
 <div class="container-fluid am-page">
     <div class="am-page-header">
@@ -118,35 +116,6 @@ $comp_list  = MaintenanceRecord::getComponents();
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
-        </div>
-    </div>
-
-    <!-- Histórico recente -->
-    <div class="am-dash-section">
-        <div class="am-section-title" style="justify-content:space-between;">
-            <div style="display:flex;align-items:center;gap:10px;"><i class="ti ti-history"></i><h3>Histórico Recente</h3></div>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" style="font-size:.82rem;color:#4f46e5;">Ver tudo →</a>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-            <?php if (empty($recent)): ?>
-            <div class="am-empty-state am-empty-small"><i class="ti ti-clipboard-off"></i><p>Nenhum registro ainda.</p></div>
-            <?php else: foreach ($recent as $h):
-                $rt = $h['record_type'] ?? MaintenanceRecord::RECORD_STATUS_CHANGE;
-                $border = match($rt){MaintenanceRecord::RECORD_MANUTENCAO=>'#10b981',MaintenanceRecord::RECORD_BAIXA=>'#ef4444',default=>'#4f46e5'};
-                $tl = match($rt){MaintenanceRecord::RECORD_MANUTENCAO=>'🔧 Manutenção',MaintenanceRecord::RECORD_BAIXA=>'📦 Baixa',default=>'🔄 Status'};
-                $u=new User(); $uname=($h['users_id']&&$u->getFromDB($h['users_id']))?$u->getName():'Sistema';
-            ?>
-            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#fff;border:1.5px solid #e8eaf0;border-left:4px solid <?= $border ?>;border-radius:10px;">
-                <div style="flex:1;">
-                    <div style="font-weight:700;font-size:.9rem;"><?= htmlspecialchars($h['item_name']) ?></div>
-                    <div style="font-size:.78rem;color:#9ca3af;"><?= $tl ?> • <?= htmlspecialchars($uname) ?> • <?= Html::convDateTime($h['date_creation']) ?></div>
-                    <?php $desc = $h['action_description'] ?: $h['reason']; if ($desc): ?>
-                    <div style="font-size:.82rem;color:#555;margin-top:3px;"><?= htmlspecialchars(mb_substr($desc,0,80)) ?>...</div>
-                    <?php endif; ?>
-                </div>
-                <span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($h['status_new']) ?>"><?= MaintenanceRecord::getStatusLabel($h['status_new']) ?></span>
-            </div>
-            <?php endforeach; endif; ?>
         </div>
     </div>
 </div>
