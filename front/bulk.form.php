@@ -43,5 +43,13 @@ foreach ($items as $item) {
 }
 
 Session::addMessageAfterRedirect("Status alterado em massa para $count ativo(s)!", false, INFO);
-$view = $_POST['view_mode'] ?? 'grid';
-Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view));
+$view = $_POST['view_mode'] ?? $_POST['view'] ?? 'grid';
+$filter_type = $_POST['filter_type'] ?? '';
+$filter_status = $_POST['filter_status'] ?? '';
+$filter_search = $_POST['filter_search'] ?? '';
+$filter_comp = $_POST['filter_comp'] ?? [];
+$filter_fabricante = $_POST['filter_fabricante'] ?? [];
+$qs = http_build_query(['view' => $view, 'type' => $filter_type, 'status' => $filter_status, 'search' => $filter_search]);
+foreach ((array)$filter_comp as $k => $v) { $qs .= '&comp%5B' . urlencode($k) . '%5D=' . urlencode($v); }
+foreach ((array)$filter_fabricante as $fid) { $qs .= '&fabricante%5B%5D=' . urlencode($fid); }
+Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);
