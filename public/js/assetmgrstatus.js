@@ -449,7 +449,7 @@
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-            ['am-modal-overlay','am-modal-manutencao','am-modal-baixa','am-modal-bulk','am-modal-undo-confirm','am-modal-note'].forEach(function(id){
+            ['am-modal-overlay','am-modal-manutencao','am-modal-baixa','am-modal-bulk','am-modal-bulk-confirm','am-modal-transfer','am-modal-transfer-confirm','am-modal-bulk-delete','am-modal-undo-confirm','am-modal-note'].forEach(function(id){
                 var el = document.getElementById(id);
                 if (el) el.classList.remove('open');
             });
@@ -562,13 +562,16 @@
             console.log('checked', cbs.length);
             if (cbs.length === 0) { alert('Selecione ao menos um ativo.'); return; }
             var items=[], names=[];
-            cbs.forEach(function(cb){ items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name}); names.push(cb.dataset.name); });
+            cbs.forEach(function(cb){
+                var oserial = cb.dataset.otherserial || cb.dataset.serial || '';
+                items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: oserial});
+                names.push(cb.dataset.name + (oserial ? ' ('+oserial+')' : ''));
+            });
             var inp = document.getElementById('am-tr-selected-assets');
             var lst = document.getElementById('am-tr-asset-list');
             if (inp) inp.value = JSON.stringify(items); else console.warn('am-tr-selected-assets missing');
             if (lst) lst.innerHTML = '<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', '); else console.warn('am-tr-asset-list missing');
-            var ag = document.getElementById('am-tr-agree'); if (ag) ag.checked=false;
-            if (typeof window.amToggleTransferSubmit === 'function') window.amToggleTransferSubmit();
+            // reset destino para URE por padrão
             var ur = document.getElementById('am-tr-type-ure'); if (ur) { ur.checked=true; if (typeof window.amSwitchTransferType==='function') window.amSwitchTransferType('ure'); }
             var mod = document.getElementById('am-modal-transfer');
             if (mod) { mod.classList.add('open'); document.body.style.overflow='hidden'; console.log('modal opened'); } else { console.error('am-modal-transfer missing'); alert('Modal Transferir não encontrado.'); }
@@ -578,6 +581,7 @@
         if (e && e.target !== document.getElementById('am-modal-transfer')) return;
         var m=document.getElementById('am-modal-transfer'); if(m) m.classList.remove('open'); document.body.style.overflow='';
     };
+    // legado — mantido para fallback inline, mas não usado no novo fluxo (confirmação em 2ª janela)
     window.amToggleTransferSubmit = function() {
         var cb=document.getElementById('am-tr-agree'); var b=document.getElementById('am-tr-submit'); if(!cb||!b) return; b.disabled=!cb.checked; b.style.opacity=cb.checked?'1':'.4'; b.style.cursor=cb.checked?'pointer':'not-allowed';
     };
@@ -588,6 +592,105 @@
         if(!ureS||!escS) return;
         if(type==='ure'){ ureS.style.display='block'; escS.style.display='none'; ureSel.name='entity_dest'; ureSel.disabled=false; ureSel.required=true; escSel.name='entity_dest_escola_disabled'; escSel.disabled=true; escSel.required=false; ureL.style.borderColor='#1e40af'; ureL.style.background='#eff6ff'; escL.style.borderColor='#e8eaf0'; escL.style.background='#f8f9fb'; }
         else { ureS.style.display='none'; escS.style.display='block'; escSel.name='entity_dest'; escSel.disabled=false; escSel.required=true; ureSel.name='entity_dest_ure_disabled'; ureSel.disabled=true; ureSel.required=false; escL.style.borderColor='#1e40af'; escL.style.background='#eff6ff'; ureL.style.borderColor='#e8eaf0'; ureL.style.background='#f8f9fb'; }
+    };
+    // ---- Fluxo de confirmação da Transferência (igual ao de Ação em Massa) ----
+    window.amConfirmTransfer = function() {
+        var form = document.getElementById('am-transfer-form');
+        if (!form) return;
+        // Valida campos obrigatórios do primeiro modal
+        var typeEl = form.querySelector('input[name="transfer_type"]:checked');
+        if (!typeEl) { alert('Selecione o tipo de destino.'); return; }
+        var type = typeEl.value;
+        var ureSel = document.getElementById('am-tr-entity-ure');
+        var escSel = document.getElementById('am-tr-entity-escola');
+        var entityName = '';
+        if (type === 'ure') {
+            entityName = ureSel.options[ureSel.selectedIndex]?.text || 'URE';
+            // URE sempre 0 (Unidade Regional), não precisa validar seleção
+        } else {
+            if (!escSel.value) { alert('Selecione a escola de destino.'); escSel.focus(); escSel.style.borderColor='#ef4444'; setTimeout(function(){escSel.style.borderColor='';},1500); return; }
+            entityName = escSel.options[escSel.selectedIndex]?.text || 'Escola';
+        }
+        var reasonEl = form.querySelector('textarea[name="reason"]');
+        var reason = reasonEl ? reasonEl.value.trim() : '';
+        if (!reason) { alert('Preencha o motivo da transferência.'); if(reasonEl){reasonEl.focus(); reasonEl.style.borderColor='#ef4444'; setTimeout(function(){reasonEl.style.borderColor='';},1500);} return; }
+        var catEl = form.querySelector('select[name="ticket_category"]');
+        if (!catEl || !catEl.value) { alert('Selecione a categoria do chamado.'); if(catEl){catEl.focus(); catEl.style.borderColor='#ef4444'; setTimeout(function(){catEl.style.borderColor='';},1500);} return; }
+        var catName = catEl.options[catEl.selectedIndex]?.text || '';
+        // Itens selecionados
+        var inp = document.getElementById('am-tr-selected-assets');
+        var items = [];
+        try { items = JSON.parse(inp.value || '[]'); } catch(e){ items=[]; }
+        if (!items.length) { alert('Nenhum ativo selecionado.'); return; }
+        // Monta resumo
+        var typeLabel = type === 'ure' ? 'URE' : 'Escola';
+        var summaryHtml =
+            '<div style="text-align:center;margin-bottom:16px;">' +
+            '<div style="width:56px;height:56px;background:linear-gradient(135deg,#1e40af,#3b82f6);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-transfer" style="font-size:1.8rem;color:#fff;"></i></div>' +
+            '<div style="font-size:1.05rem;font-weight:800;color:#1e1b4b;margin-bottom:6px;">Confirmar transferência?</div>' +
+            '<div style="font-size:.85rem;color:#9ca3af;">Esta ação enviará <strong>'+items.length+' ativo(s)</strong> para <strong>'+entityName+'</strong>.</div>' +
+            '</div>' +
+            '<div style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;font-size:.85rem;"><span style="color:#9ca3af;">Tipo destino</span><strong>'+typeLabel+'</strong></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:.85rem;"><span style="color:#9ca3af;">Destino</span><strong style="text-align:right;max-width:60%;">'+entityName+'</strong></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:.85rem;gap:10px;"><span style="color:#9ca3af;flex-shrink:0;">Motivo</span><span style="text-align:right;color:#374151;">'+reason.substring(0,80)+(reason.length>80?'...':'')+'</span></div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:.85rem;"><span style="color:#9ca3af;">Categoria</span><span style="text-align:right;color:#374151;">'+catName+'</span></div>' +
+            '</div>';
+        document.getElementById('am-tr-confirm-body').innerHTML = summaryHtml;
+        // Monta lista desmarcável
+        var listEl = document.getElementById('am-tr-confirm-list');
+        var listHtml = '';
+        items.forEach(function(it, idx){
+            var label = it.name || ('Ativo #'+it.id);
+            var num = it.otherserial ? 'Nº '+it.otherserial : '';
+            listHtml += '<label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:8px 10px;cursor:pointer;">' +
+                        '<input type="checkbox" class="am-tr-confirm-cb" data-idx="'+idx+'" value="'+it.id+'" data-itemtype="'+it.itemtype+'" data-name="'+(it.name||'').replace(/"/g,'&quot;')+'" data-otherserial="'+(it.otherserial||'').replace(/"/g,'&quot;')+'" checked style="width:18px;height:18px;accent-color:#1e40af;flex-shrink:0;" onchange="amTransferConfirmUpdateCount()">' +
+                        '<span style="flex:1;min-width:0;"><span style="font-weight:700;font-size:.85rem;color:#1f2937;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</span><span style="font-size:.75rem;color:#9ca3af;">'+num+'</span></span>' +
+                        '</label>';
+        });
+        listEl.innerHTML = listHtml;
+        document.getElementById('am-tr-confirm-count').textContent = items.length;
+        document.getElementById('am-tr-confirm-agree').checked = false; amToggleTransferConfirmBtn();
+        document.getElementById('am-modal-transfer-confirm').classList.add('open');
+    };
+    window.amCloseTransferConfirm = function(e){
+        if (e && e.target !== document.getElementById('am-modal-transfer-confirm')) return;
+        document.getElementById('am-modal-transfer-confirm').classList.remove('open');
+    };
+    window.amToggleTransferConfirmBtn = function(){
+        var cb=document.getElementById('am-tr-confirm-agree'); var btn=document.getElementById('am-tr-confirm-btn'); if(!cb||!btn) return;
+        var checked = cb.checked; var count = document.querySelectorAll('.am-tr-confirm-cb:checked').length;
+        var enable = checked && count>0; btn.disabled=!enable; btn.style.opacity=enable?'1':'.4'; btn.style.cursor=enable?'pointer':'not-allowed';
+    };
+    window.amTransferConfirmUpdateCount = function(){
+        var count = document.querySelectorAll('.am-tr-confirm-cb:checked').length;
+        var el=document.getElementById('am-tr-confirm-count'); if(el) el.textContent = count;
+        amToggleTransferConfirmBtn();
+    };
+    window.amTransferConfirmToggleAll = function(checked){
+        document.querySelectorAll('.am-tr-confirm-cb').forEach(function(cb){ cb.checked=checked; });
+        amTransferConfirmUpdateCount();
+    };
+    window.amSubmitTransferConfirmed = function(){
+        var cbs = document.querySelectorAll('.am-tr-confirm-cb:checked');
+        if (!cbs.length) { alert('Selecione ao menos um ativo para transferir.'); return; }
+        var items=[];
+        cbs.forEach(function(cb){ items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: cb.dataset.otherserial}); });
+        var inp=document.getElementById('am-tr-selected-assets'); if(inp) inp.value = JSON.stringify(items);
+        // Sincroniza seleção original na grade/lista (desmarca os removidos)
+        var keptIds = items.map(function(i){return String(i.id)});
+        document.querySelectorAll('.am-bulk-checkbox:checked').forEach(function(bcb){
+            if (keptIds.indexOf(bcb.value)===-1) { bcb.checked=false; }
+        });
+        if (typeof window.amUpdateBulkBar === 'function') window.amUpdateBulkBar();
+        // Atualiza lista resumida do primeiro modal para refletir o que vai ser enviado
+        var lst=document.getElementById('am-tr-asset-list');
+        if (lst) {
+            var names = items.map(function(i){return i.name + (i.otherserial ? ' ('+i.otherserial+')' : '')});
+            lst.innerHTML = '<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', ');
+        }
+        document.getElementById('am-modal-transfer-confirm').classList.remove('open');
+        document.getElementById('am-transfer-form').submit();
     };
 
     window.amOpenBulkModal = function () {

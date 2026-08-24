@@ -320,18 +320,32 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             var cbs=document.querySelectorAll('.am-bulk-checkbox:checked');
             if(!cbs.length){alert('Selecione ao menos um ativo.');return;}
             var items=[],names=[];
-            cbs.forEach(function(cb){items.push({id:parseInt(cb.value),itemtype:cb.dataset.itemtype,name:cb.dataset.name});names.push(cb.dataset.name);});
+            cbs.forEach(function(cb){
+                var oserial=cb.dataset.otherserial||cb.dataset.serial||'';
+                items.push({id:parseInt(cb.value),itemtype:cb.dataset.itemtype,name:cb.dataset.name,otherserial:oserial});
+                names.push(cb.dataset.name + (oserial ? ' ('+oserial+')' : ''));
+            });
             var inp=document.getElementById('am-tr-selected-assets');
             var lst=document.getElementById('am-tr-asset-list');
             if(inp) inp.value=JSON.stringify(items);
             if(lst) lst.innerHTML='<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', ');
-            var ag=document.getElementById('am-tr-agree'); if(ag) ag.checked=false;
-            window.amToggleTransferSubmit();
             var ur=document.getElementById('am-tr-type-ure'); if(ur){ur.checked=true; window.amSwitchTransferType('ure');}
             var mod=document.getElementById('am-modal-transfer');
             if(mod){mod.classList.add('open'); document.body.style.overflow='hidden'; console.log('modal opened fallback');}
             else {console.error('am-modal-transfer missing'); alert('Modal Transferir não encontrado. Verifique permissão.');}
         }catch(e){console.error(e);alert('Erro: '+e.message);}
+    };
+    // Fallback para confirmação (caso assetmgrstatus.js não carregue)
+    window.amConfirmTransfer = window.amConfirmTransfer || function(){
+        var f=document.getElementById('am-transfer-form'); if(!f) return;
+        if(!f.checkValidity()){ f.reportValidity(); return; }
+        // tenta abrir segunda janela se existir, senão envia direto
+        if(document.getElementById('am-modal-transfer-confirm')){ if(typeof window.amConfirmTransfer==='function' && window.amConfirmTransfer.toString().indexOf('am-tr-confirm-body')!==-1) return; }
+        f.submit();
+    };
+    window.amCloseTransferConfirm = window.amCloseTransferConfirm || function(e){
+        if(e && e.target !== document.getElementById('am-modal-transfer-confirm')) return;
+        var m=document.getElementById('am-modal-transfer-confirm'); if(m) m.classList.remove('open');
     };
     </script>
 
@@ -358,7 +372,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             </div>
             <?php endif; ?>
             <div class="am-card-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" onchange="amUpdateBulkBar()">
+                <input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()">
             </div>
             <?php if ($alert60):
                 $days = $asset['days_since_maintenance'];
@@ -445,7 +459,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             ?>
             <?php $is_transferred_row = !empty($asset['transfer_status']) && $asset['transfer_status'] === 'transferido'; ?>
             <tr class="am-list-row <?= $is_transferred_row ? 'am-row-locked-transfer' : '' ?>" data-asset-id="<?= (int)$asset['id'] ?>" <?= $is_transferred_row ? '' : 'onclick="amHandleAssetClick(this, event)"' ?>>
-                <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" onchange="amUpdateBulkBar()"></td>
+                <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()"></td>
                 <td><div style="display:flex;align-items:center;gap:8px;"><span class="am-list-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></span><span style="font-size:.8rem;color:#9ca3af;font-weight:600;text-transform:uppercase;"><?= htmlspecialchars($asset['asset_type_label']) ?></span></div></td>
                 <td><strong><?= htmlspecialchars($asset['name']) ?></strong><?php if (!empty($asset['manufacturer_name'])): ?><div style="font-size:.72rem;color:#6b7280;display:flex;align-items:center;gap:3px;margin-top:2px;"><i class="ti ti-building-factory-2" style="font-size:.75rem;"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['serial'] ?? '—') ?></td>
@@ -836,7 +850,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <div class="am-modal-title"><i class="ti ti-transfer"></i><span>Nova Transferência</span></div>
             <button class="am-modal-close" onclick="amCloseTransferModal()"><i class="ti ti-x"></i></button>
         </div>
-        <form id="am-transfer-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.form.php">
+        <form id="am-transfer-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.form.php" novalidate>
             <input type="hidden" name="selected_assets" id="am-tr-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <div class="am-modal-body">
@@ -900,23 +914,53 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
                         <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI com todas as informações da transferência.
                     </small>
                 </div>
-                <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px;margin-top:16px;">
-                    <label class="am-agree-check" style="margin:0;background:transparent;border:none;padding:0;">
-                        <input type="checkbox" id="am-tr-agree" onchange="amToggleTransferSubmit()" style="width:20px;height:20px;">
-                        <span style="font-size:.88rem;">Confirmo que as informações da transferência estão corretas e <strong>autorizo o envio</strong> dos ativos selecionados.</span>
-                    </label>
-                </div>
             </div>
             <div class="am-modal-footer" style="position:sticky;bottom:0;z-index:2;">
                 <button type="button" class="am-btn am-btn-secondary" onclick="amCloseTransferModal()"><i class="ti ti-x"></i> Cancelar</button>
-                <button type="submit" id="am-tr-submit" class="am-btn" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;opacity:.4;cursor:not-allowed;" disabled>
-                    <i class="ti ti-transfer"></i> Confirmar Transferência
+                <button type="button" id="am-tr-submit" class="am-btn" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;" onclick="amConfirmTransfer()">
+                    <i class="ti ti-checks"></i> Revisar e Confirmar
                 </button>
             </div>
         </form>
     </div>
 </div>
 <?php endif; ?>
+
+<!-- Modal de confirmação de Transferência (igual ao de Ação em Massa) -->
+<div id="am-modal-transfer-confirm" class="am-modal-overlay" onclick="event.stopPropagation()">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#1e40af,#3b82f6);">
+            <div class="am-modal-title"><i class="ti ti-transfer"></i><span>Confirmar Transferência</span></div>
+        </div>
+        <div class="am-modal-body" style="padding:24px 28px;">
+            <div id="am-tr-confirm-body"></div>
+            <div style="margin-top:16px;">
+                <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.06em;margin-bottom:8px;"><i class="ti ti-list"></i> Equipamentos — desmarque para remover</div>
+                <div id="am-tr-confirm-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px;background:#f8f9fb;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:.78rem;">
+                    <span style="color:#9ca3af;"><span id="am-tr-confirm-count">0</span> selecionado(s)</span>
+                    <button type="button" style="background:transparent;border:none;color:#4f46e5;font-weight:700;font-size:.78rem;cursor:pointer;" onclick="amTransferConfirmToggleAll(true)">Marcar todos</button>
+                    <span style="color:#e5e7eb;">|</span>
+                    <button type="button" style="background:transparent;border:none;color:#6b7280;font-weight:700;font-size:.78rem;cursor:pointer;" onclick="amTransferConfirmToggleAll(false)">Desmarcar todos</button>
+                </div>
+            </div>
+        </div>
+        <div style="padding:0 28px 16px;">
+            <label class="am-agree-check" id="am-tr-confirm-agree-label">
+                <input type="checkbox" id="am-tr-confirm-agree" onchange="amToggleTransferConfirmBtn()">
+                <span>Confirmo que as informações estão corretas e <strong>autorizo o envio</strong></span>
+            </label>
+        </div>
+        <div class="am-modal-footer" style="justify-content:center;gap:16px;">
+            <button type="button" class="am-btn am-btn-secondary" style="min-width:130px;" onclick="amCloseTransferConfirm()">
+                <i class="ti ti-x"></i> Não, cancelar
+            </button>
+            <button type="button" id="am-tr-confirm-btn" class="am-btn" style="min-width:130px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;opacity:.4;cursor:not-allowed;" disabled onclick="amSubmitTransferConfirmed()">
+                <i class="ti ti-check"></i> Sim, confirmar
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Modal Excluir em Massa (GLPI + Plugin) -->
 <?php if ($can_delete): ?>
@@ -1035,16 +1079,14 @@ window.amOpenTransferModalFromBulk = function() {
         if (checkboxes.length === 0) { alert('Selecione ao menos um ativo.'); return; }
         var items = [], names = [];
         checkboxes.forEach(function(cb){
-            items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name});
-            names.push(cb.dataset.name);
+            var oserial = cb.dataset.otherserial || cb.dataset.serial || '';
+            items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: oserial});
+            names.push(cb.dataset.name + (oserial ? ' ('+oserial+')' : ''));
         });
         var input = document.getElementById('am-tr-selected-assets');
         var list  = document.getElementById('am-tr-asset-list');
         if (input) input.value = JSON.stringify(items); else console.warn('am-tr-selected-assets not found');
         if (list) list.innerHTML = '<strong>' + items.length + ' ativo(s) selecionado(s):</strong><br>' + names.join(', '); else console.warn('am-tr-asset-list not found');
-        var agree = document.getElementById('am-tr-agree');
-        if (agree) agree.checked = false;
-        if (typeof amToggleTransferSubmit === 'function') amToggleTransferSubmit();
         var ureRadio = document.getElementById('am-tr-type-ure');
         if (ureRadio) { ureRadio.checked = true; if (typeof amSwitchTransferType === 'function') amSwitchTransferType('ure'); }
         var modal = document.getElementById('am-modal-transfer');
@@ -1132,10 +1174,10 @@ window.amToggleBulkDeleteBtn = function() {
 };
 document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
-        var m = document.getElementById('am-modal-transfer');
-        if (m && m.classList.contains('open')) { m.classList.remove('open'); document.body.style.overflow=''; }
-        var md = document.getElementById('am-modal-bulk-delete');
-        if (md && md.classList.contains('open')) { md.classList.remove('open'); document.body.style.overflow=''; }
+        ['am-modal-transfer','am-modal-transfer-confirm','am-modal-bulk','am-modal-bulk-confirm','am-modal-bulk-delete','am-modal-overlay','am-modal-manutencao','am-modal-baixa','am-modal-undo-confirm','am-modal-note'].forEach(function(id){
+            var el=document.getElementById(id); if(el) el.classList.remove('open');
+        });
+        document.body.style.overflow='';
     }
 });
 document.addEventListener('DOMContentLoaded', function(){
