@@ -433,13 +433,37 @@
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-            ['am-modal-overlay','am-modal-manutencao','am-modal-baixa','am-modal-bulk','am-modal-undo-confirm','am-modal-note'].forEach(function(id){
+            ['am-modal-overlay','am-modal-manutencao','am-modal-baixa','am-modal-bulk','am-modal-undo-confirm','am-modal-note','am-modal-import'].forEach(function(id){
                 var el = document.getElementById(id);
                 if (el) el.classList.remove('open');
             });
             document.body.style.overflow = '';
         }
     });
+
+    window.amOpenImportModal = function() {
+        var m = document.getElementById('am-modal-import');
+        if (!m) return;
+        m.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        var cb = document.getElementById('am-import-agree');
+        if (cb) cb.checked = false;
+        if (typeof window.amToggleImportBtn === 'function') window.amToggleImportBtn();
+    };
+    window.amCloseImportModal = function(e) {
+        if (e && e.target !== document.getElementById('am-modal-import')) return;
+        var m = document.getElementById('am-modal-import');
+        if (m) m.classList.remove('open');
+        document.body.style.overflow = '';
+    };
+    window.amToggleImportBtn = function() {
+        var cb = document.getElementById('am-import-agree');
+        var btn = document.getElementById('am-import-btn');
+        if (!cb || !btn) return;
+        btn.disabled = !cb.checked;
+        btn.style.opacity = cb.checked ? '1' : '.4';
+        btn.style.cursor = cb.checked ? 'pointer' : 'not-allowed';
+    };
 
     window.amToggleCompField = function (checkbox, comp_key) {
         var field = document.getElementById('comp-field-' + comp_key);
