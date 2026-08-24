@@ -240,3 +240,67 @@ function plugin_assetmgrstatus_uninstall(): bool
     PluginAssetmgrstatusProfile::uninstall();
     return true;
 }
+
+// Bloqueia edição de ativos que estão em transferência (descrição, etc)
+function plugin_assetmgrstatus_pre_item_update(\CommonDBTM $item): bool
+{
+    global $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK, $DB;
+
+    if (!empty($PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK)) {
+        return true;
+    }
+
+    $itemtype = $item->getType();
+    $items_id = (int)($item->getID() ?: ($item->fields['id'] ?? 0));
+    if (!$items_id) {
+        // Tentativa de criação, não bloqueia
+        return true;
+    }
+
+    // Verifica se é um dos tipos gerenciados pelo plugin
+    $valid = [];
+    foreach (['Desktop','Notebook','Celular','Tablet','Switch','Televisao','Firewall','RackdeRede','PlataformadeRecarga','AccessPoint'] as $t) {
+        $valid[] = 'Glpi\\CustomAsset\\' . $t;
+        $valid[] = 'Glpi\\CustomAsset\\' . $t . 'Asset';
+    }
+    if (!in_array($itemtype, $valid, true)) {
+        return true;
+    }
+
+    try {
+        $iter = $DB->request([
+            'SELECT' => ['transfer_status', 'transfers_id'],
+            'FROM'   => 'glpi_plugin_assetmgrstatus_records',
+            'WHERE'  => ['itemtype' => $itemtype, 'items_id' => $items_id],
+            'LIMIT'  => 1,
+        ]);
+        // Fallback: busca por items_id apenas (caso itemtype divergente)
+        if ($iter->count() === 0) {
+            $iter = $DB->request([
+                'SELECT' => ['transfer_status', 'transfers_id'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_records',
+                'WHERE'  => ['items_id' => $items_id, 'transfer_status' => 'transferido'],
+                'LIMIT'  => 1,
+            ]);
+        }
+        if ($iter->count() === 0) {
+            return true;
+        }
+        $row = $iter->current();
+        if (($row['transfer_status'] ?? '') !== 'transferido') {
+            return true;
+        }
+
+        // Bloqueia qualquer alteração direta no GLPI enquanto transferido
+        // Permite apenas desbloqueio via Transfer::unlockAsset (que usa bypass flag)
+        \Session::addMessageAfterRedirect(
+            'Edição bloqueada: este ativo está em transferência (Transferência #' . str_pad((int)($row['transfers_id'] ?? 0), 4, '0', STR_PAD_LEFT) . ') e aguardando retorno do técnico. Nenhuma alteração na descrição pode ser feita até a devolução.',
+            false,
+            ERROR
+        );
+        return false;
+    } catch (\Throwable $e) {
+        // Em caso de erro, não bloqueia para não impedir uso
+        return true;
+    }
+}

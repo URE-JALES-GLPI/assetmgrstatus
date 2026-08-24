@@ -497,7 +497,7 @@
         if (e.target.closest('a, button, input, .am-btn, .am-card-checkbox, .am-alert-trigger, .am-alert-popup')) return;
         if (el.classList.contains('am-card-locked-transfer') || el.classList.contains('am-row-locked-transfer')) return;
         var cb = el.querySelector('.am-bulk-checkbox');
-        if (!cb) return;
+        if (!cb || cb.disabled) return;
         cb.checked = !cb.checked;
         cb.dispatchEvent(new Event('change', {bubbles: true}));
         if (typeof window.amUpdateBulkBar === 'function') window.amUpdateBulkBar();
@@ -505,7 +505,9 @@
 
     // ---- Seleção em massa ----
     window.amUpdateBulkBar = function () {
-        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
+        // Desmarca qualquer checkbox desabilitado que por algum motivo ficou marcado (ex: manipulação via devtools)
+        document.querySelectorAll('.am-bulk-checkbox:disabled:checked').forEach(function(cb){ cb.checked=false; });
+        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
         var bar = document.getElementById('am-bulk-bar');
         var countEl = document.getElementById('am-bulk-count');
         if (!bar) return;
@@ -544,21 +546,23 @@
     };
 
     window.amClearSelection = function () {
-        document.querySelectorAll('.am-bulk-checkbox').forEach(function(cb){ cb.checked = false; });
+        document.querySelectorAll('.am-bulk-checkbox:not(:disabled)').forEach(function(cb){ cb.checked = false; });
         var selectAll = document.getElementById('am-select-all');
         if (selectAll) selectAll.checked = false;
         amUpdateBulkBar();
     };
 
     window.amToggleSelectAll = function (master) {
-        document.querySelectorAll('.am-bulk-checkbox').forEach(function(cb){ cb.checked = master.checked; });
+        document.querySelectorAll('.am-bulk-checkbox:not(:disabled)').forEach(function(cb){ cb.checked = master.checked; });
+        // Garante que desabilitados permaneçam desmarcados
+        document.querySelectorAll('.am-bulk-checkbox:disabled').forEach(function(cb){ cb.checked=false; });
         amUpdateBulkBar();
     };
 
     window.amOpenTransferModalFromBulk = function() {
         try {
             console.log('amOpenTransferModalFromBulk (js) called');
-            var cbs = document.querySelectorAll('.am-bulk-checkbox:checked');
+            var cbs = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
             console.log('checked', cbs.length);
             if (cbs.length === 0) { alert('Selecione ao menos um ativo.'); return; }
             var items=[], names=[];
@@ -694,8 +698,9 @@
     };
 
     window.amOpenBulkModal = function () {
-        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
-        if (checkboxes.length === 0) return;
+        // Ignora itens desabilitados (em transferência)
+        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
+        if (checkboxes.length === 0) { alert('Selecione ao menos um ativo.'); return; }
 
         var items = [];
         var names = [];
@@ -808,3 +813,65 @@ window.amToggleTheme = function() {
     localStorage.setItem(_amThemeKey, newDark ? 'dark' : 'light');
     _amApplyTheme(newDark);
 };
+
+// ---- Bloqueia edição de ativo quando em transferência (descrição, etc) ----
+(function(){
+    function amGetBase(){
+        var scripts=document.querySelectorAll('script[src*="assetmgrstatus"]');
+        if(scripts.length) return scripts[scripts.length-1].src.split('/public/js/')[0];
+        var p=window.location.pathname; var i=p.indexOf('/plugins/assetmgrstatus/');
+        if(i!==-1) return p.substring(0,i)+'/plugins/assetmgrstatus';
+        return '/plugins/assetmgrstatus';
+    }
+    function amLockAssetForm(transferId){
+        // Evita duplicar banner
+        if(document.getElementById('am-locked-banner')) return;
+        var banner=document.createElement('div');
+        banner.id='am-locked-banner';
+        banner.style.cssText='background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:12px 16px;margin:16px 0;display:flex;gap:10px;align-items:center;color:#92400e;font-size:.88rem;';
+        banner.innerHTML='<i class="ti ti-lock" style="font-size:1.4rem;color:#f97316;"></i><div><strong style="display:block;color:#c2410c;">Ativo em transferência — edição bloqueada</strong>Este ativo está com status <strong>transferido</strong> (Transferência #'+String(transferId).padStart(4,'0')+') e aguardando retorno do técnico. Nenhuma alteração na descrição, status ou componentes pode ser feita até a devolução.</div>';
+        // Tenta inserir no topo do form
+        var form=document.querySelector('form');
+        if(form && form.parentNode) form.parentNode.insertBefore(banner, form);
+        else document.body.prepend(banner);
+        // Desabilita inputs do form principal (exceto botões de voltar/visualizar)
+        if(form){
+            form.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(function(el){
+                // Mantém botões de navegação (voltar, lista) habilitados — detecta por texto/classe
+                if(el.tagName==='BUTTON' && el.type!=='submit') return;
+                if(el.closest && el.closest('.am-locked-banner')) return;
+                // Não desabilita o próprio checkbox de transferência (não existe no form GLPI)
+                el.disabled=true;
+                el.style.opacity='0.6';
+                el.style.pointerEvents='none';
+                el.title='Bloqueado — ativo em transferência';
+            });
+            // Impede submit
+            form.addEventListener('submit', function(e){ e.preventDefault(); alert('Edição bloqueada: ativo em transferência. Aguarde o retorno do técnico.'); return false; }, true);
+        }
+    }
+    function amCheckLocked(){
+        try{
+            var path=window.location.pathname;
+            if(path.indexOf('/front/asset/asset.form.php')===-1 && path.indexOf('/front/asset/')===-1) return;
+            var params=new URLSearchParams(window.location.search);
+            var id=parseInt(params.get('id')||params.get('items_id')||'0',10);
+            if(!id) {
+                // tenta extrair do DOM (GLPI às vezes usa campo hidden)
+                var hid=document.querySelector('input[name="id"]'); if(hid) id=parseInt(hid.value||'0',10);
+            }
+            if(!id) return;
+            var base=amGetBase();
+            // Usa current_record com apenas items_id (agora suporta sem itemtype)
+            fetch(base + '/ajax/current_record.php?items_id=' + id)
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                    if(data && data.transfer_status==='transferido'){
+                        amLockAssetForm(data.transfers_id || '');
+                    }
+                }).catch(function(){});
+        }catch(e){}
+    }
+    if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', amCheckLocked);
+    else amCheckLocked();
+})();

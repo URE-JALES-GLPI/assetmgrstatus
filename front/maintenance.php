@@ -317,7 +317,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
     window.amOpenTransferModalFromBulk = window.amOpenTransferModalFromBulk || function(){
         try{
             console.log('fallback amOpenTransferModalFromBulk');
-            var cbs=document.querySelectorAll('.am-bulk-checkbox:checked');
+            var cbs=document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
             if(!cbs.length){alert('Selecione ao menos um ativo.');return;}
             var items=[],names=[];
             cbs.forEach(function(cb){
@@ -372,7 +372,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             </div>
             <?php endif; ?>
             <div class="am-card-checkbox" onclick="event.stopPropagation()">
-                <input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()">
+                <input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()" <?= $is_transferred ? 'disabled title="Em transferência — não pode ser selecionado"' : '' ?>>
             </div>
             <?php if ($alert60):
                 $days = $asset['days_since_maintenance'];
@@ -459,7 +459,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             ?>
             <?php $is_transferred_row = !empty($asset['transfer_status']) && $asset['transfer_status'] === 'transferido'; ?>
             <tr class="am-list-row <?= $is_transferred_row ? 'am-row-locked-transfer' : '' ?>" data-asset-id="<?= (int)$asset['id'] ?>" <?= $is_transferred_row ? '' : 'onclick="amHandleAssetClick(this, event)"' ?>>
-                <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()"></td>
+                <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" data-otherserial="<?= htmlspecialchars($asset['otherserial'] ?? '') ?>" data-serial="<?= htmlspecialchars($asset['serial'] ?? '') ?>" onchange="amUpdateBulkBar()" <?= $is_transferred_row ? 'disabled title="Em transferência — não pode ser selecionado"' : '' ?>></td>
                 <td><div style="display:flex;align-items:center;gap:8px;"><span class="am-list-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></span><span style="font-size:.8rem;color:#9ca3af;font-weight:600;text-transform:uppercase;"><?= htmlspecialchars($asset['asset_type_label']) ?></span></div></td>
                 <td><strong><?= htmlspecialchars($asset['name']) ?></strong><?php if (!empty($asset['manufacturer_name'])): ?><div style="font-size:.72rem;color:#6b7280;display:flex;align-items:center;gap:3px;margin-top:2px;"><i class="ti ti-building-factory-2" style="font-size:.75rem;"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['serial'] ?? '—') ?></td>
@@ -1029,22 +1029,24 @@ function amHandleAssetClick(el, e) {
     if (e.target.closest('a, button, input, .am-btn, .am-card-checkbox, .am-alert-trigger, .am-alert-popup')) return;
     if (el.classList.contains('am-card-locked-transfer') || el.classList.contains('am-row-locked-transfer')) return;
     var cb = el.querySelector('.am-bulk-checkbox');
-    if (!cb) return;
+    if (!cb || cb.disabled) return;
     cb.checked = !cb.checked;
     cb.dispatchEvent(new Event('change', {bubbles: true}));
     amUpdateBulkBar();
 }
 
 function amUpdateBulkBar() {
-    var checkboxes = document.querySelectorAll('.am-bulk-checkbox');
-    var checked    = document.querySelectorAll('.am-bulk-checkbox:checked');
+    // Garante que desabilitados (em transferência) não fiquem marcados
+    document.querySelectorAll('.am-bulk-checkbox:disabled:checked').forEach(function(cb){ cb.checked=false; });
+    var checkboxes = document.querySelectorAll('.am-bulk-checkbox:not(:disabled)');
+    var checked    = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
     var hasSelection = checked.length > 0;
 
-    checkboxes.forEach(function(cb) {
+    document.querySelectorAll('.am-bulk-checkbox').forEach(function(cb) {
         var card = cb.closest('.am-asset-card');
         var row  = cb.closest('.am-list-row');
-        if (card) card.classList.toggle('am-card-selected', cb.checked);
-        if (row)  row.classList.toggle('am-row-selected', cb.checked);
+        if (card) card.classList.toggle('am-card-selected', cb.checked && !cb.disabled);
+        if (row)  row.classList.toggle('am-row-selected', cb.checked && !cb.disabled);
     });
 
     // Aplica has-selection para desfocar não selecionados (suporta ambas as classes)
@@ -1062,11 +1064,12 @@ function amUpdateBulkBar() {
     }
 }
 function amToggleSelectAll(master) {
-    document.querySelectorAll('.am-bulk-checkbox').forEach(function(cb) { cb.checked = master.checked; });
+    document.querySelectorAll('.am-bulk-checkbox:not(:disabled)').forEach(function(cb) { cb.checked = master.checked; });
+    document.querySelectorAll('.am-bulk-checkbox:disabled').forEach(function(cb){ cb.checked=false; });
     amUpdateBulkBar();
 }
 function amClearSelection() {
-    document.querySelectorAll('.am-bulk-checkbox:checked').forEach(function(cb) { cb.checked = false; });
+    document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)').forEach(function(cb) { cb.checked = false; });
     var master = document.getElementById('am-select-all');
     if (master) master.checked = false;
     amUpdateBulkBar();
@@ -1074,7 +1077,7 @@ function amClearSelection() {
 window.amOpenTransferModalFromBulk = function() {
     try {
         console.log('amOpenTransferModalFromBulk clicked');
-        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
+        var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
         console.log('checked', checkboxes.length);
         if (checkboxes.length === 0) { alert('Selecione ao menos um ativo.'); return; }
         var items = [], names = [];

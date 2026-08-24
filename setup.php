@@ -54,6 +54,15 @@ function plugin_init_assetmgrstatus(): void
         $PLUGIN_HOOKS['add_css']['assetmgrstatus']        = ['public/css/assetmgrstatus.css?v=' . $css_version];
         $PLUGIN_HOOKS['add_javascript']['assetmgrstatus'] = ['public/js/assetmgrstatus.js?v=' . $js_version];
 
+        // Bloqueia edição de ativos em transferência (descrição, etc) — hook pre_item_update
+        $asset_types = ['Desktop','Notebook','Celular','Tablet','Switch','Televisao','Firewall','RackdeRede','PlataformadeRecarga','AccessPoint'];
+        $pre_update = [];
+        foreach ($asset_types as $t) {
+            $pre_update['Glpi\\CustomAsset\\' . $t] = 'plugin_assetmgrstatus_pre_item_update';
+            $pre_update['Glpi\\CustomAsset\\' . $t . 'Asset'] = 'plugin_assetmgrstatus_pre_item_update';
+        }
+        $PLUGIN_HOOKS['pre_item_update']['assetmgrstatus'] = $pre_update;
+
         if (Session::haveRight('plugin_assetmgrstatus', READ)) {
             $PLUGIN_HOOKS['menu_toadd']['assetmgrstatus'] = [
                 'tools' => 'PluginAssetmgrstatusMenu',
