@@ -116,6 +116,41 @@ class MaintenanceRecord extends CommonDBTM
         ];
     }
 
+    public static function getManufacturers(string $type_filter = 'Notebook'): array
+    {
+        global $DB;
+        $types = self::getAssetTypes();
+        if (!isset($types[$type_filter])) return [];
+        $def_iter = $DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_assets_assetdefinitions', 'WHERE' => ['system_name' => $type_filter], 'LIMIT' => 1]);
+        if ($def_iter->count() === 0) return [];
+        $def_id = $def_iter->current()['id'];
+        $entity_id = Session::getActiveEntity();
+        try {
+            $iter = $DB->request([
+                'SELECT' => ['glpi_assets_assets.manufacturers_id AS mid', 'glpi_manufacturers.name AS mname'],
+                'FROM'   => 'glpi_assets_assets',
+                'LEFT JOIN' => ['glpi_manufacturers' => ['ON' => ['glpi_assets_assets' => 'manufacturers_id', 'glpi_manufacturers' => 'id']]],
+                'WHERE'  => [
+                    'glpi_assets_assets.assets_assetdefinitions_id' => $def_id,
+                    'glpi_assets_assets.is_deleted' => 0,
+                    'glpi_assets_assets.entities_id' => $entity_id,
+                    'glpi_assets_assets.manufacturers_id' => ['>', 0],
+                ],
+                'GROUPBY' => ['glpi_assets_assets.manufacturers_id'],
+                'ORDER'   => ['glpi_manufacturers.name ASC'],
+            ]);
+            $result = [];
+            foreach ($iter as $row) {
+                $mid = (int)($row['mid'] ?? 0);
+                $mname = $row['mname'] ?? '';
+                if ($mid && $mname) $result[$mid] = $mname;
+            }
+            return $result;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public static function getDaysSinceLastMaintenance(string $itemtype, int $items_id): ?int
     {
         global $DB;
@@ -323,7 +358,7 @@ class MaintenanceRecord extends CommonDBTM
 
     // ---- Busca ativos ----
 
-    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = []): array
+    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], array $fabricante_filter = []): array
     {
         global $DB;
         $types     = self::getAssetTypes();
@@ -371,12 +406,22 @@ class MaintenanceRecord extends CommonDBTM
                 }
             }
 
+            // Filtro por fabricante (usado na aba Notebook)
+            if (!empty($fabricante_filter)) {
+                $fab_ids = array_map('intval', $fabricante_filter);
+                $fab_ids = array_filter($fab_ids);
+                if (!empty($fab_ids)) {
+                    $where['glpi_assets_assets.manufacturers_id'] = $fab_ids;
+                }
+            }
+
             $criteria = [
-                'SELECT' => ['glpi_assets_assets.id','glpi_assets_assets.name','glpi_assets_assets.serial','glpi_assets_assets.otherserial','glpi_assets_assets.states_id','glpi_assets_assets.entities_id','glpi_states.name AS state_name','glpi_entities.completename AS entity_name','glpi_plugin_assetmgrstatus_records.am_status AS plugin_status','glpi_plugin_assetmgrstatus_records.id AS record_id','glpi_plugin_assetmgrstatus_records.reason AS last_reason','glpi_plugin_assetmgrstatus_records.components AS last_components','glpi_plugin_assetmgrstatus_records.expected_return_date AS expected_return_date','glpi_plugin_assetmgrstatus_records.transfer_status AS transfer_status'],
+                'SELECT' => ['glpi_assets_assets.id','glpi_assets_assets.name','glpi_assets_assets.serial','glpi_assets_assets.otherserial','glpi_assets_assets.states_id','glpi_assets_assets.entities_id','glpi_assets_assets.manufacturers_id','glpi_states.name AS state_name','glpi_entities.completename AS entity_name','glpi_manufacturers.name AS manufacturer_name','glpi_plugin_assetmgrstatus_records.am_status AS plugin_status','glpi_plugin_assetmgrstatus_records.id AS record_id','glpi_plugin_assetmgrstatus_records.reason AS last_reason','glpi_plugin_assetmgrstatus_records.components AS last_components','glpi_plugin_assetmgrstatus_records.expected_return_date AS expected_return_date','glpi_plugin_assetmgrstatus_records.transfer_status AS transfer_status'],
                 'FROM'      => 'glpi_assets_assets',
                 'LEFT JOIN' => [
                     'glpi_states'   => ['ON' => ['glpi_assets_assets' => 'states_id', 'glpi_states' => 'id']],
                     'glpi_entities' => ['ON' => ['glpi_assets_assets' => 'entities_id', 'glpi_entities' => 'id']],
+                    'glpi_manufacturers' => ['ON' => ['glpi_assets_assets' => 'manufacturers_id', 'glpi_manufacturers' => 'id']],
                     'glpi_plugin_assetmgrstatus_records' => ['ON' => ['glpi_plugin_assetmgrstatus_records' => 'items_id', 'glpi_assets_assets' => 'id', ['AND' => ['glpi_plugin_assetmgrstatus_records.itemtype' => $itemtype]]]],
                 ],
                 'WHERE' => $where,
@@ -457,9 +502,16 @@ class MaintenanceRecord extends CommonDBTM
         return $results;
     }
 
-    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], int $page = 1, int $per_page = 24): array
+    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], $fabricante_filter = [], int $page = 1, int $per_page = 24): array
     {
-        $all      = self::getAssets($type_filter, $search, $status_filter, $component_filters);
+        // Compatibilidade: chamada antiga passava $page como 5º param (int)
+        if (is_int($fabricante_filter)) {
+            $per_page = $page;
+            $page = $fabricante_filter;
+            $fabricante_filter = [];
+        }
+        if (!is_array($fabricante_filter)) $fabricante_filter = [];
+        $all      = self::getAssets($type_filter, $search, $status_filter, $component_filters, $fabricante_filter);
         $total    = count($all);
         $per_page = max(1, $per_page);
         $pages    = max(1, (int)ceil($total / $per_page));

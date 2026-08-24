@@ -40,6 +40,11 @@
         if (panel) panel.classList.toggle('open');
     };
 
+    window.amToggleFabPanel = function () {
+        var panel = document.getElementById('am-fab-panel');
+        if (panel) panel.classList.toggle('open');
+    };
+
     window.amClearCompFilters = function () {
         document.querySelectorAll('.am-comp-3state').forEach(function(group) {
             var compKey = group.dataset.comp;
@@ -49,6 +54,10 @@
             var input = document.getElementById('comp-input-' + compKey);
             if (input) input.value = '';
         });
+    };
+
+    window.amClearFabFilters = function () {
+        document.querySelectorAll('#am-fab-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
     };
 
     document.addEventListener('click', function (e) {
@@ -68,13 +77,16 @@
             return;
         }
 
-        // Fecha painel se clicar fora
-        var panel = document.getElementById('am-comp-panel');
-        if (panel && panel.classList.contains('open')) {
-            if (!panel.contains(e.target) && !e.target.closest('.am-comp-filter-btn')) {
-                panel.classList.remove('open');
+        // Fecha painéis se clicar fora
+        ['am-comp-panel','am-fab-panel'].forEach(function(pid){
+            var p = document.getElementById(pid);
+            if (!p || !p.classList.contains('open')) return;
+            var btnSelector = pid === 'am-comp-panel' ? '[onclick="amToggleCompPanel()"]' : '[onclick="amToggleFabPanel()"]';
+            var btn = document.querySelector(btnSelector);
+            if (!p.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                p.classList.remove('open');
             }
-        }
+        });
     });
 
     document.addEventListener('DOMContentLoaded', function () {

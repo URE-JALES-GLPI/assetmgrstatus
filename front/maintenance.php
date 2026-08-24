@@ -14,10 +14,14 @@ $filter_status = $_GET['status'] ?? '';
 $filter_comp   = $_GET['comp']   ?? []; // array: ['motherboard' => 'has', 'keyboard' => 'not', ...]
 if (!is_array($filter_comp)) $filter_comp = [];
 $filter_comp   = array_filter($filter_comp, fn($v) => in_array($v, ['has', 'not'], true));
+$raw_fab = $_GET['fabricante'] ?? [];
+if (is_string($raw_fab)) $raw_fab = $raw_fab !== '' ? [$raw_fab] : [];
+if (!is_array($raw_fab)) $raw_fab = [];
+$filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
 $view_mode     = $_GET['view']   ?? 'list';
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
-// Helper para montar querystring preservando o array comp[] — lê direto de $_GET para evitar perda de filtro
+// Helper para montar querystring preservando o array comp[] e fabricante — lê direto de $_GET para evitar perda de filtro
 function am_qs(array $overrides = []): string {
     $cur_type   = $_GET['type']   ?? '';
     $cur_search = $_GET['search'] ?? '';
@@ -25,6 +29,10 @@ function am_qs(array $overrides = []): string {
     $cur_comp   = $_GET['comp']   ?? [];
     if (!is_array($cur_comp)) $cur_comp = [];
     $cur_comp   = array_filter($cur_comp, fn($v) => in_array($v, ['has', 'not'], true));
+    $cur_fab    = $_GET['fabricante'] ?? [];
+    if (is_string($cur_fab)) $cur_fab = $cur_fab !== '' ? [$cur_fab] : [];
+    if (!is_array($cur_fab)) $cur_fab = [];
+    $cur_fab    = array_values(array_filter(array_map('intval', $cur_fab)));
     $cur_view   = $_GET['view']   ?? 'list';
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
 
@@ -35,23 +43,35 @@ function am_qs(array $overrides = []): string {
         'status' => array_key_exists('status', $overrides) ? $overrides['status'] : $cur_status,
         'view'   => array_key_exists('view', $overrides)   ? $overrides['view']   : $cur_view,
     ];
-    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides);
+    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides);
     $params['page'] = $has_filter_override ? 1 : (array_key_exists('page', $overrides) ? $overrides['page'] : $cur_page);
     $comp = array_key_exists('comp', $overrides) ? $overrides['comp'] : $cur_comp;
     if (!is_array($comp)) $comp = [];
+    $fab  = array_key_exists('fabricante', $overrides) ? $overrides['fabricante'] : $cur_fab;
+    if (is_string($fab)) $fab = $fab !== '' ? [$fab] : [];
+    if (!is_array($fab)) $fab = [];
+    $fab  = array_values(array_filter(array_map('intval', $fab)));
+    // Se trocar de tipo e novo tipo não for Notebook, limpa fabricante (só faz sentido para Notebook)
+    if (array_key_exists('type', $overrides) && $overrides['type'] !== 'Notebook') {
+        $fab = [];
+    }
     $qs = http_build_query($params);
     foreach ($comp as $k => $v) {
         $qs .= '&comp%5B' . urlencode($k) . '%5D=' . urlencode($v);
+    }
+    foreach ($fab as $fid) {
+        $qs .= '&fabricante%5B%5D=' . urlencode($fid);
     }
     return $qs;
 }
 
 Html::header('Inventário de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
 
-$paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $page);
+$paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $filter_fabricante, $page);
 $assets       = $paged['rows'];
 $types        = MaintenanceRecord::getAssetTypes();
 $status_opts  = MaintenanceRecord::getStatusOptions();
+$fab_list     = ($filter_type === 'Notebook') ? MaintenanceRecord::getManufacturers('Notebook') : [];
 $comp_list    = MaintenanceRecord::getComponents();
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
@@ -123,6 +143,57 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
             </div>
         </div>
 
+        <?php if ($filter_type === 'Notebook'): ?>
+        <div class="am-filter-group">
+            <label>Fabricante</label>
+            <div style="position:relative;">
+                <button type="button" class="am-comp-filter-btn" onclick="amToggleFabPanel()">
+                    <i class="ti ti-building-factory-2"></i> Filtrar por fabricante
+                    <?php if (!empty($filter_fabricante)): ?>
+                    <span class="am-comp-filter-count"><?= count($filter_fabricante) ?></span>
+                    <?php endif; ?>
+                </button>
+
+                <div id="am-fab-panel" class="am-comp-panel">
+                    <form method="GET" action="" id="am-fab-filter-form">
+                        <input type="hidden" name="type"   value="Notebook">
+                        <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
+                        <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                        <input type="hidden" name="view"   value="<?= $view_mode ?>">
+                        <?php foreach ($filter_comp as $ck => $cv): ?>
+                        <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
+                        <?php endforeach; ?>
+
+                        <div class="am-comp-panel-header">
+                            <strong>Filtrar por fabricante</strong>
+                            <small>Selecione um ou mais fabricantes para filtrar os Notebooks.</small>
+                        </div>
+
+                        <div class="am-comp-panel-list">
+                            <?php if (empty($fab_list)): ?>
+                            <div style="padding:16px;text-align:center;color:#9ca3af;font-size:.82rem;">Nenhum fabricante encontrado para Notebook.</div>
+                            <?php else: foreach ($fab_list as $fid => $fname):
+                                $checked = in_array((int)$fid, $filter_fabricante, true);
+                            ?>
+                            <div class="am-comp-panel-row">
+                                <span class="am-comp-panel-label"><?= htmlspecialchars($fname) ?></span>
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="checkbox" name="fabricante[]" value="<?= (int)$fid ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;">
+                                </label>
+                            </div>
+                            <?php endforeach; endif; ?>
+                        </div>
+
+                        <div class="am-comp-panel-footer">
+                            <button type="button" class="am-btn am-btn-secondary" style="padding:7px 14px;font-size:.8rem;" onclick="amClearFabFilters()">Limpar</button>
+                            <button type="submit" class="am-btn am-btn-primary" style="padding:7px 14px;font-size:.8rem;">Aplicar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <div class="am-filter-group">
             <label>Componentes</label>
             <div style="position:relative;">
@@ -139,6 +210,9 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
+                        <?php foreach ($filter_fabricante as $ffid): ?>
+                        <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
+                        <?php endforeach; ?>
 
                         <div class="am-comp-panel-header">
                             <strong>Filtrar por componentes</strong>
@@ -176,6 +250,9 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                 <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                 <?php foreach ($filter_comp as $ckey => $cval): ?>
                 <input type="hidden" name="comp[<?= htmlspecialchars($ckey) ?>]" value="<?= htmlspecialchars($cval) ?>">
+                <?php endforeach; ?>
+                <?php foreach ($filter_fabricante as $ffid): ?>
+                <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
                 <?php endforeach; ?>
                 <input type="hidden" name="view"   value="<?= $view_mode ?>">
                 <div class="am-filter-search">
@@ -263,6 +340,7 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                     <?php if ($asset['otherserial']): ?><div class="am-asset-info"><i class="ti ti-hash"></i> Nº <?= htmlspecialchars($asset['otherserial']) ?></div><?php endif; ?>
                 </div>
                 <?php if (!empty($asset['entity_name'])): ?><div class="am-asset-info am-asset-entity"><i class="ti ti-building"></i> <?= htmlspecialchars($asset['entity_name']) ?></div><?php endif; ?>
+                <?php if (!empty($asset['manufacturer_name'])): ?><div class="am-asset-info" style="margin-top:4px;"><i class="ti ti-building-factory-2"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?>
                 <?php
                 $show_comps_status = [MaintenanceRecord::STATUS_MANUTENCAO, MaintenanceRecord::STATUS_GARANTIA, MaintenanceRecord::STATUS_INATIVO, MaintenanceRecord::STATUS_INSERVIVEL];
                 $last_comps = !empty($asset['last_components']) ? json_decode($asset['last_components'], true) : [];
@@ -308,7 +386,7 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
             <tr class="am-list-row <?= $is_transferred_row ? 'am-row-locked-transfer' : '' ?>" data-asset-id="<?= (int)$asset['id'] ?>" <?= $is_transferred_row ? '' : 'onclick="amHandleAssetClick(this, event)"' ?>>
                 <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" onchange="amUpdateBulkBar()"></td>
                 <td><div style="display:flex;align-items:center;gap:8px;"><span class="am-list-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></span><span style="font-size:.8rem;color:#9ca3af;font-weight:600;text-transform:uppercase;"><?= htmlspecialchars($asset['asset_type_label']) ?></span></div></td>
-                <td><strong><?= htmlspecialchars($asset['name']) ?></strong></td>
+                <td><strong><?= htmlspecialchars($asset['name']) ?></strong><?php if (!empty($asset['manufacturer_name'])): ?><div style="font-size:.72rem;color:#6b7280;display:flex;align-items:center;gap:3px;margin-top:2px;"><i class="ti ti-building-factory-2" style="font-size:.75rem;"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['serial'] ?? '—') ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['otherserial'] ?? '—') ?></td>
                 <td style="font-size:.82rem;color:#6366f1;"><?= htmlspecialchars($asset['entity_name'] ?? '—') ?></td>
