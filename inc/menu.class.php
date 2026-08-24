@@ -19,20 +19,20 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
 
         return [
             'title'   => self::getMenuName(),
-            'page'    => $base . '/dashboard.php',
+            'page'    => $base . '/maintenance.php',
             'icon'    => self::getIcon(),
             'options' => [
-                'dashboard' => [
-                    'title' => 'Dashboard',
-                    'page'  => $base . '/dashboard.php',
-                    'icon'  => 'ti ti-dashboard',
-                    'links' => ['search' => $base . '/dashboard.php'],
-                ],
                 'maintenance' => [
                     'title' => 'Inventário',
                     'page'  => $base . '/maintenance.php',
                     'icon'  => 'ti ti-clipboard-list',
                     'links' => ['search' => $base . '/maintenance.php'],
+                ],
+                'dashboard' => [
+                    'title' => 'Dashboard',
+                    'page'  => $base . '/dashboard.php',
+                    'icon'  => 'ti ti-dashboard',
+                    'links' => ['search' => $base . '/dashboard.php'],
                 ],
                 'tecnico' => [
                     'title' => 'Técnico',
