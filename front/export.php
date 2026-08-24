@@ -75,7 +75,9 @@ if ($format === 'excel') {
         $u = new User();
         foreach ($history_records as $h) {
             $rt = $h['record_type'] ?? MaintenanceRecord::RECORD_STATUS_CHANGE;
-            $type_label = match($rt) { MaintenanceRecord::RECORD_MANUTENCAO => 'Manutenção Realizada', MaintenanceRecord::RECORD_BAIXA => 'Baixa', default => 'Alteração de Status' };
+            $type_label = MaintenanceRecord::getRecordTypeLabel($rt);
+            // Remove emoji para CSV limpo
+            $type_label = preg_replace('/^[^\w]+/u', '', $type_label);
             $uname = ($h['users_id'] && $u->getFromDB($h['users_id'])) ? $u->getName() : 'Sistema';
             $comps = $h['components'] ? json_decode($h['components'], true) : [];
             $comp_text = [];
@@ -222,8 +224,8 @@ if ($format === 'pdf') {
     <p style="color:#9ca3af;text-align:center;padding:40px;">Nenhum registro encontrado.</p>
     <?php else: foreach ($history as $h):
         $rt = $h['record_type'] ?? MaintenanceRecord::RECORD_STATUS_CHANGE;
-        $type_label = match($rt) { MaintenanceRecord::RECORD_MANUTENCAO => '🔧 Manutenção Realizada', MaintenanceRecord::RECORD_BAIXA => '📦 Baixa', default => '🔄 Alteração de Status' };
-        $border_class = match($rt) { MaintenanceRecord::RECORD_MANUTENCAO => 'green', MaintenanceRecord::RECORD_BAIXA => 'red', default => '' };
+        $type_label = MaintenanceRecord::getRecordTypeLabel($rt);
+        $border_class = match($rt) { MaintenanceRecord::RECORD_MANUTENCAO => 'green', MaintenanceRecord::RECORD_BAIXA => 'red', MaintenanceRecord::RECORD_TRANSFER => 'blue', MaintenanceRecord::RECORD_TRANSFER_RETURN => 'purple', default => '' };
         $u = new User(); $uname = ($h['users_id'] && $u->getFromDB($h['users_id'])) ? $u->getName() : 'Sistema';
         $comps = $h['components'] ? json_decode($h['components'], true) : [];
     ?>

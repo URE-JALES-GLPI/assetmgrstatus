@@ -28,6 +28,8 @@ class MaintenanceRecord extends CommonDBTM
     const RECORD_MANUTENCAO    = 'manutencao_realizada';
     const RECORD_BAIXA         = 'baixa';
     const RECORD_NOTE          = 'note';
+    const RECORD_TRANSFER      = 'transferencia';
+    const RECORD_TRANSFER_RETURN = 'transferencia_retorno';
 
     const RIGHT_VIEW    = 'plugin_assetmgrstatus';
     const RIGHT_TECNICO = 'plugin_assetmgrstatus_tecnico';
@@ -93,7 +95,45 @@ class MaintenanceRecord extends CommonDBTM
             self::RECORD_MANUTENCAO => 'am-badge-realizada',
             self::RECORD_BAIXA      => 'am-badge-baixa',
             self::RECORD_NOTE       => 'am-badge-note',
+            self::RECORD_TRANSFER   => 'am-badge-transfer',
+            self::RECORD_TRANSFER_RETURN => 'am-badge-transfer-return',
             default                 => 'am-badge-estoque',
+        };
+    }
+
+    public static function getRecordTypeLabel(string $record_type): string
+    {
+        return match ($record_type) {
+            self::RECORD_MANUTENCAO      => '🔧 Manutenção Realizada',
+            self::RECORD_BAIXA           => '📦 Baixa',
+            self::RECORD_NOTE            => '📝 Observação',
+            self::RECORD_TRANSFER        => '🚚 Transferência',
+            self::RECORD_TRANSFER_RETURN => '↩️ Retorno de Transferência',
+            default                      => '🔄 Alteração de Status',
+        };
+    }
+
+    public static function getRecordTypeColor(string $record_type): string
+    {
+        return match ($record_type) {
+            self::RECORD_MANUTENCAO      => '#10b981',
+            self::RECORD_BAIXA           => '#ef4444',
+            self::RECORD_NOTE            => '#f59e0b',
+            self::RECORD_TRANSFER        => '#3b82f6',
+            self::RECORD_TRANSFER_RETURN => '#8b5cf6',
+            default                      => '#4f46e5',
+        };
+    }
+
+    public static function getRecordTypeIcon(string $record_type): string
+    {
+        return match ($record_type) {
+            self::RECORD_MANUTENCAO      => 'tools',
+            self::RECORD_BAIXA           => 'package-off',
+            self::RECORD_NOTE            => 'note',
+            self::RECORD_TRANSFER        => 'transfer',
+            self::RECORD_TRANSFER_RETURN => 'arrow-back-up',
+            default                      => 'refresh',
         };
     }
 
@@ -311,14 +351,17 @@ class MaintenanceRecord extends CommonDBTM
                 $u           = new User();
                 $uname       = ($h['users_id'] && $u->getFromDB($h['users_id'])) ? $u->getName() : 'Sistema';
                 $record_type = $h['record_type'] ?? self::RECORD_STATUS_CHANGE;
-                $border      = match($record_type) { self::RECORD_MANUTENCAO => '#10b981', self::RECORD_BAIXA => '#ef4444', self::RECORD_NOTE => '#f59e0b', default => '#4f46e5' };
-                $type_label  = match($record_type) { self::RECORD_MANUTENCAO => '🔧 Manutenção Realizada', self::RECORD_BAIXA => '📦 Baixa', self::RECORD_NOTE => '📝 Observação', default => '🔄 Alteração de Status' };
+                $border      = self::getRecordTypeColor($record_type);
+                $type_label  = self::getRecordTypeLabel($record_type);
 
                 echo '<div style="background:#fff;border:1.5px solid #e8eaf0;border-left:4px solid '.$border.';border-radius:12px;overflow:hidden;">';
                 echo '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fafbff;border-bottom:1px solid #f0f2f8;flex-wrap:wrap;gap:6px;">';
                 echo '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:.8rem;font-weight:700;color:#6b7280;">'.$type_label.'</span>';
-                if ($record_type === self::RECORD_STATUS_CHANGE) {
-                    if ($h['status_old']) echo '<span class="am-badge '.self::getStatusBadgeClass($h['status_old']).'">'.self::getStatusLabel($h['status_old']).'</span><i class="ti ti-arrow-right" style="color:#9ca3af;font-size:.85rem;"></i>';
+                if ($record_type === self::RECORD_STATUS_CHANGE || $record_type === self::RECORD_TRANSFER_RETURN) {
+                    if (!empty($h['status_old']) && $h['status_old'] !== $h['status_new']) echo '<span class="am-badge '.self::getStatusBadgeClass($h['status_old']).'">'.self::getStatusLabel($h['status_old']).'</span><i class="ti ti-arrow-right" style="color:#9ca3af;font-size:.85rem;"></i>';
+                    echo '<span class="am-badge '.self::getStatusBadgeClass($h['status_new']).'">'.self::getStatusLabel($h['status_new']).'</span>';
+                } elseif ($record_type === self::RECORD_TRANSFER) {
+                    // Transferência de envio: mostra apenas o status atual (sem transição)
                     echo '<span class="am-badge '.self::getStatusBadgeClass($h['status_new']).'">'.self::getStatusLabel($h['status_new']).'</span>';
                 }
                 echo '</div>';
@@ -326,8 +369,8 @@ class MaintenanceRecord extends CommonDBTM
                 echo '</div><div style="padding:12px 16px;">';
 
                 if (!empty($h['action_description'])) {
-                    $ic = match($record_type) { self::RECORD_BAIXA => '#ef4444', self::RECORD_NOTE => '#f59e0b', default => '#10b981' };
-                    $ii = match($record_type) { self::RECORD_BAIXA => 'package-off', self::RECORD_NOTE => 'note', default => 'tools' };
+                    $ic = self::getRecordTypeColor($record_type);
+                    $ii = self::getRecordTypeIcon($record_type);
                     echo '<div style="display:flex;gap:7px;font-size:.88rem;color:#1f2937;margin-bottom:10px;background:#f9fafb;padding:10px 12px;border-radius:8px;border-left:3px solid '.$ic.';">';
                     echo '<i class="ti ti-'.$ii.'" style="flex-shrink:0;margin-top:2px;color:'.$ic.';"></i><span>'.htmlspecialchars($h['action_description']).'</span></div>';
                 }
@@ -702,6 +745,153 @@ class MaintenanceRecord extends CommonDBTM
             'date_creation'      => $now,
         ]);
 
+        return true;
+    }
+
+    // -------------------------------------------------------
+    // Transferência — histórico no "Histórico Manutenção"
+    // -------------------------------------------------------
+
+    /**
+     * Registra no histórico de manutenção que o ativo foi enviado em transferência.
+     * Chamado em Transfer::create() para cada ativo transferido.
+     */
+    public static function logTransferEnvio(string $itemtype, int $items_id, int $transfer_id, string $origin_name, string $dest_name, string $reason): bool
+    {
+        global $DB;
+        $now = date('Y-m-d H:i:s');
+
+        // Status atual do ativo (para manter referência)
+        $cur = $DB->request(['SELECT' => ['am_status'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
+        $current_status = $cur->count() > 0 ? $cur->current()['am_status'] : self::STATUS_ESTOQUE;
+
+        $origin = $origin_name !== '' ? $origin_name : 'Origem';
+        $dest   = $dest_name !== ''   ? $dest_name   : 'Destino';
+        $uid = (int)Session::getLoginUserID();
+        $u = new User();
+        $creator = ($uid && $u->getFromDB($uid)) ? $u->getName() : 'Sistema';
+
+        $desc = '🚚 Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT)
+              . ' — Enviado de "' . $origin . '" para "' . $dest . '" por ' . $creator
+              . ($reason !== '' ? ' — Motivo: ' . $reason : '');
+
+        try {
+            $DB->insert('glpi_plugin_assetmgrstatus_histories', [
+                'items_id'           => $items_id,
+                'itemtype'           => $itemtype,
+                'item_name'          => self::getItemName($items_id),
+                'status_old'         => $current_status,
+                'status_new'         => $current_status,
+                'record_type'        => self::RECORD_TRANSFER,
+                'reason'             => null,
+                'action_description' => $desc,
+                'action_date'        => null,
+                'components'         => null,
+                'photos'             => null,
+                'users_id'           => $uid,
+                'date_creation'      => $now,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] logTransferEnvio: ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Registra no histórico de manutenção que o técnico devolveu o ativo à entidade de origem.
+     * Chamado em Transfer::finalizar() para cada ativo.
+     */
+    public static function logTransferRetorno(string $itemtype, int $items_id, int $transfer_id, string $tech_name, string $origin_name, string $dest_name, string $final_status = '', string $final_reason = ''): bool
+    {
+        global $DB;
+        $now = date('Y-m-d H:i:s');
+        $uid = (int)Session::getLoginUserID();
+
+        // Para retorno, status_new é o status final aplicado no inventário
+        if ($final_status !== '') {
+            $status_new = $final_status;
+        } else {
+            $cur = $DB->request(['SELECT' => ['am_status'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
+            $status_new = $cur->count() > 0 ? $cur->current()['am_status'] : self::STATUS_ESTOQUE;
+        }
+        // Tenta buscar o status antigo (antes do saveRecord) via último histórico de status_change
+        $cur_hist = $DB->request([
+            'SELECT' => ['status_old'],
+            'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
+            'WHERE'  => ['itemtype' => $itemtype, 'items_id' => $items_id, 'record_type' => self::RECORD_STATUS_CHANGE],
+            'ORDER'  => ['date_creation DESC'],
+            'LIMIT'  => 1,
+        ]);
+        $status_old = $cur_hist->count() > 0 ? $cur_hist->current()['status_old'] : $status_new;
+
+        $origin = $origin_name !== '' ? $origin_name : 'Entidade de origem';
+        $dest   = $dest_name !== ''   ? $dest_name   : 'URE';
+        $tech   = $tech_name !== ''   ? $tech_name   : 'Técnico';
+        $label  = $final_status !== '' ? (self::getStatusLabel($final_status)) : $status_new;
+
+        $desc = '↩️ Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT)
+              . ' — Técnico ' . $tech . ' devolveu de "' . $dest . '" para "' . $origin . '"'
+              . ' — Status final: ' . $label
+              . ($final_reason !== '' ? ' — Motivo: ' . $final_reason : '');
+
+        try {
+            $DB->insert('glpi_plugin_assetmgrstatus_histories', [
+                'items_id'           => $items_id,
+                'itemtype'           => $itemtype,
+                'item_name'          => self::getItemName($items_id),
+                'status_old'         => $status_old,
+                'status_new'         => $status_new,
+                'record_type'        => self::RECORD_TRANSFER_RETURN,
+                'reason'             => $final_reason ?: null,
+                'action_description' => $desc,
+                'action_date'        => null,
+                'components'         => null,
+                'photos'             => null,
+                'users_id'           => $uid,
+                'date_creation'      => $now,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] logTransferRetorno: ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Wrapper genérico para tipos futuros de transferência.
+     */
+    public static function logTransferGeneric(string $itemtype, int $items_id, string $record_type, string $description, ?string $status_old = null, ?string $status_new = null): bool
+    {
+        global $DB;
+        $now = date('Y-m-d H:i:s');
+        $uid = (int)Session::getLoginUserID();
+        if ($status_old === null || $status_new === null) {
+            $cur = $DB->request(['SELECT' => ['am_status'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
+            $cur_status = $cur->count() > 0 ? $cur->current()['am_status'] : self::STATUS_ESTOQUE;
+            $status_old = $status_old ?? $cur_status;
+            $status_new = $status_new ?? $cur_status;
+        }
+        try {
+            $DB->insert('glpi_plugin_assetmgrstatus_histories', [
+                'items_id'           => $items_id,
+                'itemtype'           => $itemtype,
+                'item_name'          => self::getItemName($items_id),
+                'status_old'         => $status_old,
+                'status_new'         => $status_new,
+                'record_type'        => $record_type,
+                'reason'             => null,
+                'action_description' => $description,
+                'action_date'        => null,
+                'components'         => null,
+                'photos'             => null,
+                'users_id'           => $uid,
+                'date_creation'      => $now,
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] logTransferGeneric: ' . $e->getMessage());
+            return false;
+        }
         return true;
     }
 

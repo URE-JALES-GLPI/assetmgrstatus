@@ -194,6 +194,23 @@ class Transfer
             self::lockAsset($item['itemtype'], $item['id'], $transfer_id);
         }
 
+        // ---- Histórico Manutenção: registra envio de cada ativo (transferência) ----
+        $dest_name_for_hist = '';
+        if ($entity_dest) {
+            $ent_dest_hist = new \Entity();
+            if ($ent_dest_hist->getFromDB($entity_dest)) $dest_name_for_hist = $ent_dest_hist->getName();
+        }
+        if ($dest_name_for_hist === '') $dest_name_for_hist = 'URE';
+        foreach ($final_items as $item) {
+            $origin_entity_id = $origin_entities[$item['id']];
+            $origin_name_hist = $origin_names[$origin_entity_id] ?? '';
+            try {
+                MaintenanceRecord::logTransferEnvio($item['itemtype'], $item['id'], $transfer_id, $origin_name_hist, $dest_name_for_hist, $reason);
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] history transferencia envio: ' . $e->getMessage());
+            }
+        }
+
         // Abre chamado automático no GLPI (se categoria informada) e anexa o termo de retirada
         if ($ticket_category_id > 0) {
             $ticket_id = self::openTicketForTransfer($transfer_id, $entity_dest, $reason, $final_items, $origin_entities, $ticket_category_id);
@@ -797,9 +814,43 @@ class Transfer
 
         $uid = Session::getLoginUserID();
 
+        // Nomes para histórico de retorno
+        $dest_name_hist = '';
+        if (!empty($row['entity_dest'])) {
+            $ent_dest_hist = new \Entity();
+            if ($ent_dest_hist->getFromDB((int)$row['entity_dest'])) $dest_name_hist = $ent_dest_hist->getName();
+        }
+        if ($dest_name_hist === '') $dest_name_hist = 'URE';
+        $tech_name_hist = self::getUserName($uid);
+        // Se o técnico que assumiu é diferente de quem finaliza, prioriza quem está finalizando mas mantém referência
+        if ($tech_name_hist === 'Sistema' && !empty($row['users_id_tech'])) {
+            $tech_name_hist = self::getUserName((int)$row['users_id_tech']);
+        }
+
         foreach ($items_iter as $item) {
+            $origin_name_hist = $item['origin_entity_name'] ?? '';
+            if ($origin_name_hist === '' && !empty($item['origin_entity_id'])) {
+                $ent_orig_hist = new \Entity();
+                if ($ent_orig_hist->getFromDB((int)$item['origin_entity_id'])) $origin_name_hist = $ent_orig_hist->getName();
+            }
+
             if (empty($item['final_status'])) {
                 self::unlockAsset($item['itemtype'], (int)$item['items_id']);
+                // Ainda registra retorno mesmo sem status final (caso excepcional)
+                try {
+                    MaintenanceRecord::logTransferRetorno(
+                        $item['itemtype'],
+                        (int)$item['items_id'],
+                        $transfer_id,
+                        $tech_name_hist,
+                        $origin_name_hist,
+                        $dest_name_hist,
+                        '',
+                        $item['final_reason'] ?? ''
+                    );
+                } catch (\Throwable $e) {
+                    error_log('[assetmgrstatus] history retorno (sem status): ' . $e->getMessage());
+                }
                 continue;
             }
 
@@ -817,6 +868,22 @@ class Transfer
 
             // Desbloqueia após aplicar
             self::unlockAsset($item['itemtype'], (int)$item['items_id']);
+
+            // ---- Histórico Manutenção: retorno à entidade de origem ----
+            try {
+                MaintenanceRecord::logTransferRetorno(
+                    $item['itemtype'],
+                    (int)$item['items_id'],
+                    $transfer_id,
+                    $tech_name_hist,
+                    $origin_name_hist,
+                    $dest_name_hist,
+                    $item['final_status'],
+                    $item['final_reason'] ?? ''
+                );
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] history retorno: ' . $e->getMessage());
+            }
         }
 
         $DB->update('glpi_plugin_assetmgrstatus_transfers', [

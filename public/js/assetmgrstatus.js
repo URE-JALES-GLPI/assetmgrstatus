@@ -292,9 +292,13 @@
                     html += '<span style="font-size:.72rem;color:#9ca3af;">'+h.date+'</span>';
                     html += '</div>';
 
-                    if (h.record_type === 'status_change') {
+                    if (h.record_type === 'status_change' || h.record_type === 'transferencia_retorno') {
                         html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
-                        if (h.status_old_label) html += '<span class="am-badge '+h.status_old_badge+'">'+h.status_old_label+'</span><i class="ti ti-arrow-right" style="color:#9ca3af;font-size:.8rem;"></i>';
+                        if (h.status_old_label && h.status_old_label !== h.status_new_label) html += '<span class="am-badge '+h.status_old_badge+'">'+h.status_old_label+'</span><i class="ti ti-arrow-right" style="color:#9ca3af;font-size:.8rem;"></i>';
+                        html += '<span class="am-badge '+h.status_new_badge+'">'+h.status_new_label+'</span>';
+                        html += '</div>';
+                    } else if (h.record_type === 'transferencia') {
+                        html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">';
                         html += '<span class="am-badge '+h.status_new_badge+'">'+h.status_new_label+'</span>';
                         html += '</div>';
                     }

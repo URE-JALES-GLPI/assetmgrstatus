@@ -33,16 +33,8 @@ foreach ($history as $h) {
 
     $result[] = [
         'record_type'        => $rt,
-        'type_label'         => match($rt) {
-            MaintenanceRecord::RECORD_MANUTENCAO => '🔧 Manutenção',
-            MaintenanceRecord::RECORD_BAIXA      => '📦 Baixa',
-            default                              => '🔄 Status',
-        },
-        'border_color'       => match($rt) {
-            MaintenanceRecord::RECORD_MANUTENCAO => '#10b981',
-            MaintenanceRecord::RECORD_BAIXA      => '#ef4444',
-            default                              => '#4f46e5',
-        },
+        'type_label'         => MaintenanceRecord::getRecordTypeLabel($rt),
+        'border_color'       => MaintenanceRecord::getRecordTypeColor($rt),
         'status_new'         => $h['status_new'],
         'status_new_label'   => MaintenanceRecord::getStatusLabel($h['status_new']),
         'status_new_badge'   => MaintenanceRecord::getStatusBadgeClass($h['status_new']),

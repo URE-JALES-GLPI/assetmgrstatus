@@ -410,6 +410,8 @@ body.am-dark-mode {
 /* ---- Alerta de prazo de retorno vencido ---- */
 .am-alert-overdue{background:#fff7ed;color:#d97706;font-size:.75rem;font-weight:700;padding:5px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #fed7aa;}
 .am-badge-note{background:#fef3c7;color:#92400e;}
+.am-badge-transfer{background:#dbeafe;color:#1e40af;}
+.am-badge-transfer-return{background:#ede9fe;color:#6d28d9;}
 
 /* ---- Alerta clicável + tooltip pop-up ---- */
 .am-alert-trigger{position:relative;cursor:help;display:inline-flex;align-items:center;gap:6px;z-index:2;}
