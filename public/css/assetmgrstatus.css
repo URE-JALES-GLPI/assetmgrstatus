@@ -413,9 +413,9 @@ body.am-dark-mode {
 .am-list-row{cursor:pointer;}
 .am-list-row:hover{background:#f8f9fb;}
 .am-asset-card{cursor:pointer;}
-/* Compatibilidade: has-selection funciona com .am-asset-grid e .am-assets-grid — dim sutil, não invisível */
-.am-asset-grid.has-selection .am-asset-card:not(.am-card-selected){opacity:.58 !important;filter:grayscale(.25) !important;transform:scale(.98);}
-.am-asset-grid.has-selection .am-asset-card.am-card-selected{opacity:1 !important;filter:none !important;border-color:#4f46e5 !important;box-shadow:0 0 0 4px rgba(79,70,229,.2) !important;transform:scale(1.01);}
+/* Compatibilidade: has-selection funciona com .am-asset-grid e .am-assets-grid — dim sutil, não invisível + brilho +20% */
+.am-asset-grid.has-selection .am-asset-card:not(.am-card-selected){opacity:.58 !important;filter:grayscale(.25) brightness(1.2) !important;transform:scale(.98);}
+.am-asset-grid.has-selection .am-asset-card.am-card-selected{opacity:1 !important;filter:brightness(1.2) !important;border-color:#4f46e5 !important;box-shadow:0 0 0 4px rgba(79,70,229,.2) !important;transform:scale(1.01);}
 /* Permite pop-up escapar do overflow:hidden do card */
 .am-asset-card:has(.am-alert-trigger:hover),.am-asset-card:hover{overflow:visible;z-index:10;}
 
@@ -978,12 +978,12 @@ body.am-dark-mode .am-page-link { background: #151929 !important; color: #94a3b8
 body.am-dark-mode .am-page-link:hover { background: #1e1b4b !important; color: #a5b4fc !important; }
 body.am-dark-mode .am-page-link.active { background: #4f46e5 !important; color: #fff !important; }
 
-/* ---- FIX: seleção não deixa invisível — dim sutil (override v4) ---- */
+/* ---- FIX: seleção não deixa invisível — dim sutil (override v4) + brilho +20% ---- */
 .am-assets-grid.has-selection .am-asset-card:not(.am-card-selected),
 div.am-assets-grid.has-selection div.am-asset-card:not(.am-card-selected),
 .am-asset-grid.has-selection .am-asset-card:not(.am-card-selected) {
   opacity: .58 !important;
-  filter: grayscale(.25) !important;
+  filter: grayscale(.25) brightness(1.2) !important;
   transform: scale(.98);
 }
 table.am-list-table.has-selection tr.am-list-row:not(.am-row-selected),
@@ -991,11 +991,21 @@ table.am-list-table.has-selection tr.am-list-row:not(.am-row-selected) td,
 .am-list-table.has-selection .am-list-row:not(.am-row-selected),
 .am-list-table.has-selection .am-list-row:not(.am-row-selected) td {
   opacity: .62 !important;
-  filter: grayscale(.2) !important;
+  filter: grayscale(.2) brightness(1.2) !important;
   background: #f9fafb !important;
 }
 body.am-dark-mode table.am-list-table.has-selection tr.am-list-row:not(.am-row-selected),
 body.am-dark-mode table.am-list-table.has-selection tr.am-list-row:not(.am-row-selected) td {
   background: #1e2333 !important;
-  filter: grayscale(.2) !important;
+  filter: grayscale(.2) brightness(1.2) !important;
+}
+
+/* Brilho geral +20% nos ativos (fora da seleção também) */
+.am-asset-card,
+.am-list-row {
+  filter: brightness(1.2);
+}
+.am-asset-card.am-card-selected,
+.am-list-row.am-row-selected {
+  filter: brightness(1.2) !important;
 }
