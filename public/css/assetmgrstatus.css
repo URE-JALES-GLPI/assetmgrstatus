@@ -56,8 +56,8 @@
 .am-empty-state .ti{font-size:3.5rem;display:block;margin-bottom:14px;opacity:.4}
 .am-empty-state p{font-size:1rem;margin:0 0 16px}
 .am-empty-small{padding:24px}
-.am-asset-list{margin-bottom:32px}
-.am-list-table{width:100%;border-collapse:collapse;background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;overflow:hidden}
+.am-asset-list{margin-bottom:32px;overflow:visible;}
+.am-list-table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;overflow:visible}
 .am-list-table thead tr{background:#f8f9fb;border-bottom:2px solid #e8eaf0}
 .am-list-table th{padding:12px 16px;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;text-align:left}
 .am-list-row{border-bottom:1px solid #f0f2f8;cursor:pointer;transition:background .15s}
@@ -400,24 +400,27 @@ body.am-dark-mode {
 .am-badge-note{background:#fef3c7;color:#92400e;}
 
 /* ---- Alerta clicável + tooltip pop-up ---- */
-.am-alert-trigger{position:relative;cursor:help;display:inline-flex;align-items:center;gap:6px;}
+.am-alert-trigger{position:relative;cursor:help;display:inline-flex;align-items:center;gap:6px;z-index:2;}
 .am-alert-60.am-alert-trigger,.am-alert-overdue.am-alert-trigger{display:flex;justify-content:center;width:100%;}
-.am-alert-popup{display:none;position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);background:#1f2937;color:#fff;padding:12px 14px;border-radius:10px;font-size:.8rem;line-height:1.45;width:280px;max-width:90vw;z-index:120;box-shadow:0 10px 30px rgba(0,0,0,.25);white-space:normal;text-align:left;font-weight:500;pointer-events:none;}
+.am-alert-popup{display:none;position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);background:#1f2937;color:#fff;padding:12px 14px;border-radius:10px;font-size:.8rem;line-height:1.45;width:280px;max-width:90vw;z-index:9999;box-shadow:0 16px 40px rgba(0,0,0,.35);white-space:normal;text-align:left;font-weight:500;pointer-events:none;filter:none !important;}
 .am-alert-popup::before{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);border-left:6px solid transparent;border-right:6px solid transparent;border-bottom:6px solid #1f2937;}
 .am-alert-trigger:hover .am-alert-popup,.am-alert-trigger:focus .am-alert-popup,.am-alert-trigger:focus-within .am-alert-popup{display:block;animation:amPopupIn .15s ease;pointer-events:auto;}
+.am-alert-trigger:hover{z-index:50;}
 @keyframes amPopupIn{from{opacity:0;transform:translateX(-50%) translateY(-4px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
 /* Posicionamento na lista (tabela) — evita corte pelo overflow:hidden da tabela */
 .am-list-table .am-alert-trigger .am-alert-popup{left:auto;right:0;transform:none;top:calc(100% + 8px);}
 .am-list-table .am-alert-trigger .am-alert-popup::before{left:auto;right:16px;transform:none;}
 /* Linha clicável indica seleção */
-.am-list-row{cursor:pointer;}
+.am-list-row{cursor:pointer;position:relative;}
 .am-list-row:hover{background:#f8f9fb;}
-.am-asset-card{cursor:pointer;}
+.am-list-row:has(.am-alert-trigger:hover){z-index:50;position:relative;}
+.am-asset-card{cursor:pointer;position:relative;z-index:1;}
 /* Compatibilidade: has-selection — desapagado, bem sutil */
 .am-asset-grid.has-selection .am-asset-card:not(.am-card-selected){opacity:.88 !important;filter:grayscale(.08) brightness(1.05) !important;transform:scale(.99);}
 .am-asset-grid.has-selection .am-asset-card.am-card-selected{opacity:1 !important;filter:brightness(1.05) !important;border-color:#4f46e5 !important;box-shadow:0 0 0 4px rgba(79,70,229,.2) !important;transform:scale(1.01);}
+.am-asset-grid.has-selection .am-asset-card:has(.am-alert-trigger:hover){z-index:50 !important;}
 /* Permite pop-up escapar do overflow:hidden do card */
-.am-asset-card:has(.am-alert-trigger:hover),.am-asset-card:hover{overflow:visible;z-index:10;}
+.am-asset-card:has(.am-alert-trigger:hover),.am-asset-card:hover{overflow:visible !important;z-index:50 !important;}
 
 /* dark mode */
 body.am-dark-mode {
