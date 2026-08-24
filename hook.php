@@ -211,6 +211,29 @@ function plugin_assetmgrstatus_install(): bool
     // Cria direitos nos perfis existentes
     PluginAssetmgrstatusProfile::install();
 
+    // Cron diário: limpa PDFs de transferência após 7 dias (mantém dados para regenerar)
+    try {
+        if (class_exists('CronTask')) {
+            $cron = new CronTask();
+            if (!$cron->getFromDBByCrit(['itemtype' => 'GlpiPlugin\Assetmgrstatus\Transfer', 'name' => 'cleanupPdfs'])) {
+                $cron->add([
+                    'itemtype'      => 'GlpiPlugin\Assetmgrstatus\Transfer',
+                    'name'          => 'cleanupPdfs',
+                    'frequency'     => 86400,
+                    'param'         => 0,
+                    'state'         => 1,
+                    'mode'          => 2,
+                    'allowmode'     => 3,
+                    'logs_lifetime' => 30,
+                    'hourmin'       => 0,
+                    'comment'       => 'AssetMgrStatus: remove PDFs de transferência após 7 dias, mantendo dados para regeneração',
+                ]);
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('[assetmgrstatus] cron install: ' . $e->getMessage());
+    }
+
     return true;
 }
 
@@ -235,6 +258,15 @@ function plugin_assetmgrstatus_uninstall(): bool
         if ($DB->tableExists($table)) {
             $DB->doQuery("DROP TABLE `{$table}`");
         }
+    }
+
+    try {
+        if (class_exists('CronTask')) {
+            $cron = new CronTask();
+            $cron->deleteByCriteria(['itemtype' => 'GlpiPlugin\Assetmgrstatus\Transfer', 'name' => 'cleanupPdfs']);
+        }
+    } catch (\Throwable $e) {
+        error_log('[assetmgrstatus] cron uninstall: ' . $e->getMessage());
     }
 
     PluginAssetmgrstatusProfile::uninstall();

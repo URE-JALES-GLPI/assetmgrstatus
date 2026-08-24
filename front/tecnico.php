@@ -8,6 +8,9 @@ use GlpiPlugin\Assetmgrstatus\Transfer;
 Session::checkLoginUser();
 Session::checkRight('plugin_assetmgrstatus_tecnico', READ);
 
+// Limpeza automática de PDFs após 7 dias (1x/dia, mantém dados para regenerar)
+try { Transfer::maybeRunCleanup(); } catch (\Throwable $e) {}
+
 global $CFG_GLPI;
 
 $filter_status = $_GET['status'] ?? '';

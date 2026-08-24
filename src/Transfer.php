@@ -1037,4 +1037,87 @@ class Transfer
         $d = floor($diff/86400); $h = floor(($diff%86400)/3600); $m = floor(($diff%3600)/60); $s = $diff%60;
         return ['total_seconds' => $diff, 'days' => $d, 'hours' => $h, 'minutes' => $m, 'seconds' => $s, 'label' => ($d>0?"{$d}d ":''). "{$h}h {$m}m"];
     }
+
+    // -------------------------------------------------------
+    // Limpeza automática de PDFs após 7 dias (mantém dados)
+    // -------------------------------------------------------
+
+    public static function cleanupOldPdfs(int $days = 7): int
+    {
+        global $DB;
+        $cutoff = date('Y-m-d H:i:s', strtotime("-$days days"));
+        $count  = 0;
+
+        try {
+            $iter = $DB->request([
+                'SELECT' => ['id', 'filepath', 'name'],
+                'FROM'   => 'glpi_documents',
+                'WHERE'  => [
+                    ['name' => ['LIKE', 'Termo de % - Transferência #%']],
+                    ['date_creation' => ['<', $cutoff]],
+                    ['is_deleted' => 0],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] cleanupOldPdfs query: ' . $e->getMessage());
+            return 0;
+        }
+
+        foreach ($iter as $doc) {
+            $docId = (int)$doc['id'];
+            try {
+                $document = new Document();
+                if ($document->getFromDB($docId)) {
+                    // delete(true) = purge + unlink file + Document_Item
+                    if ($document->delete(['id' => $docId], 1)) {
+                        $count++;
+                        continue;
+                    }
+                }
+                // Fallback direto caso Document::delete falhe
+                $DB->delete('glpi_documents_items', ['documents_id' => $docId]);
+                $DB->delete('glpi_documents', ['id' => $docId]);
+                if (!empty($doc['filepath'])) {
+                    $file = (defined('GLPI_DOC_DIR') ? GLPI_DOC_DIR : GLPI_ROOT . '/files') . '/' . $doc['filepath'];
+                    if (file_exists($file)) @unlink($file);
+                }
+                $count++;
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] cleanupOldPdfs delete id ' . $docId . ': ' . $e->getMessage());
+            }
+        }
+
+        if ($count > 0) {
+            error_log("[assetmgrstatus] cleanupOldPdfs: $count PDFs removidos (>$days dias)");
+        }
+
+        return $count;
+    }
+
+    public static function cronCleanupPdfs($task = null): int
+    {
+        $count = self::cleanupOldPdfs(7);
+        if ($task && is_object($task) && method_exists($task, 'log')) {
+            $task->log("AssetMgrStatus: $count PDFs antigos removidos (>7 dias)");
+            if (method_exists($task, 'addVolume')) $task->addVolume($count);
+        }
+        return 1;
+    }
+
+    public static function maybeRunCleanup(): void
+    {
+        try {
+            $tmp = defined('GLPI_TMP_DIR') ? GLPI_TMP_DIR : sys_get_temp_dir();
+            $file = rtrim($tmp, '/\\') . '/assetmgrstatus_last_cleanup';
+            $now = time();
+            if (is_file($file) && ($now - @filemtime($file) < 86400)) {
+                return;
+            }
+            @touch($file);
+            @file_put_contents($file, (string)$now);
+            self::cleanupOldPdfs(7);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] maybeRunCleanup: ' . $e->getMessage());
+        }
+    }
 }

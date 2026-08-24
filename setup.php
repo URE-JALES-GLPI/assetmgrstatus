@@ -33,6 +33,7 @@ function plugin_init_assetmgrstatus(): void
 
     $PLUGIN_HOOKS['csrf_compliant']['assetmgrstatus'] = true;
     $PLUGIN_HOOKS['change_profile']['assetmgrstatus'] = ['PluginAssetmgrstatusProfile', 'changeProfile'];
+    $PLUGIN_HOOKS['cron']['assetmgrstatus'] = ['GlpiPlugin\Assetmgrstatus\Transfer', 'cronCleanupPdfs'];
 
     Plugin::registerClass(\GlpiPlugin\Assetmgrstatus\MaintenanceRecord::class, [
         'addtabon' => [
