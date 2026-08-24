@@ -77,6 +77,7 @@ $fab_list     = ($filter_type === 'Notebook') ? MaintenanceRecord::getManufactur
 $comp_list    = MaintenanceRecord::getComponents();
 $entity_id    = Session::getActiveEntity();
 $stats        = Stats::getAll($entity_id);
+$type_counts  = Stats::getCountsByType($entity_id);
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
 $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
@@ -140,10 +141,10 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
         <div class="am-filter-group">
             <label>Tipo</label>
             <div class="am-type-tabs">
-                <a href="?<?= am_qs(['type' => '']) ?>" class="am-type-tab <?= $filter_type==='' ? 'active' : '' ?>"><i class="ti ti-layout-grid"></i> Todos</a>
+                <a href="?<?= am_qs(['type' => '']) ?>" class="am-type-tab <?= $filter_type==='' ? 'active' : '' ?>"><i class="ti ti-layout-grid"></i> Todos <span class="am-type-count"><?= $type_counts['total'] ?? 0 ?></span></a>
                 <?php foreach ($types as $key => $def): ?>
                 <a href="?<?= am_qs(['type' => $key]) ?>" class="am-type-tab <?= $filter_type===$key ? 'active' : '' ?>">
-                    <i class="ti <?= $def['icon'] ?>"></i> <?= htmlspecialchars($def['label']) ?>
+                    <i class="ti <?= $def['icon'] ?>"></i> <?= htmlspecialchars($def['label']) ?> <span class="am-type-count"><?= $type_counts[$key] ?? 0 ?></span>
                 </a>
                 <?php endforeach; ?>
             </div>

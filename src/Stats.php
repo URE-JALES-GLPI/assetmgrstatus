@@ -111,6 +111,29 @@ class Stats
         return $result;
     }
 
+    public static function getCountsByType(int $entity_id): array
+    {
+        global $DB;
+        $types = MaintenanceRecord::getAssetTypes();
+        $result = [];
+        foreach ($types as $key => $def) {
+            $def_iter = $DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_assets_assetdefinitions', 'WHERE' => ['system_name' => $key], 'LIMIT' => 1]);
+            if ($def_iter->count() === 0) {
+                $result[$key] = 0;
+                continue;
+            }
+            $def_id = $def_iter->current()['id'];
+            $cnt = $DB->request([
+                'SELECT' => ['COUNT' => 'id AS total'],
+                'FROM'   => 'glpi_assets_assets',
+                'WHERE'  => ['assets_assetdefinitions_id' => $def_id, 'entities_id' => $entity_id, 'is_deleted' => 0],
+            ])->current()['total'] ?? 0;
+            $result[$key] = (int)$cnt;
+        }
+        $result['total'] = array_sum($result);
+        return $result;
+    }
+
     public static function getMonthlyHistory(int $entity_id): array
     {
         global $DB;
