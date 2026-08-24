@@ -4,6 +4,7 @@ include('../../../inc/includes.php');
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Stats;
+use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
 
@@ -79,6 +80,10 @@ $stats        = Stats::getAll($entity_id);
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
 $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
+$can_transfer = Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) || Session::haveRight('plugin_assetmgrstatus_transfer', UPDATE)
+    || Session::haveRight('plugin_assetmgrstatus', CREATE) || Session::haveRight('plugin_assetmgrstatus', UPDATE);
+$entities_ure    = $can_transfer ? Transfer::getEntidades('ure') : [];
+$entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
 ?>
 
 <div class="container-fluid am-page">
@@ -288,6 +293,9 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
     <div id="am-bulk-bar" class="am-bulk-bar">
         <span id="am-bulk-count">0 selecionado(s)</span>
         <button class="am-btn am-btn-primary" style="padding:7px 16px;font-size:.82rem;" onclick="amOpenBulkModal()"><i class="ti ti-edit"></i> Alterar Status em Massa</button>
+        <?php if ($can_transfer): ?>
+        <button class="am-btn" style="background:#fff;color:#1e40af;padding:7px 16px;font-size:.82rem;border:1.5px solid #dbeafe;" onclick="amOpenTransferModalFromBulk()"><i class="ti ti-transfer"></i> Transferir</button>
+        <?php endif; ?>
         <button class="am-btn am-btn-secondary" style="padding:7px 16px;font-size:.82rem;" onclick="amClearSelection()"><i class="ti ti-x"></i> Limpar seleção</button>
     </div>
 
@@ -826,6 +834,84 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
     </div>
 </div>
 
+<!-- Modal de Transferência (reuso na aba Inventário) -->
+<?php if ($can_transfer): ?>
+<div id="am-modal-transfer" class="am-modal-overlay" onclick="amCloseTransferModal(event)">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:580px;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#0f172a,#1e40af);">
+            <div class="am-modal-title"><i class="ti ti-transfer"></i><span>Nova Transferência</span></div>
+            <button class="am-modal-close" onclick="amCloseTransferModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <form id="am-transfer-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.form.php">
+            <input type="hidden" name="selected_assets" id="am-tr-selected-assets">
+            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <div class="am-modal-body">
+                <div id="am-tr-asset-list" style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:.85rem;color:#4b5563;max-height:100px;overflow-y:auto;"></div>
+                <div class="am-form-section">
+                    <label class="am-form-label">Tipo de Destino <span class="am-required">*</span></label>
+                    <div style="display:flex;gap:12px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:#f0f7ff;border:2px solid #bfdbfe;border-radius:10px;padding:10px 18px;flex:1;transition:all .15s;" id="am-tr-type-ure-label">
+                            <input type="radio" name="transfer_type" value="ure" id="am-tr-type-ure" onchange="amSwitchTransferType('ure')" checked style="accent-color:#1e40af;">
+                            <span><strong>URE</strong><br><small style="color:#6b7280;">Entidade principal</small></span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;background:#f8f9fb;border:2px solid #e8eaf0;border-radius:10px;padding:10px 18px;flex:1;transition:all .15s;" id="am-tr-type-escola-label">
+                            <input type="radio" name="transfer_type" value="escola" id="am-tr-type-escola" onchange="amSwitchTransferType('escola')" style="accent-color:#1e40af;">
+                            <span><strong>Escola</strong><br><small style="color:#6b7280;">Unidade de ensino</small></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="am-form-section" id="am-tr-ure-section">
+                    <label class="am-form-label">URE de Destino <span class="am-required">*</span></label>
+                    <select name="entity_dest" id="am-tr-entity-ure" class="am-input" required>
+                        <option value="0" selected>Unidade Regional de Ensino de Jales</option>
+                    </select>
+                </div>
+                <div class="am-form-section" id="am-tr-escola-section" style="display:none;">
+                    <label class="am-form-label">Escola de Destino <span class="am-required">*</span></label>
+                    <select name="entity_dest_escola" id="am-tr-entity-escola" class="am-input">
+                        <option value="">Selecione a escola...</option>
+                        <?php foreach ($entities_escola as $ent): ?>
+                        <option value="<?= (int)$ent['id'] ?>"><?= htmlspecialchars($ent['completename']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="am-form-section">
+                    <label class="am-form-label">Motivo da Transferência <span class="am-required">*</span></label>
+                    <textarea name="reason" class="am-textarea" required placeholder="Descreva o motivo da transferência..."></textarea>
+                </div>
+                <div class="am-form-section">
+                    <label class="am-form-label">Categoria do Chamado <span class="am-required">*</span></label>
+                    <select name="ticket_category" class="am-input" required>
+                        <option value="">Selecione a categoria...</option>
+                        <?php
+                        $tcats = $DB->request([
+                            'FROM'  => 'glpi_itilcategories',
+                            'ORDER' => ['completename ASC'],
+                        ]);
+                        foreach ($tcats as $tcat): ?>
+                        <option value="<?= (int)$tcat['id'] ?>"><?= htmlspecialchars($tcat['completename']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small style="display:block;margin-top:6px;color:#6b7280;font-size:.75rem;">
+                        <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI com todas as informações da transferência.
+                    </small>
+                </div>
+                <label class="am-agree-check">
+                    <input type="checkbox" id="am-tr-agree" onchange="amToggleTransferSubmit()">
+                    <span>Confirmo que as informações da transferência estão corretas e autorizo o envio dos ativos selecionados.</span>
+                </label>
+            </div>
+            <div class="am-modal-footer">
+                <button type="button" class="am-btn am-btn-secondary" onclick="amCloseTransferModal()"><i class="ti ti-x"></i> Cancelar</button>
+                <button type="submit" id="am-tr-submit" class="am-btn" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;opacity:.4;cursor:not-allowed;" disabled>
+                    <i class="ti ti-transfer"></i> Confirmar Transferência
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 // Injeta filtros em todos os forms de ação dos modais
 document.addEventListener('DOMContentLoaded', function() {
@@ -900,6 +986,82 @@ function amClearSelection() {
     if (master) master.checked = false;
     amUpdateBulkBar();
 }
+function amOpenTransferModalFromBulk() {
+    var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    var items = [], names = [];
+    checkboxes.forEach(function(cb){
+        items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name});
+        names.push(cb.dataset.name);
+    });
+    var input = document.getElementById('am-tr-selected-assets');
+    var list  = document.getElementById('am-tr-asset-list');
+    if (input) input.value = JSON.stringify(items);
+    if (list) list.innerHTML = '<strong>' + items.length + ' ativo(s) selecionado(s):</strong><br>' + names.join(', ');
+    var agree = document.getElementById('am-tr-agree');
+    if (agree) agree.checked = false;
+    amToggleTransferSubmit();
+    var ureRadio = document.getElementById('am-tr-type-ure');
+    if (ureRadio) { ureRadio.checked = true; amSwitchTransferType('ure'); }
+    var modal = document.getElementById('am-modal-transfer');
+    if (modal) { modal.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
+function amCloseTransferModal(e) {
+    if (e && e.target !== document.getElementById('am-modal-transfer')) return;
+    var m = document.getElementById('am-modal-transfer');
+    if (m) m.classList.remove('open');
+    document.body.style.overflow = '';
+}
+function amToggleTransferSubmit() {
+    var cb = document.getElementById('am-tr-agree');
+    var btn = document.getElementById('am-tr-submit');
+    if (!cb || !btn) return;
+    btn.disabled = !cb.checked;
+    btn.style.opacity = cb.checked ? '1' : '.4';
+    btn.style.cursor = cb.checked ? 'pointer' : 'not-allowed';
+}
+function amSwitchTransferType(type) {
+    var ureSection = document.getElementById('am-tr-ure-section');
+    var escolaSection = document.getElementById('am-tr-escola-section');
+    var ureLabel = document.getElementById('am-tr-type-ure-label');
+    var escolaLabel = document.getElementById('am-tr-type-escola-label');
+    var ureSelect = document.getElementById('am-tr-entity-ure');
+    var escolaSelect = document.getElementById('am-tr-entity-escola');
+    if (!ureSection || !escolaSection) return;
+    if (type === 'ure') {
+        ureSection.style.display = 'block';
+        escolaSection.style.display = 'none';
+        ureSelect.name = 'entity_dest';
+        ureSelect.disabled = false;
+        ureSelect.required = true;
+        escolaSelect.name = 'entity_dest_escola_disabled';
+        escolaSelect.disabled = true;
+        escolaSelect.required = false;
+        ureLabel.style.borderColor = '#1e40af';
+        ureLabel.style.background = '#eff6ff';
+        escolaLabel.style.borderColor = '#e8eaf0';
+        escolaLabel.style.background = '#f8f9fb';
+    } else {
+        ureSection.style.display = 'none';
+        escolaSection.style.display = 'block';
+        escolaSelect.name = 'entity_dest';
+        escolaSelect.disabled = false;
+        escolaSelect.required = true;
+        ureSelect.name = 'entity_dest_ure_disabled';
+        ureSelect.disabled = true;
+        ureSelect.required = false;
+        escolaLabel.style.borderColor = '#1e40af';
+        escolaLabel.style.background = '#eff6ff';
+        ureLabel.style.borderColor = '#e8eaf0';
+        ureLabel.style.background = '#f8f9fb';
+    }
+}
+document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape') {
+        var m = document.getElementById('am-modal-transfer');
+        if (m && m.classList.contains('open')) { m.classList.remove('open'); document.body.style.overflow=''; }
+    }
+});
 // Fallback JS: garante que ao clicar em tabs de tipo/status o outro filtro não se perca (caso PHP falhe)
 document.addEventListener('click', function(e){
   var tab = e.target.closest('.am-type-tab');
