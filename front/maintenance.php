@@ -8,7 +8,7 @@ use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
 
-global $CFG_GLPI;
+global $CFG_GLPI, $DB;
 
 $filter_type   = $_GET['type']   ?? '';
 $filter_search = $_GET['search'] ?? '';
