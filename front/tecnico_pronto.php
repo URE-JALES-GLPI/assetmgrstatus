@@ -6,9 +6,7 @@ use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
-if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) {
-    Html::displayRightError(); exit;
-}
+Session::checkRight('plugin_assetmgrstatus_tecnico', READ);
 
 global $CFG_GLPI;
 

@@ -34,15 +34,21 @@ foreach ($comp_checks as $ck) {
 }
 
 $count = 0;
+$blocked = 0;
 foreach ($items as $item) {
     $items_id = (int)($item['id'] ?? 0);
     $itemtype = $item['itemtype'] ?? '';
     if (!$items_id || !$itemtype) continue;
-    MaintenanceRecord::saveRecord($itemtype, $items_id, $status, $reason, $components, [], Session::getLoginUserID());
-    $count++;
+    $ok = MaintenanceRecord::saveRecord($itemtype, $items_id, $status, $reason, $components, [], Session::getLoginUserID());
+    if ($ok) $count++;
+    else $blocked++;
 }
 
-Session::addMessageAfterRedirect("Status alterado em massa para $count ativo(s)!", false, INFO);
+if ($blocked > 0) {
+    Session::addMessageAfterRedirect("Status alterado em massa para $count ativo(s)! $blocked bloqueado(s) por transferência.", false, WARNING);
+} else {
+    Session::addMessageAfterRedirect("Status alterado em massa para $count ativo(s)!", false, INFO);
+}
 $view = $_POST['view_mode'] ?? $_POST['view'] ?? 'grid';
 $filter_type = $_POST['filter_type'] ?? '';
 $filter_status = $_POST['filter_status'] ?? '';

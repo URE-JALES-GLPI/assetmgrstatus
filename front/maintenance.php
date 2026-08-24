@@ -7,6 +7,7 @@ use GlpiPlugin\Assetmgrstatus\Stats;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
+Session::checkRight('plugin_assetmgrstatus', READ);
 
 global $CFG_GLPI, $DB;
 

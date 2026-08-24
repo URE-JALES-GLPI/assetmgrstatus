@@ -161,6 +161,8 @@ class Transfer
         $final_items = [];
         foreach ($valid_items as $key => $item) {
             if (!isset($origin_entities[$item['id']])) continue; // não existe/não é da entidade ativa
+            // Bloqueia itens já em transferência (evita duplo envio mesmo burlando o disabled do front)
+            if (self::isLocked($item['itemtype'], $item['id'])) continue;
             $final_items[$key] = $item;
         }
         if (empty($final_items)) return 0;
@@ -813,6 +815,9 @@ class Transfer
         ]);
 
         $uid = Session::getLoginUserID();
+        // Permite saveRecord mesmo com ativo bloqueado (finalização é exceção)
+        global $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK;
+        $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = true;
 
         // Nomes para histórico de retorno
         $dest_name_hist = '';
@@ -885,6 +890,8 @@ class Transfer
                 error_log('[assetmgrstatus] history retorno: ' . $e->getMessage());
             }
         }
+
+        $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = false;
 
         $DB->update('glpi_plugin_assetmgrstatus_transfers', [
             'status'          => self::STATUS_FINALIZADO,

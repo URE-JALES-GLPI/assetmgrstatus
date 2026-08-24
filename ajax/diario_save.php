@@ -1,7 +1,7 @@
 <?php
 include('../../../inc/includes.php');
 Session::checkLoginUser();
-if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) { echo json_encode(['ok'=>false]); exit; }
+if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ)) { echo json_encode(['ok'=>false, 'error'=>'Sem permissão']); exit; }
 global $DB;
 $data = json_decode(file_get_contents('php://input'), true);
 $action = $data['action'] ?? '';

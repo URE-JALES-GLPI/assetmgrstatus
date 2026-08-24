@@ -573,7 +573,15 @@ class MaintenanceRecord extends CommonDBTM
 
     public static function saveRecord(string $itemtype, int $items_id, string $status, string $reason, array $components, array $photos, int $users_id_tech = 0, ?string $expected_return_date = null): bool
     {
-        global $DB;
+        global $DB, $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK;
+        // Bloqueia alteração se ativo estiver em transferência (exceto quando bypass ativo, ex: finalizar)
+        if (empty($PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK)) {
+            // Verifica transfer_status diretamente (não depende de Transfer::isLocked para evitar loop)
+            $lock_iter = $DB->request(['SELECT' => ['transfer_status'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
+            if ($lock_iter->count() > 0 && $lock_iter->current()['transfer_status'] === 'transferido') {
+                return false;
+            }
+        }
         $now = date('Y-m-d H:i:s');
         $old_iter   = $DB->request(['FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
         $old_status     = $old_iter->count() > 0 ? $old_iter->current()['am_status']  : null;

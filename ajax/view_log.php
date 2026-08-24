@@ -5,7 +5,9 @@ include('../../../inc/includes.php');
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 
 Session::checkLoginUser();
-
+if (!Session::haveRight('plugin_assetmgrstatus', READ) && !Session::haveRight('plugin_assetmgrstatus_tecnico', READ)) {
+    echo json_encode(null); exit;
+}
 header('Content-Type: application/json');
 
 $itemtype = $_GET['itemtype'] ?? '';

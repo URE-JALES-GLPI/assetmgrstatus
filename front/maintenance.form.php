@@ -46,7 +46,7 @@ if (!empty($_FILES['photos']['name'][0])) {
     $photos = MaintenanceRecord::handlePhotoUpload($files);
 }
 
-MaintenanceRecord::saveRecord(
+$ok = MaintenanceRecord::saveRecord(
     $itemtype,
     $items_id,
     $status,
@@ -57,6 +57,12 @@ MaintenanceRecord::saveRecord(
     ($status === MaintenanceRecord::STATUS_MANUTENCAO && $expected_return_date) ? $expected_return_date : null
 );
 
-Session::addMessageAfterRedirect('Status atualizado com sucesso!', false, INFO);
+if ($ok) {
+    Session::addMessageAfterRedirect('Status atualizado com sucesso!', false, INFO);
+} else {
+    Session::addMessageAfterRedirect('Edição bloqueada: ativo em transferência e aguardando retorno do técnico.', false, ERROR);
+    Html::back();
+    exit;
+}
 $qs = http_build_query(['view'=>$view_mode,'type'=>$filter_type,'status'=>$filter_status,'search'=>$filter_search]);
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

@@ -3,7 +3,7 @@ include('../../../inc/includes.php');
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 Session::checkLoginUser();
-if (!Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) { Html::displayRightError(); exit; }
+Session::checkRight('plugin_assetmgrstatus_tecnico', READ);
 global $DB, $CFG_GLPI;
 $transfer_id = (int)($_GET['id'] ?? 0);
 if (!$transfer_id) { Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php'); exit; }

@@ -5,7 +5,9 @@ include('../../../inc/includes.php');
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 
 Session::checkLoginUser();
-
+if (!Session::haveRight('plugin_assetmgrstatus', READ)) {
+    echo json_encode(['can_undo'=>false]); exit;
+}
 header('Content-Type: application/json');
 
 global $DB;
