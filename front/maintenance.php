@@ -201,10 +201,8 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
         ?>
         <?php
         $is_transferred = !empty($asset['transfer_status']) && $asset['transfer_status'] === 'transferido';
-        $card_onclick = '';
-        if (!$is_transferred) {
-            $card_onclick = 'onclick="amOpenModal(' . (int)$asset['id'] . ',\'' . htmlspecialchars(addslashes($asset['itemtype'])) . '\',\'' . htmlspecialchars(addslashes($asset['name'])) . '\',\'' . htmlspecialchars($asset['asset_type_label']) . '\',\'' . $plugin_status . '\')"';
-        }
+        // Clique na linha/card seleciona checkbox; modal abre apenas via botão Status
+        $card_onclick = $is_transferred ? '' : 'onclick="amHandleAssetClick(this, event)"';
         ?>
         <div class="am-asset-card am-skeleton <?= $alert60 ? 'am-card-alert' : '' ?> <?= $is_transferred ? 'am-card-locked-transfer' : '' ?>" style="transition:transform .15s ease;" data-asset-id="<?= (int)$asset['id'] ?>" <?= $card_onclick ?>>
             <?php if ($is_transferred): ?>
@@ -215,10 +213,34 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
             <div class="am-card-checkbox" onclick="event.stopPropagation()">
                 <input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" onchange="amUpdateBulkBar()">
             </div>
-            <?php if ($alert60): ?>
-            <div class="am-alert-60"><i class="ti ti-alert-triangle"></i> +60 dias sem manutenção</div>
-            <?php elseif (!empty($asset['expected_return_overdue'])): ?>
-            <div class="am-alert-overdue"><i class="ti ti-calendar-x"></i> Prazo de retorno vencido (<?= abs($asset['expected_return_days']) ?>d atrás)</div>
+            <?php if ($alert60):
+                $days = $asset['days_since_maintenance'];
+                $msg60 = $days === null
+                    ? 'Nenhuma manutenção realizada registrada para este ativo. Recomenda-se verificação imediata.'
+                    : 'Última manutenção há ' . (int)$days . ' dias — ' . max(0, (int)$days - 60) . ' dia(s) acima do limite de 60 dias.';
+            ?>
+            <div class="am-alert-60 am-alert-trigger" tabindex="0" onclick="event.stopPropagation()">
+                <i class="ti ti-alert-triangle"></i> +60 dias sem manutenção
+                <div class="am-alert-popup">
+                    <strong style="display:block;margin-bottom:4px;"><i class="ti ti-alert-triangle"></i> Alerta +60 dias</strong>
+                    <?= htmlspecialchars($msg60) ?>
+                    <?php if ($days !== null): ?>
+                    <span style="display:block;margin-top:6px;font-size:.72rem;opacity:.8;">Última manutenção: <?= (int)$days ?> dias atrás</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php elseif (!empty($asset['expected_return_overdue'])):
+                $retDays = abs((int)$asset['expected_return_days']);
+                $retDate = !empty($asset['expected_return_date']) ? date('d/m/Y', strtotime($asset['expected_return_date'])) : '—';
+            ?>
+            <div class="am-alert-overdue am-alert-trigger" tabindex="0" onclick="event.stopPropagation()">
+                <i class="ti ti-calendar-x"></i> Prazo de retorno vencido (<?= $retDays ?>d atrás)
+                <div class="am-alert-popup">
+                    <strong style="display:block;margin-bottom:4px;"><i class="ti ti-calendar-x"></i> Prazo vencido</strong>
+                    Prazo de retorno previsto em <strong><?= htmlspecialchars($retDate) ?></strong> vencido há <strong><?= $retDays ?> dia(s)</strong>.<br>
+                    <span style="font-size:.75rem;opacity:.85;">Ativo em Manutenção com devolução atrasada. Verifique com o responsável.</span>
+                </div>
+            </div>
             <?php endif; ?>
             <div class="am-asset-card-header">
                 <div class="am-asset-type-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></div>
@@ -274,7 +296,7 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                 $alert60 = $asset['alert_60days'] ?? false;
             ?>
             <?php $is_transferred_row = !empty($asset['transfer_status']) && $asset['transfer_status'] === 'transferido'; ?>
-            <tr class="am-list-row <?= $is_transferred_row ? 'am-row-locked-transfer' : '' ?>" data-asset-id="<?= (int)$asset['id'] ?>">
+            <tr class="am-list-row <?= $is_transferred_row ? 'am-row-locked-transfer' : '' ?>" data-asset-id="<?= (int)$asset['id'] ?>" <?= $is_transferred_row ? '' : 'onclick="amHandleAssetClick(this, event)"' ?>>
                 <td onclick="event.stopPropagation()"><input type="checkbox" class="am-bulk-checkbox" value="<?= (int)$asset['id'] ?>" data-itemtype="<?= htmlspecialchars($asset['itemtype']) ?>" data-name="<?= htmlspecialchars($asset['name']) ?>" onchange="amUpdateBulkBar()"></td>
                 <td><div style="display:flex;align-items:center;gap:8px;"><span class="am-list-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></span><span style="font-size:.8rem;color:#9ca3af;font-weight:600;text-transform:uppercase;"><?= htmlspecialchars($asset['asset_type_label']) ?></span></div></td>
                 <td><strong><?= htmlspecialchars($asset['name']) ?></strong></td>
@@ -283,10 +305,24 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
                 <td style="font-size:.82rem;color:#6366f1;"><?= htmlspecialchars($asset['entity_name'] ?? '—') ?></td>
                 <td><span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($plugin_status) ?>"><?= MaintenanceRecord::getStatusLabel($plugin_status) ?></span></td>
                 <td>
-                    <?php if ($alert60): ?>
-                    <span style="color:#dc2626;font-size:.8rem;font-weight:700;"><i class="ti ti-alert-triangle"></i> +60d</span>
-                    <?php elseif (!empty($asset['expected_return_overdue'])): ?>
-                    <span style="color:#d97706;font-size:.8rem;font-weight:700;"><i class="ti ti-calendar-x"></i> Atraso <?= abs($asset['expected_return_days']) ?>d</span>
+                    <?php if ($alert60):
+                        $days = $asset['days_since_maintenance'];
+                        $msg60 = $days === null
+                            ? 'Nenhuma manutenção realizada registrada para este ativo.'
+                            : 'Última manutenção há ' . (int)$days . ' dias — ' . max(0, (int)$days - 60) . ' dia(s) acima do limite de 60 dias.';
+                    ?>
+                    <span class="am-alert-trigger" style="color:#dc2626;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;position:relative;" tabindex="0" onclick="event.stopPropagation()">
+                        <i class="ti ti-alert-triangle"></i> +60d
+                        <span class="am-alert-popup"><?= htmlspecialchars($msg60) ?></span>
+                    </span>
+                    <?php elseif (!empty($asset['expected_return_overdue'])):
+                        $retDays = abs((int)$asset['expected_return_days']);
+                        $retDate = !empty($asset['expected_return_date']) ? date('d/m/Y', strtotime($asset['expected_return_date'])) : '—';
+                    ?>
+                    <span class="am-alert-trigger" style="color:#d97706;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;position:relative;" tabindex="0" onclick="event.stopPropagation()">
+                        <i class="ti ti-calendar-x"></i> Atraso <?= $retDays ?>d
+                        <span class="am-alert-popup">Prazo previsto <strong><?= htmlspecialchars($retDate) ?></strong> vencido há <strong><?= $retDays ?> dia(s)</strong>. Ativo em manutenção atrasado.</span>
+                    </span>
                     <?php endif; ?>
                 </td>
                 <td style="display:flex;gap:5px;flex-wrap:wrap;">
@@ -712,6 +748,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Clique na linha/card seleciona/desseleciona o checkbox
+function amHandleAssetClick(el, e) {
+    // Ignora cliques em elementos interativos e no próprio alerta
+    if (e.target.closest('a, button, input, .am-btn, .am-card-checkbox, .am-alert-trigger, .am-alert-popup')) return;
+    if (el.classList.contains('am-card-locked-transfer') || el.classList.contains('am-row-locked-transfer')) return;
+    var cb = el.querySelector('.am-bulk-checkbox');
+    if (!cb) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change', {bubbles: true}));
+    amUpdateBulkBar();
+}
+
 function amUpdateBulkBar() {
     var checkboxes = document.querySelectorAll('.am-bulk-checkbox');
     var checked    = document.querySelectorAll('.am-bulk-checkbox:checked');
@@ -724,10 +772,11 @@ function amUpdateBulkBar() {
         if (row)  row.classList.toggle('am-row-selected', cb.checked);
     });
 
-    // Aplica has-selection para desfocar não selecionados
-    var grid  = document.querySelector('.am-assets-grid');
+    // Aplica has-selection para desfocar não selecionados (suporta ambas as classes)
+    document.querySelectorAll('.am-asset-grid, .am-assets-grid').forEach(function(g){
+        g.classList.toggle('has-selection', hasSelection);
+    });
     var table = document.querySelector('.am-list-table');
-    if (grid)  grid.classList.toggle('has-selection', hasSelection);
     if (table) table.classList.toggle('has-selection', hasSelection);
 
     var bar   = document.getElementById('am-bulk-bar');
@@ -743,6 +792,8 @@ function amToggleSelectAll(master) {
 }
 function amClearSelection() {
     document.querySelectorAll('.am-bulk-checkbox:checked').forEach(function(cb) { cb.checked = false; });
+    var master = document.getElementById('am-select-all');
+    if (master) master.checked = false;
     amUpdateBulkBar();
 }
 </script>

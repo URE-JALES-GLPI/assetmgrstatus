@@ -476,6 +476,17 @@
         input.files=dt.files;
     }
 
+    // ---- Clique na linha/card seleciona checkbox ----
+    window.amHandleAssetClick = function(el, e) {
+        if (e.target.closest('a, button, input, .am-btn, .am-card-checkbox, .am-alert-trigger, .am-alert-popup')) return;
+        if (el.classList.contains('am-card-locked-transfer') || el.classList.contains('am-row-locked-transfer')) return;
+        var cb = el.querySelector('.am-bulk-checkbox');
+        if (!cb) return;
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change', {bubbles: true}));
+        if (typeof window.amUpdateBulkBar === 'function') window.amUpdateBulkBar();
+    };
+
     // ---- Seleção em massa ----
     window.amUpdateBulkBar = function () {
         var checkboxes = document.querySelectorAll('.am-bulk-checkbox:checked');
@@ -485,17 +496,35 @@
 
         if (checkboxes.length > 0) {
             bar.classList.add('open');
-            countEl.textContent = checkboxes.length + ' selecionado(s)';
+            bar.style.display = 'flex';
+            if (countEl) countEl.textContent = checkboxes.length + ' selecionado(s)';
         } else {
             bar.classList.remove('open');
+            bar.style.display = 'none';
         }
 
-        // Marca visualmente os cards selecionados
+        // Marca visualmente os cards e linhas selecionadas
         document.querySelectorAll('.am-asset-card').forEach(function(card) {
             var cb = card.querySelector('.am-bulk-checkbox');
             if (cb && cb.checked) card.classList.add('am-card-selected');
             else card.classList.remove('am-card-selected');
         });
+        document.querySelectorAll('.am-list-row').forEach(function(row) {
+            var cb = row.querySelector('.am-bulk-checkbox');
+            if (cb && cb.checked) row.classList.add('am-row-selected');
+            else row.classList.remove('am-row-selected');
+        });
+
+        // Aplica has-selection para desfocar não selecionados (compat .am-asset-grid e .am-assets-grid)
+        document.querySelectorAll('.am-asset-grid, .am-assets-grid').forEach(function(g){
+            if (checkboxes.length > 0) g.classList.add('has-selection');
+            else g.classList.remove('has-selection');
+        });
+        var table = document.querySelector('.am-list-table');
+        if (table) {
+            if (checkboxes.length > 0) table.classList.add('has-selection');
+            else table.classList.remove('has-selection');
+        }
     };
 
     window.amClearSelection = function () {
