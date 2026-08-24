@@ -608,7 +608,11 @@ body.am-dark-mode {
         gap: 8px !important;
     }
     .am-filter-search { width: 100%; }
-    .am-view-toggle { align-self: flex-end; }
+    /* Força GRADE no mobile — esconde toggle Lista/Grade */
+    .am-view-toggle { display:none !important; }
+    /* Garante que lista não apareça no mobile mesmo se renderizada */
+    .am-asset-list { display:none !important; }
+    .am-asset-grid { display:grid !important; grid-template-columns: 1fr !important; gap:12px; }
 
     .am-comp-panel {
         width: calc(100vw - 40px);
@@ -618,9 +622,23 @@ body.am-dark-mode {
     }
 
     /* ---- Grid de cards de ativos ---- */
-    .am-assets-grid {
+    .am-assets-grid,
+    .am-asset-grid {
         grid-template-columns: 1fr !important;
         gap: 12px;
+    }
+    /* Deixa linha de status (Estoque, Ativo...) com scroll suave e snap no mobile */
+    .am-inv-dash-row {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        padding-bottom: 8px;
+        gap: 10px !important;
+    }
+    .am-inv-dash-row .am-dash-card {
+        scroll-snap-align: start;
+        min-width: 140px !important;
     }
     .am-asset-card-footer { flex-wrap: wrap; }
     .am-asset-card-footer .am-btn { flex: 1 1 auto; min-width: 70px; }

@@ -878,3 +878,23 @@ window.amToggleTheme = function() {
     if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', amCheckLocked);
     else amCheckLocked();
 })();
+
+// Força GRADE no mobile (viewport) — se redimensionar para <=768px estando em lista, troca para grade
+(function(){
+    function amEnforceGridOnMobile(){
+        try{
+            if(window.matchMedia && window.matchMedia('(max-width: 768px)').matches){
+                var p=new URLSearchParams(window.location.search);
+                if(p.get('view')==='list'){
+                    p.set('view','grid');
+                    var u=window.location.pathname+(p.toString()?'?'+p.toString():'');
+                    window.location.replace(u);
+                }
+            }
+        }catch(e){}
+    }
+    window.addEventListener('resize', function(){
+        clearTimeout(window._amGridResizeTimer);
+        window._amGridResizeTimer=setTimeout(amEnforceGridOnMobile, 300);
+    });
+})();

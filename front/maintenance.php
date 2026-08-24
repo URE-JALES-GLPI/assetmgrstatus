@@ -20,7 +20,9 @@ $raw_fab = $_GET['fabricante'] ?? [];
 if (is_string($raw_fab)) $raw_fab = $raw_fab !== '' ? [$raw_fab] : [];
 if (!is_array($raw_fab)) $raw_fab = [];
 $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
-$view_mode     = $_GET['view']   ?? 'list';
+$is_mobile_ua  = preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
+$view_mode     = $_GET['view']   ?? ($is_mobile_ua ? 'grid' : 'list');
+if ($is_mobile_ua && $view_mode === 'list') $view_mode = 'grid'; // força grade no mobile mesmo se view=list na URL
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
 // Helper para montar querystring preservando o array comp[] e fabricante — lê direto de $_GET para evitar perda de filtro
@@ -35,7 +37,9 @@ function am_qs(array $overrides = []): string {
     if (is_string($cur_fab)) $cur_fab = $cur_fab !== '' ? [$cur_fab] : [];
     if (!is_array($cur_fab)) $cur_fab = [];
     $cur_fab    = array_values(array_filter(array_map('intval', $cur_fab)));
-    $cur_view   = $_GET['view']   ?? 'list';
+    $is_mobile_qs = preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
+    $cur_view   = $_GET['view']   ?? ($is_mobile_qs ? 'grid' : 'list');
+    if ($is_mobile_qs && $cur_view === 'list') $cur_view = 'grid';
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
 
     // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
@@ -68,6 +72,9 @@ function am_qs(array $overrides = []): string {
 }
 
 Html::header('Inventário de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
+
+// Força GRADE no mobile via JS (viewport) — além do UA no PHP
+echo '<script>try{if(window.matchMedia&&window.matchMedia("(max-width: 768px)").matches){var p=new URLSearchParams(window.location.search);if(p.get("view")==="list"){p.set("view","grid");var u=window.location.pathname+(p.toString()?"?"+p.toString():"");window.location.replace(u);}}}catch(e){}</script>';
 
 $paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $filter_fabricante, $page);
 $assets       = $paged['rows'];
