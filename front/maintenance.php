@@ -3,6 +3,7 @@
 include('../../../inc/includes.php');
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
+use GlpiPlugin\Assetmgrstatus\Stats;
 
 Session::checkLoginUser();
 
@@ -73,6 +74,8 @@ $types        = MaintenanceRecord::getAssetTypes();
 $status_opts  = MaintenanceRecord::getStatusOptions();
 $fab_list     = ($filter_type === 'Notebook') ? MaintenanceRecord::getManufacturers('Notebook') : [];
 $comp_list    = MaintenanceRecord::getComponents();
+$entity_id    = Session::getActiveEntity();
+$stats        = Stats::getAll($entity_id);
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
 $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
@@ -116,6 +119,20 @@ $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
             </a>
             <div style="font-size:.85rem;color:#9ca3af;"><?= $paged['total'] ?> ativo(s)</div>
         </div>
+    </div>
+
+    <!-- Cards status em linha única centralizada (replica Dashboard) -->
+    <div class="am-inv-dash-row">
+        <?php foreach (MaintenanceRecord::getStatusOptions() as $key => $label):
+            $count = $stats['by_status'][$key] ?? 0;
+            $isActive = $filter_status === $key;
+        ?>
+        <a href="?<?= am_qs(['status' => $isActive ? '' : $key]) ?>" class="am-dash-card <?= $isActive ? 'am-dash-card-active' : '' ?>" style="min-width:150px;flex:0 0 auto;text-decoration:none;<?= $isActive ? 'border-color:#4f46e5;box-shadow:0 4px 16px rgba(79,70,229,.18);background:#eef2ff;' : '' ?>">
+            <div class="am-dash-card-top"><span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($key) ?>"><?= htmlspecialchars($label) ?></span></div>
+            <div class="am-dash-number"><?= $count ?></div>
+            <div class="am-dash-label">ativos</div>
+        </a>
+        <?php endforeach; ?>
     </div>
 
     <!-- Filtros -->

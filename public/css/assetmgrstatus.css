@@ -142,6 +142,13 @@
 .am-dash-card{background:#fff;border:1.5px solid #e8eaf0;border-radius:14px;padding:18px 16px;text-align:center;transition:box-shadow .18s;}
 .am-dash-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.07);}
 .am-dash-card-alert{border-color:#fecaca;background:#fef2f2;}
+/* Linha única centralizada para Inventário (6 cards de status) */
+.am-inv-dash-row{display:flex;gap:12px;justify-content:center;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:4px 4px 10px;margin-bottom:20px;scrollbar-width:thin;scrollbar-color:#a5b4fc #f5f3ff;-webkit-overflow-scrolling:touch;}
+.am-inv-dash-row::-webkit-scrollbar{height:6px;}
+.am-inv-dash-row::-webkit-scrollbar-track{background:#f5f3ff;border-radius:3px;}
+.am-inv-dash-row::-webkit-scrollbar-thumb{background:#a5b4fc;border-radius:3px;}
+.am-inv-dash-row .am-dash-card{flex:0 0 auto;min-width:150px;max-width:180px;}
+.am-dash-card-active{border-color:#4f46e5 !important;background:#eef2ff !important;box-shadow:0 4px 16px rgba(79,70,229,.18) !important;}
 .am-dash-card-top{margin-bottom:10px;}
 .am-dash-number{font-size:2.2rem;font-weight:800;color:#1e1b4b;line-height:1;margin-bottom:4px;}
 .am-dash-label{font-size:.75rem;color:#9ca3af;font-weight:600;text-transform:uppercase;letter-spacing:.06em;}
@@ -353,6 +360,9 @@ body.am-dark-mode {
   .am-dash-number { color: #f1f5f9; }
   .am-dash-label { color: #64748b; }
   .am-dash-section { background: #1e2333; border-color: #2d3550; }
+  .am-inv-dash-row::-webkit-scrollbar-track { background: #1e2333; }
+  .am-inv-dash-row::-webkit-scrollbar-thumb { background: #4f46e5; }
+  .am-dash-card-active { background: #1e1b4b !important; border-color: #4f46e5 !important; }
   .am-bar { background: linear-gradient(180deg,#6366f1,#818cf8); }
   .am-bar-label { color: #64748b; }
   .am-bar-value { color: #a5b4fc; }
