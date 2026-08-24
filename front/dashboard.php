@@ -118,5 +118,72 @@ $alert_list = Stats::getAlertAssets($entity_id);
             <?php endif; ?>
         </div>
     </div>
+
+    <!-- Histórico Recente (movido de maintenance.php) -->
+    <div class="am-section-title" style="margin-top:32px;"><i class="ti ti-history"></i><h3>Histórico Recente</h3></div>
+    <div class="am-history-cards">
+        <?php
+        $history = MaintenanceRecord::getHistory('', 0, 20);
+        $comp_list = MaintenanceRecord::getComponents();
+        if (empty($history)):
+        ?><div class="am-empty-state am-empty-small"><i class="ti ti-clipboard-off"></i><p>Nenhuma manutenção registrada ainda.</p></div>
+        <?php else: foreach ($history as $h):
+            $comps      = $h['components'] ? json_decode($h['components'], true) : [];
+            $photos     = $h['photos']     ? json_decode($h['photos'], true)     : [];
+            $u          = new User();
+            $uname      = ($h['users_id'] && $u->getFromDB($h['users_id'])) ? $u->getName() : 'Sistema';
+            $upload_url = $CFG_GLPI['root_doc'] . '/files/uploads/plugin_assetmgrstatus/';
+            $record_type = $h['record_type'] ?? MaintenanceRecord::RECORD_STATUS_CHANGE;
+            $border = MaintenanceRecord::getRecordTypeColor($record_type);
+            $type_label = MaintenanceRecord::getRecordTypeLabel($record_type);
+        ?>
+        <div class="am-history-card" style="border-left:4px solid <?= $border ?>;">
+            <div class="am-history-card-header">
+                <div class="am-history-card-title"><i class="ti ti-device-laptop"></i><?= htmlspecialchars($h['item_name']) ?><span style="font-size:.78rem;font-weight:600;color:#6b7280;margin-left:8px;"><?= $type_label ?></span></div>
+                <div class="am-history-card-meta">
+                    <span><i class="ti ti-calendar"></i> <?= Html::convDateTime($h['date_creation']) ?></span>
+                    <span><i class="ti ti-user"></i> <?= htmlspecialchars($uname) ?></span>
+                </div>
+            </div>
+            <div class="am-history-card-body">
+                <?php if ($record_type === MaintenanceRecord::RECORD_STATUS_CHANGE || $record_type === MaintenanceRecord::RECORD_TRANSFER_RETURN): ?>
+                <div class="am-history-status-change">
+                    <?php if (!empty($h['status_old']) && $h['status_old'] !== $h['status_new']): ?><span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($h['status_old']) ?>"><?= MaintenanceRecord::getStatusLabel($h['status_old']) ?></span><i class="ti ti-arrow-right" style="color:#9ca3af;font-size:.85rem;"></i><?php endif; ?>
+                    <span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($h['status_new']) ?>"><?= MaintenanceRecord::getStatusLabel($h['status_new']) ?></span>
+                </div>
+                <?php if (!empty($h['action_description']) && $record_type === MaintenanceRecord::RECORD_TRANSFER_RETURN): ?>
+                <div style="display:flex;gap:7px;font-size:.88rem;color:#1f2937;margin-bottom:10px;background:#f9fafb;padding:10px 12px;border-radius:8px;border-left:3px solid <?= $border ?>;">
+                    <i class="ti ti-<?= MaintenanceRecord::getRecordTypeIcon($record_type) ?>" style="flex-shrink:0;margin-top:2px;color:<?= $border ?>;"></i>
+                    <span><?= htmlspecialchars($h['action_description']) ?></span>
+                </div>
+                <?php endif; ?>
+                <?php if ($h['reason'] && $record_type === MaintenanceRecord::RECORD_STATUS_CHANGE): ?><div class="am-history-reason"><i class="ti ti-notes" style="flex-shrink:0;margin-top:2px;color:#4f46e5;"></i><span><?= htmlspecialchars($h['reason']) ?></span></div><?php endif; ?>
+                <?php elseif (!empty($h['action_description'])): ?>
+                <?php if ($record_type === MaintenanceRecord::RECORD_TRANSFER): ?>
+                <div style="display:flex;gap:7px;font-size:.88rem;color:#1f2937;margin-bottom:10px;background:#f9fafb;padding:10px 12px;border-radius:8px;border-left:3px solid <?= $border ?>;">
+                    <i class="ti ti-<?= MaintenanceRecord::getRecordTypeIcon($record_type) ?>" style="flex-shrink:0;margin-top:2px;color:<?= $border ?>;"></i>
+                    <span><?= htmlspecialchars($h['action_description']) ?></span>
+                </div>
+                <div style="margin-bottom:8px;"><span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($h['status_new']) ?>"><?= MaintenanceRecord::getStatusLabel($h['status_new']) ?></span> <span style="font-size:.8rem;color:#6b7280;">status no momento do envio</span></div>
+                <?php else: ?>
+                <div style="display:flex;gap:7px;font-size:.88rem;color:#1f2937;margin-bottom:10px;background:#f9fafb;padding:10px 12px;border-radius:8px;border-left:3px solid <?= $border ?>;">
+                    <i class="ti ti-<?= MaintenanceRecord::getRecordTypeIcon($record_type) ?>" style="flex-shrink:0;margin-top:2px;color:<?= $border ?>;"></i>
+                    <span><?= htmlspecialchars($h['action_description']) ?></span>
+                </div>
+                <?php if ($record_type === MaintenanceRecord::RECORD_BAIXA && !empty($h['action_date'])): ?>
+                <div style="font-size:.82rem;color:#6b7280;margin-bottom:8px;"><i class="ti ti-calendar-event"></i> Data da baixa: <strong><?= date('d/m/Y', strtotime($h['action_date'])) ?></strong></div>
+                <?php endif; ?>
+                <?php endif; ?>
+                <?php endif; ?>
+                <?php if (!empty($comps)): ?>
+                <div class="am-history-components"><?php foreach ($comps as $ck => $cd): ?><span class="am-comp-chip"><strong><?= htmlspecialchars($comp_list[$ck] ?? $ck) ?></strong><?= $cd?': '.htmlspecialchars($cd):'' ?></span><?php endforeach; ?></div>
+                <?php endif; ?>
+                <?php if (!empty($photos)): ?>
+                <div class="am-history-photos"><?php foreach ($photos as $photo): ?><a href="<?= $upload_url.htmlspecialchars($photo) ?>" target="_blank"><img src="<?= $upload_url.htmlspecialchars($photo) ?>" class="am-photo-thumb" alt="Foto"></a><?php endforeach; ?></div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endforeach; endif; ?>
+    </div>
 </div>
 <?php Html::footer(); ?>
