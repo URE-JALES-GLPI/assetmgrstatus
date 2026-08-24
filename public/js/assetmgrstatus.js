@@ -623,12 +623,14 @@
     };
 
     window.amConfirmBulk = function () {
-        // Valida campos obrigatórios antes de abrir confirmação
-        var statusChecked = document.querySelector('input[name="status"]:checked');
-        var reason = document.getElementById('am-bulk-reason').value.trim();
+        // Valida campos obrigatórios antes de abrir confirmação (escopo no form bulk)
+        var bulkForm = document.getElementById('am-bulk-form');
+        var statusChecked = bulkForm ? bulkForm.querySelector('input[name="status"]:checked') : document.querySelector('#am-bulk-form input[name="status"]:checked');
+        var reasonEl = document.getElementById('am-bulk-reason');
+        var reason = reasonEl ? reasonEl.value.trim() : '';
 
-        if (!statusChecked) { alert('Selecione um status.'); return; }
-        if (!reason) { alert('Preencha o motivo.'); return; }
+        if (!statusChecked) { alert('Selecione um status.'); if (bulkForm) bulkForm.querySelector('.am-status-grid')?.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+        if (!reason) { alert('Preencha o motivo.'); if (reasonEl) { reasonEl.focus(); reasonEl.scrollIntoView({behavior:'smooth',block:'center'}); reasonEl.style.borderColor='#ef4444'; setTimeout(function(){reasonEl.style.borderColor='';},1500);} return; }
 
         var statusLabel = statusChecked.nextElementSibling.textContent.trim();
         var assetCount  = document.querySelectorAll('.am-bulk-checkbox:checked').length;

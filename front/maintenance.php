@@ -742,7 +742,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <div class="am-modal-title"><i class="ti ti-checks"></i><span>Alterar Status em Massa</span></div>
             <button class="am-modal-close" onclick="amCloseBulkModal()"><i class="ti ti-x"></i></button>
         </div>
-        <form id="am-bulk-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk.form.php">
+        <form id="am-bulk-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk.form.php" novalidate>
             <input type="hidden" name="selected_assets" id="am-bulk-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">

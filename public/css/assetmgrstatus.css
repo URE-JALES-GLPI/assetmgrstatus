@@ -88,6 +88,10 @@
 .am-photo-thumb:hover{transform:scale(1.08);border-color:#4f46e5}
 .am-modal-overlay{display:none;position:fixed;inset:0;background:rgba(17,24,39,.6);backdrop-filter:blur(4px);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
 .am-modal-overlay.open{display:flex}
+/* Confirmações devem ficar acima dos modais principais (ex: bulk) */
+#am-modal-bulk-confirm,
+#am-modal-undo-confirm,
+#am-modal-bulk-delete{ z-index:10000; }
 .am-modal{background:#fff;border-radius:20px;width:100%;max-width:700px;display:flex;flex-direction:column;box-shadow:0 25px 80px rgba(0,0,0,.25);animation:amModalIn .25s cubic-bezier(.4,0,.2,1);margin:auto}
 @keyframes amModalIn{from{opacity:0;transform:translateY(-20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .am-modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 26px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:20px 20px 0 0;flex-shrink:0}
