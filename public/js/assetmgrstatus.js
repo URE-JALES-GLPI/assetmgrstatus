@@ -516,9 +516,12 @@
             bar.classList.add('open');
             bar.style.display = 'flex';
             if (countEl) countEl.textContent = checkboxes.length + ' selecionado(s)';
+            // Flutuante no rodapé — garante espaço para não cobrir paginação
+            var page=document.querySelector('.am-page'); if(page) page.style.paddingBottom='90px';
         } else {
             bar.classList.remove('open');
             bar.style.display = 'none';
+            var page2=document.querySelector('.am-page'); if(page2) page2.style.paddingBottom='';
         }
 
         // Marca visualmente os cards e linhas selecionadas

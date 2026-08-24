@@ -172,8 +172,9 @@
 .am-card-checkbox input{width:18px;height:18px;accent-color:#4f46e5;cursor:pointer;display:block;}
 .am-asset-card{position:relative;}
 .am-card-selected{border-color:#4f46e5!important;box-shadow:0 0 0 3px rgba(79,70,229,.15)!important;}
-.am-bulk-bar{display:none;align-items:center;gap:14px;background:#1e1b4b;color:#fff;padding:12px 20px;border-radius:14px;margin-bottom:18px;font-size:.88rem;font-weight:600;box-shadow:0 4px 16px rgba(30,27,75,.25);}
-.am-bulk-bar.open{display:flex;animation:amSlideDown .2s ease;}
+.am-bulk-bar{display:none;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);align-items:center;gap:14px;background:#1e1b4b;color:#fff;padding:12px 20px;border-radius:14px;font-size:.88rem;font-weight:600;box-shadow:0 8px 30px rgba(30,27,75,.35);z-index:400;max-width:960px;width:calc(100% - 32px);flex-wrap:wrap;justify-content:center;}
+.am-bulk-bar.open{display:flex;animation:amSlideUp .25s ease;}
+@keyframes amSlideUp{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .am-bulk-bar .am-btn-primary{box-shadow:none;}
 .am-bulk-bar .am-btn-secondary{background:rgba(255,255,255,.15);color:#fff;}
 .am-bulk-bar .am-btn-secondary:hover{background:rgba(255,255,255,.25);}
@@ -629,16 +630,15 @@ body.am-dark-mode {
     .am-list-table th,
     .am-list-table td { padding: 8px 10px; white-space: nowrap; }
 
-    /* ---- Bulk bar fixa embaixo ---- */
+    /* ---- Bulk bar fixa embaixo (mobile mantém flutuante) ---- */
     .am-bulk-bar {
-        position: fixed;
         left: 10px;
         right: 10px;
         bottom: 10px;
+        transform: none;
+        width: auto;
+        max-width: none;
         z-index: 500;
-        border-radius: 14px;
-        flex-wrap: wrap;
-        box-shadow: 0 8px 30px rgba(0,0,0,.25);
     }
 
     /* ---- Modais ---- */

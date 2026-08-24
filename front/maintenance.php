@@ -1059,8 +1059,10 @@ function amUpdateBulkBar() {
     var bar   = document.getElementById('am-bulk-bar');
     var count = document.getElementById('am-bulk-count');
     if (bar) {
-        bar.style.display = hasSelection ? 'flex' : 'none';
+        if (hasSelection) { bar.classList.add('open'); bar.style.display='flex'; }
+        else { bar.classList.remove('open'); bar.style.display='none'; }
         if (count) count.textContent = checked.length + ' ativo(s) selecionado(s)';
+        var page=document.querySelector('.am-page'); if(page) page.style.paddingBottom = hasSelection ? '90px' : '';
     }
 }
 function amToggleSelectAll(master) {
