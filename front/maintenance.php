@@ -14,19 +14,30 @@ $filter_status = $_GET['status'] ?? '';
 $filter_comp   = $_GET['comp']   ?? []; // array: ['motherboard' => 'has', 'keyboard' => 'not', ...]
 if (!is_array($filter_comp)) $filter_comp = [];
 $filter_comp   = array_filter($filter_comp, fn($v) => in_array($v, ['has', 'not'], true));
+$view_mode     = $_GET['view']   ?? 'list';
+$page          = max(1, (int)($_GET['page'] ?? 1));
 
-// Helper para montar querystring preservando o array comp[]
+// Helper para montar querystring preservando o array comp[] — lê direto de $_GET para evitar perda de filtro
 function am_qs(array $overrides = []): string {
-    global $filter_type, $filter_search, $filter_status, $filter_comp, $view_mode, $page;
+    $cur_type   = $_GET['type']   ?? '';
+    $cur_search = $_GET['search'] ?? '';
+    $cur_status = $_GET['status'] ?? '';
+    $cur_comp   = $_GET['comp']   ?? [];
+    if (!is_array($cur_comp)) $cur_comp = [];
+    $cur_comp   = array_filter($cur_comp, fn($v) => in_array($v, ['has', 'not'], true));
+    $cur_view   = $_GET['view']   ?? 'list';
+    $cur_page   = max(1, (int)($_GET['page'] ?? 1));
+
+    // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
     $params = [
-        'type'   => $overrides['type']   ?? $filter_type,
-        'search' => $overrides['search'] ?? $filter_search,
-        'status' => $overrides['status'] ?? $filter_status,
-        'view'   => $overrides['view']   ?? $view_mode,
+        'type'   => array_key_exists('type', $overrides)   ? $overrides['type']   : $cur_type,
+        'search' => array_key_exists('search', $overrides) ? $overrides['search'] : $cur_search,
+        'status' => array_key_exists('status', $overrides) ? $overrides['status'] : $cur_status,
+        'view'   => array_key_exists('view', $overrides)   ? $overrides['view']   : $cur_view,
     ];
-    $has_filter_override = isset($overrides['type']) || isset($overrides['search']) || isset($overrides['status']) || isset($overrides['comp']);
-    $params['page'] = $has_filter_override ? 1 : ($overrides['page'] ?? $page);
-    $comp = $overrides['comp'] ?? $filter_comp;
+    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides);
+    $params['page'] = $has_filter_override ? 1 : (array_key_exists('page', $overrides) ? $overrides['page'] : $cur_page);
+    $comp = array_key_exists('comp', $overrides) ? $overrides['comp'] : $cur_comp;
     if (!is_array($comp)) $comp = [];
     $qs = http_build_query($params);
     foreach ($comp as $k => $v) {
@@ -34,8 +45,6 @@ function am_qs(array $overrides = []): string {
     }
     return $qs;
 }
-$view_mode     = $_GET['view']   ?? 'list';
-$page          = max(1, (int)($_GET['page'] ?? 1));
 
 Html::header('Inventário de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'maintenance');
 
@@ -796,5 +805,23 @@ function amClearSelection() {
     if (master) master.checked = false;
     amUpdateBulkBar();
 }
+// Fallback JS: garante que ao clicar em tabs de tipo/status o outro filtro não se perca (caso PHP falhe)
+document.addEventListener('click', function(e){
+  var tab = e.target.closest('.am-type-tab');
+  if (!tab || !tab.href) return;
+  try {
+    var url = new URL(tab.href, window.location.origin);
+    var cur = new URLSearchParams(window.location.search);
+    // Se o link não contém o param mas a URL atual tem, preserva (evita perda de filtro)
+    // Nota: has() retorna true mesmo para "?type=" vazio, então só preserva se realmente ausente
+    if (!url.searchParams.has('type') && cur.has('type') && cur.get('type')) {
+      url.searchParams.set('type', cur.get('type'));
+    }
+    if (!url.searchParams.has('status') && cur.has('status') && cur.get('status')) {
+      url.searchParams.set('status', cur.get('status'));
+    }
+    if (tab.href !== url.toString()) tab.href = url.toString();
+  } catch(err){}
+});
 </script>
 <?php Html::footer(); ?>
