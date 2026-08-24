@@ -86,6 +86,24 @@ $comp_list    = MaintenanceRecord::getComponents();
 $entity_id    = Session::getActiveEntity();
 $stats        = Stats::getAll($entity_id);
 $type_counts  = Stats::getCountsByType($entity_id);
+// Contagens dinâmicas para os cards (filtradas pelo contexto atual)
+// Status: filtra por tipo/busca/componentes/fabricante, ignora status para mostrar distribuição dentro do filtro
+$assets_for_status = MaintenanceRecord::getAssets($filter_type, $filter_search, '', $filter_comp, $filter_fabricante);
+$status_counts_filtered = array_fill_keys(array_keys(MaintenanceRecord::getStatusOptions()), 0);
+foreach ($assets_for_status as $af) {
+    $s = $af['plugin_status'] ?? MaintenanceRecord::STATUS_ESTOQUE;
+    if (!isset($status_counts_filtered[$s])) $status_counts_filtered[$s] = 0;
+    $status_counts_filtered[$s]++;
+}
+// Tipo: filtra por status/busca/componentes/fabricante, ignora tipo
+$assets_for_type = MaintenanceRecord::getAssets('', $filter_search, $filter_status, $filter_comp, $filter_fabricante);
+$type_counts_filtered = [];
+foreach ($types as $k => $def) $type_counts_filtered[$k] = 0;
+foreach ($assets_for_type as $af) {
+    $tk = $af['asset_type_key'] ?? '';
+    if (isset($type_counts_filtered[$tk])) $type_counts_filtered[$tk]++;
+}
+$type_counts_filtered['total'] = count($assets_for_type);
 $form_action  = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.form.php';
 $action_url   = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/action.form.php';
 $can_tecnico  = Session::haveRight(MaintenanceRecord::RIGHT_TECNICO, READ);
@@ -130,10 +148,12 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
         </div>
     </div>
 
-    <!-- Cards status em linha única centralizada (replica Dashboard) -->
+    <!-- Cards status em linha única centralizada (replica Dashboard) — dinâmicos por filtro -->
     <div class="am-inv-dash-row">
         <?php foreach (MaintenanceRecord::getStatusOptions() as $key => $label):
-            $count = $stats['by_status'][$key] ?? 0;
+            // Usa contagem filtrada quando há filtro de tipo/busca/componente/fabricante
+            $has_filter = $filter_type !== '' || $filter_search !== '' || !empty($filter_comp) || !empty($filter_fabricante);
+            $count = $has_filter ? ($status_counts_filtered[$key] ?? 0) : ($stats['by_status'][$key] ?? 0);
             $isActive = $filter_status === $key;
         ?>
         <a href="?<?= am_qs(['status' => $isActive ? '' : $key]) ?>" class="am-dash-card <?= $isActive ? 'am-dash-card-active' : '' ?>" style="min-width:150px;flex:0 0 auto;text-decoration:none;<?= $isActive ? 'border-color:#4f46e5;box-shadow:0 4px 16px rgba(79,70,229,.18);background:#eef2ff;' : '' ?>">
@@ -149,10 +169,16 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
         <div class="am-filter-group">
             <label>Tipo</label>
             <div class="am-type-tabs">
-                <a href="?<?= am_qs(['type' => '']) ?>" class="am-type-tab <?= $filter_type==='' ? 'active' : '' ?>"><i class="ti ti-layout-grid"></i> Todos <span class="am-type-count"><?= $type_counts['total'] ?? 0 ?></span></a>
-                <?php foreach ($types as $key => $def): ?>
+                <?php
+                $has_status_filter = $filter_status !== '' || $filter_search !== '' || !empty($filter_comp) || !empty($filter_fabricante);
+                $tc_total = $has_status_filter ? ($type_counts_filtered['total'] ?? 0) : ($type_counts['total'] ?? 0);
+                ?>
+                <a href="?<?= am_qs(['type' => '']) ?>" class="am-type-tab <?= $filter_type==='' ? 'active' : '' ?>"><i class="ti ti-layout-grid"></i> Todos <span class="am-type-count"><?= $tc_total ?></span></a>
+                <?php foreach ($types as $key => $def):
+                    $tc = $has_status_filter ? ($type_counts_filtered[$key] ?? 0) : ($type_counts[$key] ?? 0);
+                ?>
                 <a href="?<?= am_qs(['type' => $key]) ?>" class="am-type-tab <?= $filter_type===$key ? 'active' : '' ?>">
-                    <i class="ti <?= $def['icon'] ?>"></i> <?= htmlspecialchars($def['label']) ?> <span class="am-type-count"><?= $type_counts[$key] ?? 0 ?></span>
+                    <i class="ti <?= $def['icon'] ?>"></i> <?= htmlspecialchars($def['label']) ?> <span class="am-type-count"><?= $tc ?></span>
                 </a>
                 <?php endforeach; ?>
             </div>
