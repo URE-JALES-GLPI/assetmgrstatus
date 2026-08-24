@@ -915,24 +915,36 @@ $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
                     <select name="ticket_category" class="am-input" required>
                         <option value="">Selecione a categoria...</option>
                         <?php
-                        $tcats = $DB->request([
-                            'FROM'  => 'glpi_itilcategories',
-                            'ORDER' => ['completename ASC'],
-                        ]);
-                        foreach ($tcats as $tcat): ?>
-                        <option value="<?= (int)$tcat['id'] ?>"><?= htmlspecialchars($tcat['completename']) ?></option>
-                        <?php endforeach; ?>
+                        try {
+                            $tcats = $DB->request([
+                                'FROM'  => 'glpi_itilcategories',
+                                'ORDER' => ['completename ASC'],
+                            ]);
+                            $hasCat = false;
+                            foreach ($tcats as $tcat) {
+                                $hasCat = true;
+                                echo '<option value="' . (int)$tcat['id'] . '">' . htmlspecialchars($tcat['completename']) . '</option>';
+                            }
+                            if (!$hasCat) {
+                                echo '<option value="" disabled>Nenhuma categoria cadastrada — crie em Configuração > Categorias de chamado</option>';
+                            }
+                        } catch (\Throwable $e) {
+                            echo '<option value="" disabled>Erro ao carregar categorias: ' . htmlspecialchars($e->getMessage()) . '</option>';
+                        }
+                        ?>
                     </select>
                     <small style="display:block;margin-top:6px;color:#6b7280;font-size:.75rem;">
                         <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI com todas as informações da transferência.
                     </small>
                 </div>
-                <label class="am-agree-check">
-                    <input type="checkbox" id="am-tr-agree" onchange="amToggleTransferSubmit()">
-                    <span>Confirmo que as informações da transferência estão corretas e autorizo o envio dos ativos selecionados.</span>
-                </label>
+                <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:14px;margin-top:16px;">
+                    <label class="am-agree-check" style="margin:0;background:transparent;border:none;padding:0;">
+                        <input type="checkbox" id="am-tr-agree" onchange="amToggleTransferSubmit()" style="width:20px;height:20px;">
+                        <span style="font-size:.88rem;">Confirmo que as informações da transferência estão corretas e <strong>autorizo o envio</strong> dos ativos selecionados.</span>
+                    </label>
+                </div>
             </div>
-            <div class="am-modal-footer">
+            <div class="am-modal-footer" style="position:sticky;bottom:0;z-index:2;">
                 <button type="button" class="am-btn am-btn-secondary" onclick="amCloseTransferModal()"><i class="ti ti-x"></i> Cancelar</button>
                 <button type="submit" id="am-tr-submit" class="am-btn" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;opacity:.4;cursor:not-allowed;" disabled>
                     <i class="ti ti-transfer"></i> Confirmar Transferência
