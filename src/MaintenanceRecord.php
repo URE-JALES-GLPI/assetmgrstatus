@@ -740,7 +740,10 @@ class MaintenanceRecord extends CommonDBTM
     {
         global $DB;
         $DB->update('glpi_assets_assets', ['is_deleted' => 1], ['id' => $items_id]);
-        $DB->insert('glpi_plugin_assetmgrstatus_histories', ['items_id' => $items_id, 'itemtype' => $itemtype, 'item_name' => self::getItemName($items_id), 'status_old' => null, 'status_new' => 'deleted', 'record_type' => 'deleted', 'reason' => 'Ativo removido via plugin', 'action_description' => null, 'action_date' => null, 'components' => null, 'photos' => null, 'users_id' => Session::getLoginUserID(), 'date_creation' => date('Y-m-d H:i:s')]);
+        // Remove do plugin (records, views e itens de transferência pendentes)
+        $DB->delete('glpi_plugin_assetmgrstatus_records', ['itemtype' => $itemtype, 'items_id' => $items_id]);
+        $DB->delete('glpi_plugin_assetmgrstatus_views', ['itemtype' => $itemtype, 'items_id' => $items_id]);
+        $DB->insert('glpi_plugin_assetmgrstatus_histories', ['items_id' => $items_id, 'itemtype' => $itemtype, 'item_name' => self::getItemName($items_id), 'status_old' => null, 'status_new' => 'deleted', 'record_type' => 'deleted', 'reason' => 'Ativo removido via plugin (GLPI + Plugin)', 'action_description' => null, 'action_date' => null, 'components' => null, 'photos' => null, 'users_id' => Session::getLoginUserID(), 'date_creation' => date('Y-m-d H:i:s')]);
         return true;
     }
 

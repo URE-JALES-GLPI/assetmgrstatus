@@ -84,6 +84,7 @@ $can_transfer = Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) || 
     || Session::haveRight('plugin_assetmgrstatus', CREATE) || Session::haveRight('plugin_assetmgrstatus', UPDATE);
 $entities_ure    = $can_transfer ? Transfer::getEntidades('ure') : [];
 $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
+$can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Session::haveRight('plugin_assetmgrstatus', DELETE);
 ?>
 
 <div class="container-fluid am-page">
@@ -289,6 +290,9 @@ $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
         <button class="am-btn am-btn-primary" style="padding:7px 16px;font-size:.82rem;" onclick="amOpenBulkModal()"><i class="ti ti-edit"></i> Alterar Status em Massa</button>
         <?php if ($can_transfer): ?>
         <button class="am-btn" style="background:#fff;color:#1e40af;padding:7px 16px;font-size:.82rem;border:1.5px solid #dbeafe;" onclick="amOpenTransferModalFromBulk()"><i class="ti ti-transfer"></i> Transferir</button>
+        <?php endif; ?>
+        <?php if ($can_delete): ?>
+        <button class="am-btn am-btn-danger" style="padding:7px 16px;font-size:.82rem;" onclick="amOpenBulkDeleteModal()"><i class="ti ti-trash"></i> Excluir</button>
         <?php endif; ?>
         <button class="am-btn am-btn-secondary" style="padding:7px 16px;font-size:.82rem;" onclick="amClearSelection()"><i class="ti ti-x"></i> Limpar seleção</button>
     </div>
@@ -955,6 +959,41 @@ $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
 </div>
 <?php endif; ?>
 
+<!-- Modal Excluir em Massa (GLPI + Plugin) -->
+<?php if ($can_delete): ?>
+<div id="am-modal-bulk-delete" class="am-modal-overlay" onclick="amCloseBulkDeleteModal(event)">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#dc2626,#ef4444);">
+            <div class="am-modal-title"><i class="ti ti-trash"></i><span>Excluir Ativos</span></div>
+            <button class="am-modal-close" onclick="amCloseBulkDeleteModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <form id="am-bulk-delete-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk_delete.form.php">
+            <input type="hidden" name="selected_assets" id="am-bulk-delete-selected-assets">
+            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
+            <div class="am-modal-body" style="padding:24px;">
+                <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;">
+                    <i class="ti ti-alert-triangle" style="color:#dc2626;font-size:1.4rem;flex-shrink:0;"></i>
+                    <div>
+                        <div style="font-weight:700;color:#991b1b;font-size:.95rem;">Ação irreversível!</div>
+                        <div style="font-size:.82rem;color:#7f1d1d;margin-top:4px;line-height:1.4;">Os ativos selecionados serão <strong>excluídos do GLPI</strong> (is_deleted) e <strong>removidos do plugin</strong>. Esta ação não pode ser desfeita.</div>
+                    </div>
+                </div>
+                <div id="am-bulk-delete-asset-list" style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.85rem;color:#4b5563;max-height:120px;overflow-y:auto;"></div>
+                <label class="am-agree-check" style="background:#fef2f2;border-color:#fecaca;">
+                    <input type="checkbox" id="am-bulk-delete-agree" onchange="amToggleBulkDeleteBtn()">
+                    <span>Confirmo que quero <strong>EXCLUIR</strong> os ativos selecionados do <strong>GLPI e do Plugin</strong></span>
+                </label>
+            </div>
+            <div class="am-modal-footer">
+                <button type="button" class="am-btn am-btn-secondary" onclick="amCloseBulkDeleteModal()"><i class="ti ti-x"></i> Cancelar</button>
+                <button type="submit" id="am-bulk-delete-btn" class="am-btn am-btn-danger" style="opacity:.4;cursor:not-allowed;" disabled><i class="ti ti-trash"></i> Confirmar Exclusão</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 // Injeta filtros em todos os forms de ação dos modais
 document.addEventListener('DOMContentLoaded', function() {
@@ -1103,10 +1142,41 @@ function amSwitchTransferType(type) {
         ureLabel.style.background = '#f8f9fb';
     }
 }
+window.amOpenBulkDeleteModal = function() {
+    var cbs = document.querySelectorAll('.am-bulk-checkbox:checked');
+    if (cbs.length === 0) return;
+    var items=[], names=[];
+    cbs.forEach(function(cb){ items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype}); names.push(cb.dataset.name); });
+    var inp = document.getElementById('am-bulk-delete-selected-assets');
+    var lst = document.getElementById('am-bulk-delete-asset-list');
+    if (inp) inp.value = JSON.stringify(items);
+    if (lst) lst.innerHTML = '<strong>' + items.length + ' ativo(s) selecionado(s) para exclusão:</strong><br>' + names.join(', ');
+    var ag = document.getElementById('am-bulk-delete-agree');
+    if (ag) ag.checked = false;
+    if (typeof window.amToggleBulkDeleteBtn === 'function') window.amToggleBulkDeleteBtn();
+    var mod = document.getElementById('am-modal-bulk-delete');
+    if (mod) { mod.classList.add('open'); document.body.style.overflow = 'hidden'; }
+};
+window.amCloseBulkDeleteModal = function(e) {
+    if (e && e.target !== document.getElementById('am-modal-bulk-delete')) return;
+    var m = document.getElementById('am-modal-bulk-delete');
+    if (m) m.classList.remove('open');
+    document.body.style.overflow = '';
+};
+window.amToggleBulkDeleteBtn = function() {
+    var cb = document.getElementById('am-bulk-delete-agree');
+    var btn = document.getElementById('am-bulk-delete-btn');
+    if (!cb || !btn) return;
+    btn.disabled = !cb.checked;
+    btn.style.opacity = cb.checked ? '1' : '.4';
+    btn.style.cursor = cb.checked ? 'pointer' : 'not-allowed';
+};
 document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
         var m = document.getElementById('am-modal-transfer');
         if (m && m.classList.contains('open')) { m.classList.remove('open'); document.body.style.overflow=''; }
+        var md = document.getElementById('am-modal-bulk-delete');
+        if (md && md.classList.contains('open')) { md.classList.remove('open'); document.body.style.overflow=''; }
     }
 });
 document.addEventListener('DOMContentLoaded', function(){

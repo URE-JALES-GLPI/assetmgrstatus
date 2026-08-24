@@ -9,6 +9,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
     public const RIGHT_MANUTENCAO = 'plugin_assetmgrstatus';
     public const RIGHT_TECNICO    = 'plugin_assetmgrstatus_tecnico';
     public const RIGHT_TRANSFER   = 'plugin_assetmgrstatus_transfer';
+    public const RIGHT_DELETE     = 'plugin_assetmgrstatus_delete';
 
     public static function getAllRights(): array
     {
@@ -16,6 +17,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             ['field' => self::RIGHT_MANUTENCAO, 'default' => 0],
             ['field' => self::RIGHT_TECNICO,    'default' => 0],
             ['field' => self::RIGHT_TRANSFER,   'default' => 0],
+            ['field' => self::RIGHT_DELETE,     'default' => 0],
         ];
     }
 
@@ -96,6 +98,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
         $r_main     = self::getRightValue($pid, self::RIGHT_MANUTENCAO);
         $r_tecnico  = self::getRightValue($pid, self::RIGHT_TECNICO);
         $r_transfer = self::getRightValue($pid, self::RIGHT_TRANSFER);
+        $r_delete   = self::getRightValue($pid, self::RIGHT_DELETE);
         $canedit    = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]);
 
         echo "<form name='assetmgrstatus_profile_form' method='post' action='" . $CFG_GLPI['root_doc'] . "/plugins/assetmgrstatus/front/profile.form.php'>";
@@ -162,6 +165,18 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             echo "<br><small style='color:#9ca3af;'>⚠️ Ao habilitar, garanta também acesso à Manutenção acima.</small>";
         } else {
             echo ($r_tecnico & READ) ? '✅ Permitido' : '❌ Negado';
+        }
+        echo "</td></tr>";
+
+        // Excluir ativos em massa
+        echo "<tr class='tab_bg_1'><td>
+            <strong>Excluir ativos (GLPI + Plugin)</strong><br>
+            <small style='color:#6b7280;'>Permite excluir em massa os ativos selecionados no Inventário (botão Excluir na barra) — remove do GLPI (is_deleted) e do plugin</small>
+            </td><td>";
+        if ($canedit) {
+            Dropdown::showYesNo('rights_delete', ($r_delete & DELETE) ? 1 : 0);
+        } else {
+            echo ($r_delete & DELETE) ? '✅ Permitido' : '❌ Negado';
         }
         echo "</td></tr>";
 
