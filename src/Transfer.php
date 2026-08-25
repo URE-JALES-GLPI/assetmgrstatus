@@ -44,6 +44,18 @@ class Transfer
         return '';
     }
 
+    private static function truncPdf(string $text, int $max = 120): string
+    {
+        $text = trim((string)$text);
+        if ($text === '' || $text === '—') return '—';
+        // Quebra palavras gigantes sem espaços: insere zero-width a cada 30 chars para garantir quebra mesmo sem CSS (fallback)
+        // Mas CSS word-break já resolve; aqui apenas abrevia textos absurdamente longos
+        if (mb_strlen($text) > $max) {
+            return mb_substr($text, 0, $max) . '…';
+        }
+        return $text;
+    }
+
     public static function getStatusOptions(): array
     {
         return [
@@ -651,19 +663,19 @@ class Transfer
         $logo_b64  = file_exists($logo_file) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo_file)) : '';
 
         $h = '<html><head><meta charset="utf-8"><style>';
-        $h .= 'body{font-family:Arial,sans-serif;font-size:11px;color:#2d2d2d;line-height:1.4;}';
+        $h .= 'body{font-family:Arial,sans-serif;font-size:11px;color:#2d2d2d;line-height:1.4;word-wrap:break-word;overflow-wrap:break-word;}';
         $h .= '.hdr{width:100%;border-bottom:2px solid #1a73b5;padding-bottom:8px;margin-bottom:12px;}';
         $h .= '.hdr td{vertical-align:middle;}';
         $h .= '.t1{font-size:15px;font-weight:bold;color:#1a73b5;}';
         $h .= '.t2{font-size:9px;color:#9ca3af;text-align:right;}';
-        $h .= '.decl{background:#f0f7ff;border-left:3px solid #1a73b5;padding:8px 12px;font-size:10px;color:#1e3a5f;margin-bottom:12px;}';
-        $h .= 'table.info{width:100%;border-collapse:collapse;margin-bottom:12px;}';
-        $h .= 'table.info td{border:1px solid #e2e8f0;background:#f8f9fb;padding:5px 8px;font-size:10px;}';
+        $h .= '.decl{background:#f0f7ff;border-left:3px solid #1a73b5;padding:8px 12px;font-size:10px;color:#1e3a5f;margin-bottom:12px;word-break:break-word;overflow-wrap:break-word;}';
+        $h .= 'table.info{width:100%;border-collapse:collapse;margin-bottom:12px;table-layout:fixed;word-wrap:break-word;}';
+        $h .= 'table.info td{border:1px solid #e2e8f0;background:#f8f9fb;padding:5px 8px;font-size:10px;word-break:break-all;word-wrap:break-word;overflow-wrap:break-word;vertical-align:top;}';
         $h .= 'table.info td b{display:block;font-size:8px;text-transform:uppercase;color:#9ca3af;margin-bottom:2px;}';
         $h .= 'h3{font-size:9.5px;color:#1a73b5;text-transform:uppercase;border-bottom:1px solid #e2e8f0;padding-bottom:3px;margin:10px 0 6px;}';
-        $h .= 'table.eq{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;}';
-        $h .= 'table.eq th{background:#1a73b5;color:#fff;padding:4px 6px;font-size:9px;text-align:left;}';
-        $h .= 'table.eq td{border-bottom:1px solid #f0f2f8;padding:4px 6px;}';
+        $h .= 'table.eq{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px;table-layout:fixed;word-wrap:break-word;}';
+        $h .= 'table.eq th{background:#1a73b5;color:#fff;padding:4px 6px;font-size:9px;text-align:left;word-break:break-word;}';
+        $h .= 'table.eq td{border-bottom:1px solid #f0f2f8;padding:4px 6px;word-break:break-all;word-wrap:break-word;overflow-wrap:break-word;overflow-wrap:anywhere;vertical-align:top;}';
         $h .= '.sign{width:100%;margin-top:16px;border-collapse:collapse;}';
         $h .= '.sign td{width:50%;padding:6px 10px;font-size:10px;}';
         $h .= '.sign .line{height:30px;border-bottom:1.5px solid #2d2d2d;margin-bottom:4px;}';
@@ -679,23 +691,23 @@ class Transfer
         if (!$is_pronto) {
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) retirado(s) pelo responsável identificado abaixo. O responsável está ciente de que retirou exatamente o(s) equipamento(s) que foi(ram) apresentado(s) ao suporte técnico, conforme verificado no momento da retirada.</div>';
             $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($creator_name) . '</b>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:</p>';
-            $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars($dest_name) . '</td></tr>';
-            $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars($transfer['reason']) . '</td></tr></table>';
-            $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th>#</th><th>Nome do Equipamento</th><th>Tipo</th></tr>';
+            $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
+            $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'] ?? '', 200)) . '</td></tr></table>';
+            $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th style="width:6%">#</th><th style="width:62%">Nome do Equipamento</th><th style="width:32%">Tipo</th></tr>';
             foreach ($items as $i => $item) {
-                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars($item['item_name']) . '</b></td><td>' . htmlspecialchars(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype'])) . '</td></tr>';
+                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 60)) . '</b></td><td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 20)) . '</td></tr>';
             }
             $h .= '</table>';
         } else {
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) devolvido(s) após a realização dos procedimentos de manutenção técnica. O responsável pelo recebimento está ciente das condições e do novo status de cada equipamento, conforme verificado no momento da devolução.</div>';
             $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($tech_name) . '</b>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:</p>';
-            $h .= '<table class="info"><tr><td><b>Data de Devolução</b>' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars($dest_name) . '</td></tr>';
-            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars($tech_name) . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars($creator_name) . '</td></tr>';
-            $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars($origin_name ?: 'Não informada') . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars($dest_name) . '</td></tr>';
-            $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars($origin_name ?: 'Escola de origem') . '</td></tr>';
-            if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars($transfer['reason']) . '</td></tr>';
+            $h .= '<table class="info"><tr><td><b>Data de Devolução</b>' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
+            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tech_name, 40)) . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($creator_name, 40)) . '</td></tr>';
+            $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Não informada', 50)) . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
+            $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Escola de origem', 60)) . '</td></tr>';
+            if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
             $h .= '</table>';
-            $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th>#</th><th>Nome</th><th>Tipo</th><th>Status Final</th><th>Motivo / Observação</th><th>Componentes</th><th>O Que Foi Feito</th></tr>';
+            $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:16%">Nome</th><th style="width:10%">Tipo</th><th style="width:11%">Status Final</th><th style="width:20%">Motivo / Observação</th><th style="width:19%">Componentes</th><th style="width:20%">O Que Foi Feito</th></tr>';
             foreach ($items as $i => $item) {
                 $wrow = $DB->request(['SELECT' => ['work_log', 'work_components'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => (int)$item['items_id']], 'LIMIT' => 1])->current();
                 $wlog   = $wrow['work_log'] ?? '';
@@ -707,13 +719,18 @@ class Transfer
                 $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
                 foreach ($fcomps as $ckey => $cdesc) $comp_txt[] = '◆ ' . ($comp_list[$ckey] ?? $ckey) . ($cdesc ? ': ' . $cdesc : '');
                 foreach ($resolved as $rl) $comp_txt[] = '✓ ' . $rl . ' (resolvido)';
+                $comp_str = !empty($comp_txt) ? implode('; ', $comp_txt) : '—';
+                $final_reason_raw = $item['final_reason'] ?? '—';
+                $final_reason_trunc = ($final_reason_raw === '—' || $final_reason_raw === '') ? '—' : self::truncPdf($final_reason_raw, 90);
+                $comp_trunc = ($comp_str === '—') ? '—' : self::truncPdf($comp_str, 90);
+                $wlog_trunc = ($wlog === '' ? '—' : self::truncPdf($wlog, 110));
 
-                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars($item['item_name']) . '</b></td>'
-                    . '<td>' . htmlspecialchars(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype'])) . '</td>'
-                    . '<td>' . ($item['final_status'] ? MaintenanceRecord::getStatusLabel($item['final_status']) : '—') . '</td>'
-                    . '<td>' . htmlspecialchars($item['final_reason'] ?? '—') . '</td>'
-                    . '<td>' . (!empty($comp_txt) ? htmlspecialchars(implode('; ', $comp_txt)) : '—') . '</td>'
-                    . '<td>' . ($wlog ? nl2br(htmlspecialchars($wlog)) : '—') . '</td></tr>';
+                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 40)) . '</b></td>'
+                    . '<td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 15)) . '</td>'
+                    . '<td>' . ($item['final_status'] ? htmlspecialchars(MaintenanceRecord::getStatusLabel($item['final_status'])) : '—') . '</td>'
+                    . '<td>' . htmlspecialchars($final_reason_trunc) . '</td>'
+                    . '<td>' . htmlspecialchars($comp_trunc) . '</td>'
+                    . '<td>' . ($wlog_trunc !== '—' ? nl2br(htmlspecialchars($wlog_trunc)) : '—') . '</td></tr>';
             }
             $h .= '</table>';
         }
