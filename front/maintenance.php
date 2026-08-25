@@ -274,10 +274,6 @@ if ($can_admin_entity) {
                             <strong>Filtrar por entidade</strong>
                             <small>Selecione uma ou mais entidades. Deixe vazio para <strong>Todas</strong>. Busque por nome.</small>
                             <input type="text" id="am-entity-search" placeholder="🔍 Buscar entidade..." oninput="amFilterEntityList(this.value)" style="margin-top:8px;width:100%;padding:7px 10px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;">
-                            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:.78rem;color:#374151;">
-                                <input type="checkbox" name="entity_recursive" value="1" <?= $filter_entity_recursive ? 'checked' : '' ?> style="accent-color:#4f46e5;width:16px;height:16px;">
-                                Incluir sub-entidades (MÃE → filhas)
-                            </label>
                         </div>
                         <div class="am-comp-panel-list" id="am-entity-list" style="max-height:220px;overflow-y:auto;">
                             <?php foreach ($entities_for_filter as $ent):
