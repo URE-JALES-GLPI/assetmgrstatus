@@ -90,6 +90,12 @@ Html::header('Marcar como Pronto', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatu
                                    onchange="amToggleProntoExtra(<?= (int)$item['items_id'] ?>, this.value)">
                             <span class="am-badge am-badge-inservivel">Inservível</span>
                         </label>
+                        <label class="am-pronto-radio">
+                            <input type="radio" name="items[<?= (int)$item['items_id'] ?>][status]"
+                                   value="nao_pronto" required
+                                   onchange="amToggleProntoExtra(<?= (int)$item['items_id'] ?>, this.value)">
+                            <span class="am-badge" style="background:#fef3c7;color:#92400e;border:1.5px solid #fcd34d;">Não Pronto</span>
+                        </label>
                     </div>
                 </div>
 
@@ -169,17 +175,36 @@ var _statusLabels = {
     '<?= MaintenanceRecord::STATUS_ATIVO ?>':      'Ativo',
     '<?= MaintenanceRecord::STATUS_GARANTIA ?>':   'Garantia',
     '<?= MaintenanceRecord::STATUS_INSERVIVEL ?>': 'Inservível',
+    'nao_pronto':                                  'Não Pronto',
 };
 var _statusColors = {
     '<?= MaintenanceRecord::STATUS_ATIVO ?>':      '#10b981',
     '<?= MaintenanceRecord::STATUS_GARANTIA ?>':   '#3b82f6',
     '<?= MaintenanceRecord::STATUS_INSERVIVEL ?>': '#6b7280',
+    'nao_pronto':                                  '#f59e0b',
 };
 
 function amToggleProntoExtra(items_id, status) {
     var extra = document.getElementById('pronto-extra-' + items_id);
-    var needs = (status === '<?= MaintenanceRecord::STATUS_GARANTIA ?>' || status === '<?= MaintenanceRecord::STATUS_INSERVIVEL ?>');
+    var needs = (status === '<?= MaintenanceRecord::STATUS_GARANTIA ?>' || status === '<?= MaintenanceRecord::STATUS_INSERVIVEL ?>' || status === 'nao_pronto');
     extra.style.display = needs ? 'block' : 'none';
+    // Atualiza placeholder do motivo para Não Pronto
+    if (extra) {
+        var ta = extra.querySelector('textarea');
+        if (ta) {
+            if (status === 'nao_pronto') {
+                ta.placeholder = 'Descreva o motivo da pendência (ex: aguardando peça, sem conserto...)';
+            } else {
+                ta.placeholder = 'Descreva o motivo...';
+            }
+        }
+    }
+    // Highlight do card
+    var card = document.getElementById('pronto-card-' + items_id);
+    if (card) {
+        card.style.borderColor = status === 'nao_pronto' ? '#fcd34d' : '#e8eaf0';
+        card.style.background = status === 'nao_pronto' ? '#fffbeb' : '#fff';
+    }
     _prontoItems[items_id] = status;
     amUpdateProntoReview();
     amToggleProntoSubmit();
@@ -192,10 +217,12 @@ function amToggleProntoComp(checkbox, fieldId) {
 
 function amUpdateProntoReview() {
     var html = '<div style="display:flex;flex-direction:column;gap:6px;">';
+    var countNaoPronto = 0;
     for (var id in _prontoItems) {
         var card = document.getElementById('pronto-card-' + id);
         var name = card ? card.querySelector('[style*="font-weight:700"]').textContent.trim() : 'Ativo ' + id;
         var st   = _prontoItems[id];
+        if (st === 'nao_pronto') countNaoPronto++;
         html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #f0f2f8;">' +
                 '<span style="color:#374151;">' + name + '</span>' +
                 '<span style="font-weight:700;color:' + (_statusColors[st]||'#374151') + ';">' + (_statusLabels[st]||st) + '</span>' +
@@ -204,19 +231,34 @@ function amUpdateProntoReview() {
     html += '</div>';
     if (Object.keys(_prontoItems).length === 0) {
         html = '<span style="color:#9ca3af;">Selecione o status de cada ativo acima.</span>';
+    } else if (countNaoPronto > 0) {
+        var prontoCount = Object.keys(_prontoItems).length - countNaoPronto;
+        html += '<div style="margin-top:10px;background:#fffbeb;border:1.5px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:.82rem;color:#92400e;"><i class="ti ti-alert-triangle"></i> <strong>' + countNaoPronto + ' equipamento(s) marcado(s) como Não Pronto</strong> — será aberto um novo chamado apenas com esses itens pendentes. ' + prontoCount + ' será(ão) marcado(s) como pronto.</div>';
     }
     document.getElementById('am-pronto-review').innerHTML = html;
 }
 
 function amToggleProntoSubmit() {
     var agreed  = document.getElementById('am-pronto-agree').checked;
-    var total   = document.querySelectorAll('[name$="][status]"]').length / 3;
+    var total   = document.querySelectorAll('.am-pronto-card').length;
+    if (!total) total = document.querySelectorAll('[name$="][status]"]').length / 4;
     var checked = Object.keys(_prontoItems).length;
-    var ok = agreed && checked >= total;
+    var countNaoPronto = 0;
+    for (var k in _prontoItems) if (_prontoItems[k] === 'nao_pronto') countNaoPronto++;
+    var countPronto = checked - countNaoPronto;
+    // Precisa ter selecionado todos e ao menos 1 pronto (não pode ser tudo Não Pronto)
+    var ok = agreed && checked >= total && countPronto > 0;
     var btn = document.getElementById('am-pronto-submit');
     btn.disabled = !ok;
     btn.style.opacity = ok ? '1' : '.4';
     btn.style.cursor  = ok ? 'pointer' : 'not-allowed';
+    if (checked >= total && countPronto === 0 && agreed) {
+        // Todos Não Pronto — mostra dica
+        var rev = document.getElementById('am-pronto-review');
+        if (rev && rev.innerHTML.indexOf('ao menos 1') === -1) {
+            rev.innerHTML += '<div style="margin-top:8px;color:#dc2626;font-size:.78rem;"><i class="ti ti-x"></i> É necessário marcar ao menos 1 equipamento como Ativo/Garantia/Inservível. Não é permitido deixar todos como Não Pronto.</div>';
+        }
+    }
 }
 </script>
 

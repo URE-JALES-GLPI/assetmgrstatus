@@ -774,10 +774,143 @@ class Transfer
     {
         global $DB;
         self::$last_ticket_error = '';
+        self::$last_pending_transfer_id = 0;
         $row = self::getById($transfer_id);
         if (!$row || $row['status'] !== self::STATUS_MANUTENCAO) return false;
 
+        // Separa Não Pronto (pendentes) dos demais
+        $prontoItems = [];
+        $naoProntoItems = [];
         foreach ($final_items as $item_id => $data) {
+            $st = $data['status'] ?? '';
+            if ($st === 'nao_pronto') {
+                $naoProntoItems[(int)$item_id] = $data;
+            } else {
+                $prontoItems[(int)$item_id] = $data;
+            }
+        }
+
+        // Validação: precisa ter ao menos 1 pronto
+        if (empty($prontoItems) && !empty($naoProntoItems)) {
+            self::$last_ticket_error = 'É necessário marcar ao menos 1 equipamento como Ativo/Garantia/Inservível. Não é permitido deixar todos como Não Pronto.';
+            return false;
+        }
+        // Se não houver item algum (caso $final_items vazio ou IDs inválidos)
+        if (empty($prontoItems) && empty($naoProntoItems)) return false;
+
+        $hasNaoPronto = !empty($naoProntoItems);
+        $newTransferId = 0;
+        $newTicketId = 0;
+
+        // Se houve Não Pronto, cria nova transferência pendente ANTES de marcar como pronto
+        if ($hasNaoPronto) {
+            $nowPend = date('Y-m-d H:i:s');
+            // Monta motivo agregado dos Não Pronto
+            $orig_reason = trim($row['reason'] ?? '');
+            $pendReasons = [];
+            foreach ($naoProntoItems as $nid => $ndata) {
+                $r = trim($ndata['reason'] ?? '');
+                if ($r !== '') $pendReasons[] = $ndata['item_name'] ?? ("Ativo #$nid") . ': ' . $r;
+                // $ndata não tem item_name, vamos buscar depois; por enquanto usa motivo puro
+                if ($r !== '' && !isset($pendReasons[count($pendReasons)-1])) $pendReasons[] = $r;
+            }
+            // Busca nomes dos itens pendentes para motivo
+            $pendItemRows = [];
+            if (!empty($naoProntoItems)) {
+                $pendIds = array_keys($naoProntoItems);
+                foreach ($DB->request(['FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => $pendIds]]) as $pr) {
+                    $pendItemRows[(int)$pr['items_id']] = $pr;
+                }
+            }
+            // Re-monta pendReasons com nomes
+            $pendReasons = [];
+            foreach ($naoProntoItems as $nid => $ndata) {
+                $r = trim($ndata['reason'] ?? '');
+                $iname = $pendItemRows[$nid]['item_name'] ?? "Ativo #$nid";
+                if ($r !== '') $pendReasons[] = $iname . ' — ' . mb_substr($r, 0, 80);
+                else $pendReasons[] = $iname;
+            }
+            $new_reason = 'Pendência da Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . count($naoProntoItems) . ' item(ns) Não Pronto';
+            if ($orig_reason !== '') $new_reason .= ' | Origem: ' . mb_substr($orig_reason, 0, 100);
+            if (!empty($pendReasons)) $new_reason .= ' | Motivos: ' . mb_substr(implode('; ', $pendReasons), 0, 300);
+
+            $DB->insert('glpi_plugin_assetmgrstatus_transfers', [
+                'entity_dest'      => $row['entity_dest'],
+                'reason'           => $new_reason,
+                'status'           => self::STATUS_PENDENTE,
+                'users_id_created' => Session::getLoginUserID(),
+                'users_id_tech'    => 0,
+                'tickets_id'       => 0,
+                'date_pending'     => $nowPend,
+                'date_creation'    => $nowPend,
+            ]);
+            $newTransferId = (int)$DB->insertId();
+            self::$last_pending_transfer_id = $newTransferId;
+
+            self::logStatus($newTransferId, self::STATUS_PENDENTE, 'Criada automaticamente a partir de Não Pronto da Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . count($naoProntoItems) . ' item(ns)');
+
+            $origin_entities_for_ticket = [];
+            foreach ($naoProntoItems as $nid => $ndata) {
+                $prow = $pendItemRows[$nid] ?? null;
+                if (!$prow) continue;
+                $DB->insert('glpi_plugin_assetmgrstatus_transfer_items', [
+                    'transfers_id'       => $newTransferId,
+                    'items_id'           => $prow['items_id'],
+                    'itemtype'           => $prow['itemtype'],
+                    'item_name'          => $prow['item_name'],
+                    'origin_entity_id'   => $prow['origin_entity_id'],
+                    'origin_entity_name' => $prow['origin_entity_name'],
+                    'work_status'        => 'pending',
+                    'work_log'           => $ndata['reason'] ?? null,
+                    'work_components'    => isset($ndata['components']) ? json_encode($ndata['components']) : null,
+                    'final_status'       => null,
+                    'final_reason'       => null,
+                    'final_components'   => null,
+                ]);
+                $origin_entities_for_ticket[(int)$prow['items_id']] = (int)$prow['origin_entity_id'];
+                // Mantém ativo bloqueado mas aponta para nova pendente
+                $DB->update('glpi_plugin_assetmgrstatus_records', [
+                    'transfers_id'    => $newTransferId,
+                    'transfer_status' => 'transferido',
+                    'date_mod'        => $nowPend,
+                ], ['itemtype' => $prow['itemtype'], 'items_id' => (int)$prow['items_id']]);
+                // Remove do vínculo original
+                $DB->delete('glpi_plugin_assetmgrstatus_transfer_items', ['id' => $prow['id']]);
+            }
+
+            // Tenta criar novo chamado para a pendência
+            $catId = 0;
+            if ((int)$row['tickets_id'] > 0) {
+                try {
+                    $trow = $DB->request(['SELECT' => ['itilcategories_id'], 'FROM' => 'glpi_tickets', 'WHERE' => ['id' => (int)$row['tickets_id']], 'LIMIT' => 1])->current();
+                    $catId = (int)($trow['itilcategories_id'] ?? 0);
+                } catch (\Throwable $e) {}
+            }
+            if ($catId > 0) {
+                $ticketItems = [];
+                foreach ($naoProntoItems as $nid => $ndata) {
+                    $prow = $pendItemRows[$nid] ?? null;
+                    if ($prow) $ticketItems[] = ['id' => (int)$prow['items_id'], 'itemtype' => $prow['itemtype'], 'name' => $prow['item_name']];
+                }
+                try {
+                    $newTicketId = self::openTicketForTransfer($newTransferId, (int)$row['entity_dest'], $new_reason, $ticketItems, $origin_entities_for_ticket, $catId);
+                    if ($newTicketId) {
+                        $DB->update('glpi_plugin_assetmgrstatus_transfers', ['tickets_id' => $newTicketId], ['id' => $newTransferId]);
+                        self::attachStageDoc($newTransferId, 'transfer');
+                    }
+                } catch (\Throwable $e) {
+                    error_log('[assetmgrstatus] ticket nao_pronto: ' . $e->getMessage());
+                }
+            }
+
+            // Guarda para notificação pós-pronto
+            $GLOBALS['_am_nao_pronto_new_reason'] = $new_reason;
+            $GLOBALS['_am_nao_pronto_new_ticket'] = $newTicketId;
+            $GLOBALS['_am_nao_pronto_pending_rows'] = $pendItemRows;
+        }
+
+        // Atualiza apenas os prontos no vínculo original
+        foreach ($prontoItems as $item_id => $data) {
             $DB->update('glpi_plugin_assetmgrstatus_transfer_items', [
                 'final_status'     => $data['status'] ?? '',
                 'final_reason'     => $data['reason'] ?? null,
@@ -790,13 +923,38 @@ class Transfer
             'date_pronto' => date('Y-m-d H:i:s'),
         ], ['id' => $transfer_id]);
 
-        self::logStatus($transfer_id, self::STATUS_PRONTO, 'Todos os itens concluídos — aguardando devolução');
+        if ($hasNaoPronto) {
+            self::logStatus($transfer_id, self::STATUS_PRONTO, 'Marcada como Pronto parcialmente — ' . count($prontoItems) . ' pronto(s), ' . count($naoProntoItems) . ' Não Pronto movido(s) para Transferência #' . str_pad($newTransferId, 4, '0', STR_PAD_LEFT));
+        } else {
+            self::logStatus($transfer_id, self::STATUS_PRONTO, 'Todos os itens concluídos — aguardando devolução');
+        }
 
         if ((int)$row['tickets_id'] > 0) {
-            self::addTicketFollowup(
-                (int)$row['tickets_id'],
-                "✅ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **marcada como Pronto** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nTodos os itens concluídos — aguardando devolução."
-            );
+            if ($hasNaoPronto) {
+                $pendNames = implode(', ', array_map(fn($r) => $r['item_name'] ?? '', $GLOBALS['_am_nao_pronto_pending_rows'] ?? []));
+                if ($pendNames === '') $pendNames = implode(', ', array_keys($naoProntoItems));
+                $newTicketIdTmp = $GLOBALS['_am_nao_pronto_new_ticket'] ?? 0;
+                self::addTicketFollowup(
+                    (int)$row['tickets_id'],
+                    "✅ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **marcada como Pronto (parcial)** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\n"
+                    . count($prontoItems) . " item(ns) pronto(s) — aguardando devolução. " . count($naoProntoItems) . " Não Pronto movido(s) para nova **Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . "**.\n"
+                    . ($newTicketIdTmp ? "Novo chamado: #$newTicketIdTmp\n" : "Nova pendência: #$newTransferId\n")
+                    . "Itens não prontos: $pendNames"
+                );
+                if ($newTicketId) {
+                    self::addTicketFollowup(
+                        $newTicketId,
+                        "🔁 Pendência criada a partir da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " (marcada como Pronto em " . date('d/m/Y H:i') . " por " . self::getUserName(Session::getLoginUserID()) . ").\n"
+                        . "Itens Não Pronto: $pendNames\nChamado de origem: #" . (int)$row['tickets_id']
+                    );
+                }
+                unset($GLOBALS['_am_nao_pronto_new_reason'], $GLOBALS['_am_nao_pronto_new_ticket'], $GLOBALS['_am_nao_pronto_pending_rows']);
+            } else {
+                self::addTicketFollowup(
+                    (int)$row['tickets_id'],
+                    "✅ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **marcada como Pronto** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nTodos os itens concluídos — aguardando devolução."
+                );
+            }
         }
 
         return true;
