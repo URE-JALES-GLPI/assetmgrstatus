@@ -649,7 +649,7 @@ if ($can_admin_entity) {
         <div class="am-empty-state am-empty-small"><i class="ti ti-device-desktop-off"></i><p>Nenhum ativo encontrado.</p></div>
         <?php else: ?>
         <table class="am-list-table">
-            <thead><tr><th style="width:36px;"><input type="checkbox" id="am-select-all" onchange="amToggleSelectAll(this)"></th><th>Tipo</th><th>Nome</th><th>Serial</th><th>Nº Ativo</th><th>Entidade</th><th>Status</th><th>Alerta</th><th></th></tr></thead>
+            <thead><tr><th style="width:36px;"><input type="checkbox" id="am-select-all" onchange="amToggleSelectAll(this)"></th><th>Tipo</th><th>Nome</th><th>Serial</th><th>Nº Ativo</th><th>Entidade</th><th>Status</th><th>Alerta</th><th style="width:110px;min-width:110px;"></th></tr></thead>
             <tbody>
             <?php foreach ($assets as $asset):
                 $plugin_status = $asset['plugin_status'] ?? MaintenanceRecord::STATUS_ESTOQUE;
@@ -685,21 +685,23 @@ if ($can_admin_entity) {
                     </span>
                     <?php endif; ?>
                 </td>
-                <td style="display:flex;gap:5px;flex-wrap:wrap;">
-                    <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" class="am-btn am-btn-secondary" style="padding:6px 10px;width:auto;" title="Ver"><i class="ti ti-eye"></i></a>
+                <td style="min-width:110px;padding:4px 6px;">
+                    <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:4px;">
+                    <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" class="am-btn am-btn-secondary" style="padding:6px 8px;min-width:auto;justify-content:center;" title="Ver"><i class="ti ti-eye"></i></a>
                     <?php if ($is_transferred_row): ?>
-                    <span style="font-size:.72rem;color:#f97316;font-weight:700;display:flex;align-items:center;gap:4px;padding:0 4px;"><i class="ti ti-lock"></i> Em transferência</span>
+                    <span style="font-size:.65rem;color:#f97316;font-weight:700;display:flex;align-items:center;gap:3px;padding:2px 4px;grid-column:span 2;justify-content:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;"><i class="ti ti-lock" style="font-size:.75rem;"></i> Em transferência</span>
                     <?php else: ?>
-                    <button class="am-btn am-btn-note" style="padding:6px 10px;width:auto;" onclick="amOpenNote(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Adicionar Observação"><i class="ti ti-note"></i></button>
+                    <button class="am-btn am-btn-note" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenNote(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Adicionar Observação"><i class="ti ti-note"></i></button>
                     <?php if ($can_tecnico): ?>
-                    <button class="am-btn am-btn-green" style="padding:6px 10px;width:auto;" onclick="amOpenManutencao(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Manutenção Realizada"><i class="ti ti-tools"></i></button>
-                    <button class="am-btn am-btn-orange" style="padding:6px 10px;width:auto;" onclick="amOpenBaixa(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Baixa"><i class="ti ti-package-off"></i></button>
+                    <button class="am-btn am-btn-green" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenManutencao(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Manutenção Realizada"><i class="ti ti-tools"></i></button>
+                    <button class="am-btn am-btn-orange" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenBaixa(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Baixa"><i class="ti ti-package-off"></i></button>
                     <?php endif; ?>
-                    <button class="am-btn am-btn-primary" style="padding:6px 10px;width:auto;" onclick="amOpenModal(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>','<?= htmlspecialchars($asset['asset_type_label']) ?>','<?= $plugin_status ?>')" title="Alterar Status"><i class="ti ti-edit"></i></button>
+                    <button class="am-btn am-btn-primary" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenModal(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>','<?= htmlspecialchars($asset['asset_type_label']) ?>','<?= $plugin_status ?>')" title="Alterar Status"><i class="ti ti-edit"></i></button>
                     <?php if (!empty($asset['can_undo'])): ?>
-                    <button class="am-btn am-btn-undo" style="padding:6px 10px;width:auto;" onclick="amConfirmUndo(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>')" title="Reverter Status (até 48h)"><i class="ti ti-arrow-back-up"></i></button>
+                    <button class="am-btn am-btn-undo" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amConfirmUndo(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>')" title="Reverter Status (até 48h)"><i class="ti ti-arrow-back-up"></i></button>
                     <?php endif; ?>
                     <?php endif; ?>
+                    </div>
                 </td>
             </tr>
             <?php endforeach; ?>
