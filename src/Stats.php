@@ -114,6 +114,11 @@ class Stats
     public static function getCountsByType(int|array $entity_id): array
     {
         global $DB;
+        if (is_array($entity_id) && !empty($entity_id)) {
+            $entity_id = MaintenanceRecord::expandEntityIds($entity_id);
+        } elseif ($entity_id !== 0 && $entity_id !== null && !empty($_SESSION['glpiactiveentity_is_recursive'])) {
+            $entity_id = MaintenanceRecord::expandEntityIds($entity_id);
+        }
         $types = MaintenanceRecord::getAssetTypes();
         $result = [];
         foreach ($types as $key => $def) {
@@ -449,6 +454,15 @@ class Stats
     private static function getEntityAssetIds(int|array $entity_id): array
     {
         global $DB;
+
+        // Expande para incluir sub-entidades (MÃE -> filhas)
+        // - Se $entity_id é array (filtro ADMIN multi-entidade), sempre expande MÃE + outra
+        // - Se é int único, expande só se a sessão estiver recursiva (GLPI)
+        if (is_array($entity_id)) {
+            if (!empty($entity_id)) $entity_id = MaintenanceRecord::expandEntityIds($entity_id);
+        } elseif ($entity_id !== 0 && $entity_id !== null && !empty($_SESSION['glpiactiveentity_is_recursive'])) {
+            $entity_id = MaintenanceRecord::expandEntityIds($entity_id);
+        }
 
         $where = ['is_deleted' => 0];
         if (is_array($entity_id)) {

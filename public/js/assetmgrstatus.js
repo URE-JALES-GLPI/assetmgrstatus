@@ -66,6 +66,12 @@
         });
     };
 
+    window.amToggleEntityRow = function (row, e) {
+        if (e && e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'input') return;
+        var cb = row.querySelector('input[type="checkbox"]');
+        if (cb) cb.checked = !cb.checked;
+    };
+
     window.amClearCompFilters = function () {
         document.querySelectorAll('.am-comp-3state').forEach(function(group) {
             var compKey = group.dataset.comp;

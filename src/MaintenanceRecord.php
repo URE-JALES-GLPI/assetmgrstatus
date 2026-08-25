@@ -156,6 +156,50 @@ class MaintenanceRecord extends CommonDBTM
         ];
     }
 
+    /**
+     * Expande lista de entidades para incluir todas as sub-entidades (filhos recursivos).
+     * GLPI armazena entidades em árvore (entities_id = parent). Selecionar a Entidade MÃE
+     * deve trazer também ativos das escolas filhas — comportamento recursivo.
+     * Se $ids for 0 (Todas) ou vazio, retorna 0.
+     * Se for int>0 ou array de ids, retorna array expandido com filhos.
+     */
+    public static function expandEntityIds(int|array $ids): int|array
+    {
+        global $DB;
+        if ($ids === 0 || $ids === null) return 0;
+        $flat = is_array($ids) ? $ids : [$ids];
+        $flat = array_values(array_unique(array_filter(array_map('intval', $flat), fn($v) => $v > 0)));
+        if (empty($flat)) return 0;
+        try {
+            // Carrega árvore completa de entidades uma vez
+            $childrenMap = [];
+            $entities = [];
+            foreach ($DB->request(['SELECT' => ['id', 'entities_id'], 'FROM' => 'glpi_entities']) as $row) {
+                $eid = (int)$row['id'];
+                $pid = (int)$row['entities_id'];
+                $entities[$eid] = $pid;
+                $childrenMap[$pid][] = $eid;
+            }
+            $expanded = [];
+            $stack = $flat;
+            $visited = [];
+            while (!empty($stack)) {
+                $cur = array_pop($stack);
+                if (isset($visited[$cur])) continue;
+                $visited[$cur] = true;
+                $expanded[] = $cur;
+                if (isset($childrenMap[$cur])) {
+                    foreach ($childrenMap[$cur] as $child) {
+                        if (!isset($visited[$child])) $stack[] = $child;
+                    }
+                }
+            }
+            return array_values(array_unique($expanded));
+        } catch (\Throwable $e) {
+            return $flat;
+        }
+    }
+
     public static function getManufacturers(string $type_filter = 'Notebook', int|array|null $entity_filter = null): array
     {
         global $DB;
@@ -174,6 +218,13 @@ class MaintenanceRecord extends CommonDBTM
             }
         } else {
             $entity_id = Session::getActiveEntity();
+        }
+        // Expande para incluir sub-entidades (MÃE + filhas) — ADMIN sempre, não-ADMIN só se recursivo
+        if ($entity_id !== 0 && $entity_id !== null) {
+            $is_admin_filter = ($entity_filter !== null && $has_admin);
+            if ($is_admin_filter || !empty($_SESSION['glpiactiveentity_is_recursive'])) {
+                $entity_id = self::expandEntityIds($entity_id);
+            }
         }
         try {
             $where_m = [
@@ -433,8 +484,16 @@ class MaintenanceRecord extends CommonDBTM
             } else {
                 $effective_entity = (int)$entity_filter; // 0 = todas
             }
+            // ADMIN com filtro explícito: sempre expande MÃE -> filhas (permite MAE + outra)
+            if ($effective_entity !== 0 && $effective_entity !== null) {
+                $effective_entity = self::expandEntityIds($effective_entity);
+            }
         } else {
             $effective_entity = Session::getActiveEntity();
+            // Não-ADMIN: respeita flag recursiva do GLPI
+            if (!empty($_SESSION['glpiactiveentity_is_recursive']) && $effective_entity !== 0 && $effective_entity !== null) {
+                $effective_entity = self::expandEntityIds($effective_entity);
+            }
         }
 
         foreach ($type_keys as $system_name) {

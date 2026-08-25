@@ -270,11 +270,9 @@ if ($can_admin_entity) {
                                     $shortName = htmlspecialchars(trim(end($parts)));
                                 }
                             ?>
-                            <div class="am-comp-panel-row am-entity-row" data-name="<?= strtolower(htmlspecialchars($ent['name'] . ' ' . $ent['completename'])) ?>">
+                            <div class="am-comp-panel-row am-entity-row" data-name="<?= strtolower(htmlspecialchars($ent['name'] . ' ' . $ent['completename'])) ?>" onclick="amToggleEntityRow(this, event)" style="cursor:pointer;">
                                 <span class="am-comp-panel-label" title="<?= htmlspecialchars($ent['completename']) ?>"><?= $shortName ?></span>
-                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                                    <input type="checkbox" name="entity[]" value="<?= (int)$ent['id'] ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;">
-                                </label>
+                                <input type="checkbox" name="entity[]" value="<?= (int)$ent['id'] ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;pointer-events:auto;" onclick="event.stopPropagation()">
                             </div>
                             <?php endforeach; ?>
                         </div>
