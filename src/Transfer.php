@@ -376,12 +376,32 @@ class Transfer
     public static function setTicketStatus(int $tickets_id, int $status): void
     {
         if ($tickets_id <= 0) return;
+        // Para Solucionado, tenta via ITILSolution (forma oficial do GLPI); direto via update pode ser bloqueado sem solução
+        $isSolved = $status === (defined('Ticket::SOLVED') ? Ticket::SOLVED : 5);
+        if ($isSolved && class_exists('ITILSolution')) {
+            try {
+                $sol = new \ITILSolution();
+                $sid = $sol->add([
+                    'itemtype' => 'Ticket',
+                    'items_id' => $tickets_id,
+                    'content'  => 'Transferência finalizada — status dos equipamentos aplicados no inventário. Chamado solucionado automaticamente.',
+                    'users_id' => Session::getLoginUserID(),
+                ]);
+                if ($sid) return;
+                // Se falhou, tenta fallback via update
+                $err = self::getItemError($sol);
+                if ($err !== '') error_log('[assetmgrstatus] ITILSolution falhou: ' . $err);
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] ITILSolution exception: ' . $e->getMessage());
+            }
+        }
         try {
             $ticket = new Ticket();
             $ok = $ticket->update(['id' => $tickets_id, 'status' => $status]);
             if (!$ok) {
                 $err = self::getItemError($ticket);
                 if ($err !== '') self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $err;
+                else if (self::$last_ticket_error === '') self::$last_ticket_error = 'Falha ao atualizar chamado (status ' . $status . ')';
             }
         } catch (\Throwable $e) {
             self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $e->getMessage();
@@ -488,14 +508,10 @@ class Transfer
         if ((int)$row['tickets_id'] > 0) {
             self::addTicketFollowup(
                 (int)$row['tickets_id'],
-                "⚠️ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **cancelada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nMotivo do cancelamento: " . ($motivo !== '' ? $motivo : '—') . "\nOs ativos foram liberados e não farão parte desta transferência."
+                "⚠️ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **cancelada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nMotivo do cancelamento: " . ($motivo !== '' ? $motivo : '—') . "\nOs ativos foram liberados e não farão parte desta transferência.\n🔒 Chamado será **fechado** automaticamente."
             );
-            // Ao cancelar, fecha o chamado (Fechado = 6)
+            // Ao cancelar, fecha o chamado (Fechado = 6) — deve ser a última ação para não reabrir com followup posterior
             self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::CLOSED') ? Ticket::CLOSED : 6);
-            self::addTicketFollowup(
-                (int)$row['tickets_id'],
-                "🔒 Chamado **fechado** automaticamente após cancelamento da transferência em " . date('d/m/Y H:i') . " por " . self::getUserName(Session::getLoginUserID()) . "."
-            );
         }
 
         return true;
@@ -1232,21 +1248,21 @@ class Transfer
             self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada — status aplicados no inventário');
         }
 
-        // Chamado: solucionado (SOLVED=5) e registra acompanhamento final
+        // Chamado: registra acompanhamento final e depois solucionado (SOLVED=5) — followup antes do status para não reabrir
         if ((int)$row['tickets_id'] > 0) {
-            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::SOLVED') ? Ticket::SOLVED : 5);
             if ($hasPending) {
                 self::addTicketFollowup(
                     (int)$row['tickets_id'],
                     "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada (parcial)** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\n"
-                    . count($toFinalize) . " equipamento(s) finalizado(s) com status aplicados no inventário. " . count($toPending) . " pendente(s) movido(s) para Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . ".\nChamado solucionado automaticamente."
+                    . count($toFinalize) . " equipamento(s) finalizado(s) com status aplicados no inventário. " . count($toPending) . " pendente(s) movido(s) para Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . ".\nChamado será solucionado automaticamente."
                 );
             } else {
                 self::addTicketFollowup(
                     (int)$row['tickets_id'],
-                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado **solucionado** automaticamente."
+                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado será **solucionado** automaticamente."
                 );
             }
+            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::SOLVED') ? Ticket::SOLVED : 5);
         }
 
         return true;
