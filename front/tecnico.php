@@ -153,7 +153,10 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <?php else: ?>
     <div class="am-tc-grid">
         <?php foreach ($transfers as $t):
-            $elapsed      = Transfer::getElapsedTime($t['date_creation']);
+            $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
+            // Para finalizado/cancelada congela o cronômetro na data de encerramento; demais seguem rodando
+            $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
+            $elapsed      = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
             $status_color = Transfer::getStatusColor($t['status']);
             $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
         ?>
@@ -176,7 +179,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <div class="am-tc-info-row">
                     <i class="ti ti-clock"></i>
                     <span class="am-tc-timer" data-start="<?= $t['date_creation'] ?>"
-                          data-end="<?= $t['date_finalizado'] ?? '' ?>">
+                          data-end="<?= $t['date_finalizado'] ?? $t['date_cancelado'] ?? '' ?>">
                         <?= $elapsed['label'] ?>
                     </span>
                 </div>
@@ -218,10 +221,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             <!-- Tempos por etapa -->
             <div class="am-tc-times">
                 <?php
+                $cancelEnd = $t['date_cancelado'] ?? null;
+                $finalEnd  = $t['date_finalizado'] ?? null;
                 $stages = [
-                    ['label' => 'Pendente',   'from' => $t['date_pending'],    'to' => $t['date_manutencao']],
-                    ['label' => 'Manutenção', 'from' => $t['date_manutencao'], 'to' => $t['date_pronto']],
-                    ['label' => 'Pronto',     'from' => $t['date_pronto'],     'to' => $t['date_finalizado']],
+                    ['label' => 'Pendente',   'from' => $t['date_pending'],    'to' => $t['date_manutencao'] ?: $cancelEnd],
+                    ['label' => 'Manutenção', 'from' => $t['date_manutencao'], 'to' => $t['date_pronto'] ?: $cancelEnd],
+                    ['label' => 'Pronto',     'from' => $t['date_pronto'],     'to' => $finalEnd ?: $cancelEnd],
                 ];
                 foreach ($stages as $stage):
                     if (!$stage['from']) continue;
