@@ -54,6 +54,10 @@
         document.querySelectorAll('#am-entity-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
     };
 
+    window.amSelectAllEntityFilters = function () {
+        document.querySelectorAll('#am-entity-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = true; });
+    };
+
     window.amFilterEntityList = function (term) {
         term = (term || '').toLowerCase();
         document.querySelectorAll('.am-entity-row').forEach(function(row){

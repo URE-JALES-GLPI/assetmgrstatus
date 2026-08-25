@@ -279,6 +279,7 @@ if ($can_admin_entity) {
                             <?php endforeach; ?>
                         </div>
                         <div class="am-comp-panel-footer">
+                            <button type="button" class="am-btn am-btn-secondary" style="padding:7px 10px;font-size:.78rem;" onclick="amSelectAllEntityFilters()">Todos</button>
                             <button type="button" class="am-btn am-btn-secondary" style="padding:7px 14px;font-size:.8rem;" onclick="amClearEntityFilters()">Limpar</button>
                             <button type="submit" class="am-btn am-btn-primary" style="padding:7px 14px;font-size:.8rem;">Aplicar</button>
                         </div>
@@ -305,7 +306,7 @@ if ($can_admin_entity) {
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
-                        <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
+                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
                         <?php foreach ($filter_comp as $ck => $cv): ?>
                         <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
                         <?php endforeach; ?>
@@ -356,7 +357,7 @@ if ($can_admin_entity) {
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
-                        <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
+                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
                         <?php foreach ($filter_fabricante as $ffid): ?>
                         <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
                         <?php endforeach; ?>
@@ -395,7 +396,7 @@ if ($can_admin_entity) {
             <form method="GET" action="" id="am-search-form" style="flex:1;display:flex;gap:8px;align-items:center;">
                 <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
                 <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
-                <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
+                <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
                 <?php foreach ($filter_comp as $ckey => $cval): ?>
                 <input type="hidden" name="comp[<?= htmlspecialchars($ckey) ?>]" value="<?= htmlspecialchars($cval) ?>">
                 <?php endforeach; ?>
@@ -611,7 +612,7 @@ if ($can_admin_entity) {
                     <?php if ($asset['serial']): ?><div class="am-asset-info"><i class="ti ti-barcode"></i> <?= htmlspecialchars($asset['serial']) ?></div><?php endif; ?>
                     <?php if ($asset['otherserial']): ?><div class="am-asset-info"><i class="ti ti-hash"></i> Nº <?= htmlspecialchars($asset['otherserial']) ?></div><?php endif; ?>
                 </div>
-                <?php if (!empty($asset['entity_name'])): ?><div class="am-asset-info am-asset-entity"><i class="ti ti-building"></i> <?= htmlspecialchars($asset['entity_name']) ?></div><?php endif; ?>
+                <?php if (!empty($asset['entity_name'])): ?><div class="am-asset-info am-asset-entity" title="<?= htmlspecialchars($asset['entity_completename'] ?? $asset['entity_name']) ?>"><i class="ti ti-building"></i> <?= htmlspecialchars($asset['entity_name']) ?></div><?php endif; ?>
                 <?php if (!empty($asset['manufacturer_name'])): ?><div class="am-asset-info" style="margin-top:4px;"><i class="ti ti-building-factory-2"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?>
                 <?php
                 $show_comps_status = [MaintenanceRecord::STATUS_MANUTENCAO, MaintenanceRecord::STATUS_GARANTIA, MaintenanceRecord::STATUS_INATIVO, MaintenanceRecord::STATUS_INSERVIVEL];
@@ -661,7 +662,7 @@ if ($can_admin_entity) {
                 <td><strong><?= htmlspecialchars($asset['name']) ?></strong><?php if (!empty($asset['manufacturer_name'])): ?><div style="font-size:.72rem;color:#6b7280;display:flex;align-items:center;gap:3px;margin-top:2px;"><i class="ti ti-building-factory-2" style="font-size:.75rem;"></i> <?= htmlspecialchars($asset['manufacturer_name']) ?></div><?php endif; ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['serial'] ?? '—') ?></td>
                 <td style="color:#9ca3af;font-size:.85rem;"><?= htmlspecialchars($asset['otherserial'] ?? '—') ?></td>
-                <td style="font-size:.82rem;color:#6366f1;"><?= htmlspecialchars($asset['entity_name'] ?? '—') ?></td>
+                <td style="font-size:.82rem;color:#6366f1;" title="<?= htmlspecialchars($asset['entity_completename'] ?? $asset['entity_name'] ?? '') ?>"><?= htmlspecialchars($asset['entity_name'] ?? '—') ?></td>
                 <td><span class="am-badge <?= MaintenanceRecord::getStatusBadgeClass($plugin_status) ?>"><?= MaintenanceRecord::getStatusLabel($plugin_status) ?></span></td>
                 <td>
                     <?php if ($alert60):
