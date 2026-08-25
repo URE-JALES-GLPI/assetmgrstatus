@@ -374,52 +374,27 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     </div>
 </div>
 
-<!-- Modal Finalizar — com seleção de pendentes -->
+<!-- Modal Finalizar -->
 <div id="am-modal-finalizar" class="am-modal-overlay" onclick="event.stopPropagation()">
-    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
             <div class="am-modal-title"><i class="ti ti-flag-check"></i><span>Finalizar Transferência</span></div>
         </div>
-        <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php" id="am-finalizar-form">
+        <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php">
             <input type="hidden" name="action" value="finalizar">
             <input type="hidden" name="transfer_id" id="am-finalizar-id">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
-            <div class="am-modal-body" style="padding:24px;max-height:75vh;overflow-y:auto;">
-                <div style="text-align:center;margin-bottom:14px;">
+            <div class="am-modal-body" style="padding:24px;">
+                <div style="text-align:center;margin-bottom:20px;">
                     <div style="width:56px;height:56px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
                         <i class="ti ti-flag-check" style="font-size:1.8rem;color:#fff;"></i>
                     </div>
                     <div style="font-size:1rem;font-weight:700;color:#1e1b4b;">Finalizar esta transferência?</div>
                     <div id="am-finalizar-info" style="font-size:.85rem;color:#6b7280;margin-top:6px;"></div>
-                    <div style="font-size:.82rem;color:#92400e;margin-top:8px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;text-align:left;">
-                        ⚠️ Os status definidos na etapa <strong>Pronto</strong> serão aplicados <strong>definitivamente</strong> no inventário. Se algum equipamento não pôde ser concluído, marque-o como <strong>pendente</strong> abaixo — será criado automaticamente um novo chamado apenas com os pendentes.
+                    <div style="font-size:.82rem;color:#ef4444;margin-top:8px;background:#fef2f2;border-radius:8px;padding:8px 12px;">
+                        ⚠️ Os status definidos na etapa Pronto serão aplicados <strong>definitivamente</strong> no inventário.
                     </div>
                 </div>
-
-                <!-- Seletor de pendências -->
-                <div id="am-finalizar-pending-wrap" style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:12px;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
-                        <input type="checkbox" id="am-finalizar-has-pending" onchange="amTogglePendingSection()" style="width:18px;height:18px;accent-color:#f59e0b;flex-shrink:0;">
-                        <span style="font-weight:700;font-size:.85rem;color:#92400e;"><i class="ti ti-clock-exclamation"></i> Houve equipamentos que ficaram pendentes / não finalizados?</span>
-                    </label>
-                    <div id="am-finalizar-pending-section" style="display:none;margin-top:12px;">
-                        <div style="font-size:.78rem;color:#9ca3af;margin-bottom:8px;">Selecione os equipamentos que <strong>não foram finalizados</strong>. Um <strong>novo chamado pendente</strong> será criado automaticamente apenas com esses itens.</div>
-                        <div id="am-finalizar-items-list" style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;margin-bottom:10px;background:#fff;border:1px solid #fde68a;border-radius:8px;padding:8px;">
-                            <div style="text-align:center;color:#9ca3af;padding:12px;font-size:.82rem;"><i class="ti ti-loader-2" style="animation:amSpin 1s linear infinite;display:inline-block;"></i> Carregando equipamentos...</div>
-                        </div>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-                            <span style="font-size:.72rem;color:#9ca3af;background:#fff;border:1px solid #fde68a;border-radius:99px;padding:3px 10px;"><span id="am-finalizar-pending-count">0</span> pendente(s) • <span id="am-finalizar-finalize-count">0</span> será(ão) finalizado(s)</span>
-                            <span style="display:flex;gap:4px;">
-                                <button type="button" class="am-btn am-btn-secondary" style="padding:4px 8px;font-size:.72rem;" onclick="amFinalizarToggleAllPend(true)">Todos pendentes</button>
-                                <button type="button" class="am-btn am-btn-secondary" style="padding:4px 8px;font-size:.72rem;" onclick="amFinalizarToggleAllPend(false)">Nenhum</button>
-                            </span>
-                        </div>
-                        <div id="am-finalizar-pending-warn" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:8px;padding:6px 10px;font-size:.78rem;margin-bottom:8px;"><i class="ti ti-alert-triangle"></i> É necessário manter ao menos 1 equipamento para finalizar. Desmarque ao menos um pendente.</div>
-                        <label class="am-form-label" style="margin-top:2px;">Motivo da pendência <span style="color:#9ca3af;font-weight:400;">(opcional — aparecerá no novo chamado)</span></label>
-                        <textarea id="am-finalizar-pending-reason" name="pending_reason" class="am-textarea" rows="2" placeholder="Ex: aguardando peça, sem conserto, falta de componente..." style="min-height:56px;"></textarea>
-                    </div>
-                </div>
-
                 <label class="am-agree-check">
                     <input type="checkbox" id="am-finalizar-agree" onchange="amToggleFinalizarBtn()">
                     <span>Confirmo que todas as informações foram revisadas e autorizo a finalização da transferência e a aplicação definitiva dos novos status dos ativos.</span>
@@ -522,127 +497,22 @@ function amTogglePegarBtn() {
     var b  = document.getElementById('am-pegar-btn');
     b.disabled = !ok; b.style.opacity = ok?'1':'.4'; b.style.cursor = ok?'pointer':'not-allowed';
 }
-var _amFinalizarTotal = 0;
 function amOpenFinalizarModal(id, entity) {
     document.getElementById('am-finalizar-id').value = id;
-    document.getElementById('am-finalizar-info').textContent = 'Destino: ' + entity + ' • #' + String(id).padStart(4,'0');
+    document.getElementById('am-finalizar-info').textContent = 'Destino: ' + entity;
     document.getElementById('am-finalizar-agree').checked = false;
-    // Reset pendência
-    var hasPend = document.getElementById('am-finalizar-has-pending');
-    var pendSec = document.getElementById('am-finalizar-pending-section');
-    var pendWrap = document.getElementById('am-finalizar-pending-wrap');
-    if (hasPend) hasPend.checked = false;
-    if (pendSec) pendSec.style.display = 'none';
-    document.getElementById('am-finalizar-pending-reason').value = '';
-    document.getElementById('am-finalizar-items-list').innerHTML = '<div style="text-align:center;color:#9ca3af;padding:12px;font-size:.82rem;"><i class="ti ti-loader-2" style="animation:amSpin 1s linear infinite;display:inline-block;"></i> Carregando equipamentos...</div>';
-    document.getElementById('am-finalizar-pending-warn').style.display = 'none';
-    _amFinalizarTotal = 0;
-    amFinalizarUpdateCounts();
     amToggleFinalizarBtn();
     document.getElementById('am-modal-finalizar').classList.add('open');
     document.body.style.overflow = 'hidden';
-    // Busca itens via AJAX
-    var base = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/transfer_items.php';
-    fetch(base + '?id=' + encodeURIComponent(id), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-        .then(function(r){ return r.json(); })
-        .then(function(items){
-            _amFinalizarTotal = items.length;
-            var list = document.getElementById('am-finalizar-items-list');
-            if (!items || !items.length) {
-                list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:12px;font-size:.82rem;">Nenhum equipamento encontrado nesta transferência.</div>';
-                amFinalizarUpdateCounts();
-                return;
-            }
-            var html = '';
-            items.forEach(function(it){
-                var statusLabel = it.final_status_label || '—';
-                var statusColor = it.final_status ? '#4f46e5' : '#9ca3af';
-                html += '<label style="display:flex;align-items:flex-start;gap:10px;background:#f8f9fb;border:1px solid #e8eaf0;border-radius:8px;padding:8px 10px;cursor:pointer;">'
-                      + '<input type="checkbox" name="pending_items[]" value="'+it.id+'" class="am-finalizar-pending-cb" style="width:18px;height:18px;accent-color:#f59e0b;flex-shrink:0;margin-top:2px;" onchange="amFinalizarUpdateCounts()">'
-                      + '<span style="flex:1;min-width:0;">'
-                      + '<span style="font-weight:700;font-size:.82rem;color:#1f2937;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+it.item_name+' <span style="font-weight:400;color:#9ca3af;">('+it.type_label+')</span></span>'
-                      + '<span style="font-size:.72rem;color:#6b7280;"><i class="ti ti-flag"></i> Status final: <strong style="color:'+statusColor+'">'+statusLabel+'</strong>'+(it.final_reason ? ' — <span style="color:#9ca3af;">'+it.final_reason.substring(0,60)+'</span>' : '')+'</span>'
-                      + '</span></label>';
-            });
-            list.innerHTML = html;
-            amFinalizarUpdateCounts();
-        })
-        .catch(function(){
-            document.getElementById('am-finalizar-items-list').innerHTML = '<div style="text-align:center;color:#ef4444;padding:12px;font-size:.82rem;">Erro ao carregar equipamentos.</div>';
-        });
 }
 function amCloseFinalizarModal() {
     document.getElementById('am-modal-finalizar').classList.remove('open');
     document.body.style.overflow = '';
 }
-function amTogglePendingSection(){
-    var cb = document.getElementById('am-finalizar-has-pending');
-    var sec = document.getElementById('am-finalizar-pending-section');
-    sec.style.display = cb.checked ? 'block' : 'none';
-    if (!cb.checked) {
-        document.querySelectorAll('.am-finalizar-pending-cb').forEach(function(c){ c.checked=false; });
-        document.getElementById('am-finalizar-pending-reason').value='';
-    }
-    amFinalizarUpdateCounts();
-    amToggleFinalizarBtn();
-}
-function amFinalizarUpdateCounts(){
-    var hasPend = document.getElementById('am-finalizar-has-pending');
-    var pendingCbs = document.querySelectorAll('.am-finalizar-pending-cb:checked');
-    var pendingCount = (hasPend && hasPend.checked) ? pendingCbs.length : 0;
-    var total = _amFinalizarTotal || document.querySelectorAll('.am-finalizar-pending-cb').length;
-    var finalizeCount = hasPend && hasPend.checked ? (total - pendingCount) : total;
-    var pcEl = document.getElementById('am-finalizar-pending-count');
-    var fcEl = document.getElementById('am-finalizar-finalize-count');
-    var warnEl = document.getElementById('am-finalizar-pending-warn');
-    if (pcEl) pcEl.textContent = pendingCount;
-    if (fcEl) fcEl.textContent = finalizeCount;
-    var needWarn = hasPend && hasPend.checked && total>0 && pendingCount>=total;
-    if (warnEl) warnEl.style.display = needWarn ? 'block' : 'none';
-    amToggleFinalizarBtn();
-}
-function amFinalizarToggleAllPend(checked){
-    var hasPend = document.getElementById('am-finalizar-has-pending');
-    if (hasPend && !hasPend.checked) { hasPend.checked=true; document.getElementById('am-finalizar-pending-section').style.display='block'; }
-    document.querySelectorAll('.am-finalizar-pending-cb').forEach(function(c){ c.checked=checked; });
-    amFinalizarUpdateCounts();
-}
 function amToggleFinalizarBtn() {
-    var agree = document.getElementById('am-finalizar-agree');
-    var btn = document.getElementById('am-finalizar-btn');
-    if (!agree || !btn) return;
-    var ok = agree.checked;
-    // Se há pendentes, valida que não marcou todos
-    var hasPend = document.getElementById('am-finalizar-has-pending');
-    if (ok && hasPend && hasPend.checked) {
-        var total = _amFinalizarTotal || document.querySelectorAll('.am-finalizar-pending-cb').length;
-        var pendingCount = document.querySelectorAll('.am-finalizar-pending-cb:checked').length;
-        if (total>0 && pendingCount>=total) ok=false;
-        if (pendingCount>0 && hasPend.checked) {
-            // requer ao menos motivo? não obrigatório, mas ok
-        }
-    }
-    btn.disabled = !ok; btn.style.opacity = ok?'1':'.4'; btn.style.cursor = ok?'pointer':'not-allowed';
-    var form = document.getElementById('am-finalizar-form');
-    if (form) {
-        form.onsubmit = function(e){
-            var hp = document.getElementById('am-finalizar-has-pending');
-            if (hp && hp.checked) {
-                var tot = _amFinalizarTotal || document.querySelectorAll('.am-finalizar-pending-cb').length;
-                var pend = document.querySelectorAll('.am-finalizar-pending-cb:checked').length;
-                if (tot>0 && pend>=tot) {
-                    e.preventDefault();
-                    alert('É necessário manter ao menos 1 equipamento para finalizar. Desmarque ao menos um pendente.');
-                    return false;
-                }
-                if (pend===0) {
-                    if(!confirm('Você marcou "houve pendentes" mas não selecionou nenhum equipamento como pendente. Deseja finalizar todos os equipamentos mesmo assim?')){
-                        e.preventDefault(); return false;
-                    }
-                }
-            }
-        };
-    }
+    var ok = document.getElementById('am-finalizar-agree').checked;
+    var b  = document.getElementById('am-finalizar-btn');
+    b.disabled = !ok; b.style.opacity = ok?'1':'.4'; b.style.cursor = ok?'pointer':'not-allowed';
 }
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;

@@ -28,6 +28,22 @@ class Transfer
     // ID da última transferência de pendência criada em finalizar() (0 = nenhuma)
     public static int $last_pending_transfer_id = 0;
 
+    private static function getItemError($item): string
+    {
+        if (is_object($item)) {
+            if (method_exists($item, 'getError')) {
+                try { $e = $item->getError(); return is_string($e) ? $e : (is_array($e) ? json_encode($e) : ''); } catch (\Throwable $ex) {}
+            }
+            if (method_exists($item, 'getErrors')) {
+                try { $errs = $item->getErrors(); if (!empty($errs)) return is_string($errs) ? $errs : json_encode($errs); } catch (\Throwable $ex) {}
+            }
+            if (method_exists($item, 'getErrorMessage')) {
+                try { $m = $item->getErrorMessage(); return is_string($m) ? $m : ''; } catch (\Throwable $ex) {}
+            }
+        }
+        return '';
+    }
+
     public static function getStatusOptions(): array
     {
         return [
@@ -321,7 +337,8 @@ class Transfer
             return 0;
         }
         if (!$ticket_id) {
-            self::$last_ticket_error = 'Falha ao abrir chamado: ' . $ticket->getError();
+            $err = self::getItemError($ticket);
+            self::$last_ticket_error = 'Falha ao abrir chamado' . ($err !== '' ? ': ' . $err : '');
             return 0;
         }
         return (int)$ticket_id;
@@ -343,12 +360,13 @@ class Transfer
         if ($tickets_id <= 0 || $users_id <= 0) return;
         try {
             $ticket = new Ticket();
-            $ticket->update([
+            $ok = $ticket->update([
                 'id'          => $tickets_id,
                 '_itil_assign' => [['users_id' => $users_id]],
             ]);
-            if ($ticket->getError() !== '') {
-                self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $ticket->getError();
+            if (!$ok) {
+                $err = self::getItemError($ticket);
+                if ($err !== '') self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $err;
             }
         } catch (\Throwable $e) {
             self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $e->getMessage();
@@ -360,9 +378,10 @@ class Transfer
         if ($tickets_id <= 0) return;
         try {
             $ticket = new Ticket();
-            $ticket->update(['id' => $tickets_id, 'status' => $status]);
-            if ($ticket->getError() !== '') {
-                self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $ticket->getError();
+            $ok = $ticket->update(['id' => $tickets_id, 'status' => $status]);
+            if (!$ok) {
+                $err = self::getItemError($ticket);
+                if ($err !== '') self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $err;
             }
         } catch (\Throwable $e) {
             self::$last_ticket_error = 'Falha ao atualizar chamado: ' . $e->getMessage();
@@ -374,15 +393,17 @@ class Transfer
         if ($tickets_id <= 0) return;
         try {
             $tf = new \ITILFollowup();
-            $tf->add([
+            $fid = $tf->add([
                 'itemtype'      => 'Ticket',
                 'items_id'      => $tickets_id,
                 'content'       => $content,
                 'users_id'      => Session::getLoginUserID(),
                 'is_private'    => 0,
             ]);
-            if ($tf->getError() !== '') {
-                self::$last_ticket_error = 'Falha no acompanhamento do chamado: ' . $tf->getError();
+            if (!$fid) {
+                $err = self::getItemError($tf);
+                if ($err !== '') self::$last_ticket_error = 'Falha no acompanhamento do chamado: ' . $err;
+                else if (self::$last_ticket_error === '') self::$last_ticket_error = 'Falha no acompanhamento do chamado';
             }
         } catch (\Throwable $e) {
             self::$last_ticket_error = 'Falha no acompanhamento do chamado: ' . $e->getMessage();
@@ -531,7 +552,8 @@ class Transfer
             'is_deleted'   => 0,
         ]);
         if (!$doc_id) {
-            self::$last_ticket_error = 'Falha ao criar anexo: ' . $doc->getError();
+            $err = self::getItemError($doc);
+            self::$last_ticket_error = 'Falha ao criar anexo' . ($err !== '' ? ': ' . $err : '');
             return false;
         }
 
@@ -542,7 +564,8 @@ class Transfer
             'items_id'     => $tickets_id,
         ]);
         if (!$di_id) {
-            self::$last_ticket_error = 'Falha ao vincular anexo ao chamado: ' . $di->getError();
+            $err = self::getItemError($di);
+            self::$last_ticket_error = 'Falha ao vincular anexo ao chamado' . ($err !== '' ? ': ' . $err : '');
             return false;
         }
         return true;
