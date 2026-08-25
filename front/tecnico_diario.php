@@ -119,7 +119,7 @@ Html::header('Diário — Inventário', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
 <?php endforeach; ?>
 </div>
 <div style="margin-top:24px;display:flex;justify-content:flex-end;gap:12px;">
-    <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:10px 20px;"><i class="ti ti-x"></i> Voltar</a>
+    <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:10px 20px;"><i class="ti ti-arrow-left"></i> Voltar</a>
     <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_pronto.php?id=<?= $transfer_id ?>" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:10px 24px;"><i class="ti ti-check"></i> Marcar como Pronto</a>
 </div>
 </div>
