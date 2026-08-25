@@ -490,6 +490,12 @@ class Transfer
                 (int)$row['tickets_id'],
                 "⚠️ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **cancelada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nMotivo do cancelamento: " . ($motivo !== '' ? $motivo : '—') . "\nOs ativos foram liberados e não farão parte desta transferência."
             );
+            // Ao cancelar, fecha o chamado (Fechado = 6)
+            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::CLOSED') ? Ticket::CLOSED : 6);
+            self::addTicketFollowup(
+                (int)$row['tickets_id'],
+                "🔒 Chamado **fechado** automaticamente após cancelamento da transferência em " . date('d/m/Y H:i') . " por " . self::getUserName(Session::getLoginUserID()) . "."
+            );
         }
 
         return true;
@@ -1226,19 +1232,19 @@ class Transfer
             self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada — status aplicados no inventário');
         }
 
-        // Chamado: fecha (CLOSED=6) e registra acompanhamento final
+        // Chamado: solucionado (SOLVED=5) e registra acompanhamento final
         if ((int)$row['tickets_id'] > 0) {
-            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::CLOSED') ? Ticket::CLOSED : 6);
+            self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::SOLVED') ? Ticket::SOLVED : 5);
             if ($hasPending) {
                 self::addTicketFollowup(
                     (int)$row['tickets_id'],
                     "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada (parcial)** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\n"
-                    . count($toFinalize) . " equipamento(s) finalizado(s) com status aplicados no inventário. " . count($toPending) . " pendente(s) movido(s) para Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . ".\nChamado fechado automaticamente."
+                    . count($toFinalize) . " equipamento(s) finalizado(s) com status aplicados no inventário. " . count($toPending) . " pendente(s) movido(s) para Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . ".\nChamado solucionado automaticamente."
                 );
             } else {
                 self::addTicketFollowup(
                     (int)$row['tickets_id'],
-                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado fechado automaticamente."
+                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado **solucionado** automaticamente."
                 );
             }
         }
