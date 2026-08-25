@@ -220,12 +220,24 @@ if ($can_admin_entity) {
         <?php if ($can_admin_entity): ?>
         <div class="am-filter-group">
             <label>Entidade <span style="font-size:.65rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:4px;">ADMIN</span></label>
-            <select class="am-input" style="min-width:240px;" onchange="var u=new URL(window.location.href);u.searchParams.set('entity',this.value);u.searchParams.set('page','1');window.location.href=u.href;">
-                <option value="0" <?= $filter_entity===0 ? 'selected' : '' ?>>🌐 Todas as entidades (<?= count($entities_for_filter) ?>)</option>
-                <?php foreach ($entities_for_filter as $ent): ?>
-                <option value="<?= (int)$ent['id'] ?>" <?= $filter_entity===(int)$ent['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ent['completename']) ?> (<?= (int)$ent['id'] ?>)</option>
+            <form method="GET" action="" id="am-entity-filter-form" style="display:flex;gap:8px;align-items:center;">
+                <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
+                <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
+                <input type="hidden" name="view"   value="<?= htmlspecialchars($view_mode) ?>">
+                <?php foreach ($filter_comp as $ck => $cv): ?>
+                <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
                 <?php endforeach; ?>
-            </select>
+                <?php foreach ($filter_fabricante as $ffid): ?>
+                <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
+                <?php endforeach; ?>
+                <select name="entity" class="am-input" style="min-width:240px;" onchange="this.form.submit()">
+                    <option value="0" <?= $filter_entity===0 ? 'selected' : '' ?>>🌐 Todas as entidades (<?= count($entities_for_filter) ?>)</option>
+                    <?php foreach ($entities_for_filter as $ent): ?>
+                    <option value="<?= (int)$ent['id'] ?>" <?= $filter_entity===(int)$ent['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ent['completename']) ?> (<?= (int)$ent['id'] ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
             <?php if ($filter_entity !== 0): ?>
             <a href="?<?= am_qs(['entity' => 0]) ?>" style="font-size:.72rem;color:#6b7280;margin-top:4px;display:inline-block;"><i class="ti ti-x"></i> Ver todas</a>
             <?php endif; ?>
