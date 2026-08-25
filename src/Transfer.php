@@ -942,6 +942,32 @@ class Transfer
             $counts[(int)$c['transfers_id']] = (int)$c['total'];
         }
 
+        // Batch 1b: contagem de itens concluídos (work_status = 'done') — para barra de progresso
+        $doneCounts = [];
+        if (!empty($rows)) {
+            foreach ($DB->request([
+                'SELECT' => ['transfers_id', 'COUNT' => 'id AS total'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_transfer_items',
+                'WHERE'  => ['transfers_id' => array_column($rows, 'id'), 'work_status' => 'done'],
+                'GROUPBY'=> ['transfers_id'],
+            ]) as $c) {
+                $doneCounts[(int)$c['transfers_id']] = (int)$c['total'];
+            }
+        }
+
+        // Batch 1c: contagem por final_status preenchido (fallback para transferências já em Pronto/Finalizado caso work_status ainda não tenha migrado)
+        $finalCounts = [];
+        if (!empty($rows)) {
+            foreach ($DB->request([
+                'SELECT' => ['transfers_id', 'COUNT' => 'id AS total'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_transfer_items',
+                'WHERE'  => ['transfers_id' => array_column($rows, 'id'), 'final_status' => ['<>', '']],
+                'GROUPBY'=> ['transfers_id'],
+            ]) as $c) {
+                $finalCounts[(int)$c['transfers_id']] = (int)$c['total'];
+            }
+        }
+
         // Batch 2: nomes das entidades de destino (1 query)
         $entity_ids = array_filter(array_unique(array_column($rows, 'entity_dest')));
         $entity_names = [];
@@ -999,6 +1025,20 @@ class Transfer
         foreach ($rows as $row) {
             $origin = $origins[(int)$row['id']] ?? null;
             $row['items_count']      = $counts[(int)$row['id']] ?? 0;
+            // Progresso: concluídos = work_status='done' (diário) ou, se já houver final_status, usa o maior entre os dois
+            $done_by_work  = $doneCounts[(int)$row['id']] ?? 0;
+            $done_by_final = $finalCounts[(int)$row['id']] ?? 0;
+            $items_done    = max($done_by_work, $done_by_final);
+            // Para status Pronto/Finalizado assume 100% quando não houver work_status mas houver itens
+            if (in_array($row['status'], [self::STATUS_PRONTO, self::STATUS_FINALIZADO], true) && $row['items_count'] > 0 && $items_done < $row['items_count']) {
+                // Se já foi para pronto, todos devem estar concluídos; garante pelo menos finalCounts ou total
+                if ($done_by_final === $row['items_count']) $items_done = $row['items_count'];
+            }
+            if ($items_done > $row['items_count']) $items_done = $row['items_count'];
+            $row['items_done']   = $items_done;
+            $row['progress_pct'] = $row['items_count'] > 0 ? (int)round($items_done / $row['items_count'] * 100) : 0;
+            if ($row['progress_pct'] > 100) $row['progress_pct'] = 100;
+            if ($row['progress_pct'] < 0) $row['progress_pct'] = 0;
             $row['entity_dest_name'] = $entity_names[(int)$row['entity_dest']] ?? 'Desconhecida';
             $row['origin_entity_name'] = $origin
                 ? ($origin['name'] !== '' ? $origin['name'] : 'Entidade #' . $origin['id'])

@@ -35,10 +35,10 @@ if ($filter_sort === 'old') {
     usort($transfers, fn($a, $b) => strtotime($b['date_creation']) <=> strtotime($a['date_creation']));
 }
 
-// Monta hash leve: id + status + datas + tech
+// Monta hash leve: id + status + datas + tech + progresso (para atualizar barra ao concluir itens no diário)
 $parts = [];
 foreach ($transfers as $t) {
-    $parts[] = $t['id'] . ':' . $t['status'] . ':' . ($t['date_creation'] ?? '') . ':' . ($t['date_manutencao'] ?? '') . ':' . ($t['date_pronto'] ?? '') . ':' . ($t['date_finalizado'] ?? '') . ':' . ($t['date_cancelado'] ?? '') . ':' . ($t['users_id_tech'] ?? 0);
+    $parts[] = $t['id'] . ':' . $t['status'] . ':' . ($t['date_creation'] ?? '') . ':' . ($t['date_manutencao'] ?? '') . ':' . ($t['date_pronto'] ?? '') . ':' . ($t['date_finalizado'] ?? '') . ':' . ($t['date_cancelado'] ?? '') . ':' . ($t['users_id_tech'] ?? 0) . ':' . ($t['items_done'] ?? 0) . ':' . ($t['progress_pct'] ?? 0) . ':' . ($t['items_count'] ?? 0);
 }
 $hash = md5(implode('|', $parts));
 $count = count($transfers);

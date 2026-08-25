@@ -194,6 +194,27 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <?php endif; ?>
             </div>
 
+            <!-- Barra de progresso dos itens concluídos -->
+            <?php
+            $tc_total = (int)($t['items_count'] ?? 0);
+            $tc_done  = (int)($t['items_done'] ?? 0);
+            $tc_pct   = (int)($t['progress_pct'] ?? ($tc_total ? round($tc_done/$tc_total*100) : 0));
+            if ($t['status'] === Transfer::STATUS_CANCELADA) { $tc_bar = 'linear-gradient(90deg,#ef4444,#dc2626)'; $tc_label_class = 'cancel'; }
+            elseif ($t['status'] === Transfer::STATUS_FINALIZADO) { $tc_bar = 'linear-gradient(90deg,#6b7280,#9ca3af)'; $tc_label_class = 'done'; }
+            elseif ($tc_pct === 100) { $tc_bar = 'linear-gradient(90deg,#10b981,#059669)'; $tc_label_class = 'done'; }
+            elseif ($tc_pct > 0) { $tc_bar = 'linear-gradient(90deg,#10b981,#34d399)'; $tc_label_class = 'partial'; }
+            else { $tc_bar = 'linear-gradient(90deg,#e5e7eb,#d1d5db)'; $tc_label_class = ''; }
+            ?>
+            <div class="am-tc-progress">
+                <div class="am-tc-progress-head">
+                    <span><i class="ti ti-progress-check"></i> Progresso</span>
+                    <span class="am-tc-progress-label <?= $tc_label_class ?>"><?= $tc_done ?>/<?= $tc_total ?> • <?= $tc_pct ?>%</span>
+                </div>
+                <div class="am-tc-progress-track" role="progressbar" aria-valuenow="<?= $tc_pct ?>" aria-valuemin="0" aria-valuemax="100" title="<?= $tc_done ?> de <?= $tc_total ?> itens concluídos (<?= $tc_pct ?>%)">
+                    <div class="am-tc-progress-fill" style="width:<?= $tc_pct ?>%;background:<?= $tc_bar ?>;"></div>
+                </div>
+            </div>
+
             <!-- Tempos por etapa -->
             <div class="am-tc-times">
                 <?php

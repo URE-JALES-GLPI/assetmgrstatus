@@ -491,9 +491,24 @@ body.am-dark-mode {
 .am-tc-time-label{font-size:.7rem;font-weight:700;text-transform:uppercase;color:#9ca3af;display:block;margin-bottom:2px;}
 .am-tc-time-val{font-size:.8rem;font-weight:700;color:#374151;}
 .am-tc-card-footer{display:flex;gap:8px;padding:12px 18px;}
+/* Barra de progresso dos itens concluídos no card do chamado */
+.am-tc-progress{padding:0 18px 12px;}
+.am-tc-progress-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.72rem;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.04em;}
+.am-tc-progress-head .ti{font-size:.85rem;}
+.am-tc-progress-label{font-size:.78rem;font-weight:800;text-transform:none;letter-spacing:0;color:#9ca3af;}
+.am-tc-progress-label.partial{color:#059669;}
+.am-tc-progress-label.done{color:#059669;}
+.am-tc-progress-label.cancel{color:#dc2626;}
+.am-tc-progress-track{background:#f0f2f8;border-radius:99px;height:8px;overflow:hidden;position:relative;}
+.am-tc-progress-fill{height:100%;border-radius:99px;transition:width .45s cubic-bezier(.4,0,.2,1);min-width:0;}
+.am-tc-progress-track[aria-valuenow="0"] .am-tc-progress-fill{opacity:.6;}
 
 /* dark mode */
 body.am-dark-mode {
+  .am-tc-progress-track{background:#2d3550;}
+  .am-tc-progress-head{color:#64748b;}
+  .am-tc-progress-label{color:#94a3b8;}
+  .am-tc-progress-label.partial,.am-tc-progress-label.done{color:#34d399;}
   .am-tc-card{background:#1e2333;border-color:#2d3550;}
   .am-tc-info-row{color:#cbd5e1;}
   .am-tc-reason{background:#151929;color:#94a3b8;}
