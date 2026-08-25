@@ -224,6 +224,33 @@ class Transfer
 
             // Marca o ativo como transferido (bloqueia edição na manutenção)
             self::lockAsset($item['itemtype'], $item['id'], $transfer_id);
+
+            // Ao transferir, muda o status do equipamento para Manutenção
+            try {
+                // Preserva componentes/motivo existentes para não apagar
+                $curRec = $DB->request(['SELECT' => ['components','reason'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $item['itemtype'], 'items_id' => $item['id']], 'LIMIT' => 1])->current();
+                $curComps = [];
+                if ($curRec && !empty($curRec['components'])) {
+                    $decoded = json_decode($curRec['components'], true);
+                    if (is_array($decoded)) $curComps = $decoded;
+                }
+                $curReason = $curRec['reason'] ?? '';
+                // Usa motivo da transferência como novo motivo, mas mantém componentes
+                $newReason = $reason !== '' ? $reason : $curReason;
+                global $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK;
+                $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = true;
+                \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::saveRecord($item['itemtype'], $item['id'], \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::STATUS_MANUTENCAO, $newReason, $curComps, [], (int)Session::getLoginUserID());
+                $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = false;
+            } catch (\Throwable $e) {
+                // Fallback direto caso saveRecord falhe (ex: lock)
+                try {
+                    global $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK;
+                    $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = false;
+                    $DB->update('glpi_plugin_assetmgrstatus_records', ['am_status' => \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::STATUS_MANUTENCAO, 'reason' => $reason, 'date_mod' => $now], ['itemtype' => $item['itemtype'], 'items_id' => $item['id']]);
+                    $state_id = \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::GLPI_STATE_MAP[\GlpiPlugin\Assetmgrstatus\MaintenanceRecord::STATUS_MANUTENCAO] ?? null;
+                    if ($state_id) $DB->update('glpi_assets_assets', ['states_id' => $state_id], ['id' => $item['id']]);
+                } catch (\Throwable $e2) {}
+            }
         }
 
         // ---- Histórico Manutenção: registra envio de cada ativo (transferência) ----
