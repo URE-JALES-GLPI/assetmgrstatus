@@ -207,10 +207,11 @@ class MaintenanceRecord extends CommonDBTM
     public static function getDaysSinceLastMaintenance(string $itemtype, int $items_id): ?int
     {
         global $DB;
+        // Tenta com itemtype para precisão, fallback sem itemtype para compatibilidade (caso histórico tenha sido gravado com tipo diferente)
         $iter = $DB->request([
             'SELECT' => ['date_creation'],
             'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
-            'WHERE'  => ['items_id' => $items_id, 'itemtype' => $itemtype, 'record_type' => self::RECORD_MANUTENCAO],
+            'WHERE'  => ['items_id' => $items_id, 'record_type' => self::RECORD_MANUTENCAO],
             'ORDER'  => ['date_creation DESC'],
             'LIMIT'  => 1,
         ]);
@@ -525,26 +526,30 @@ class MaintenanceRecord extends CommonDBTM
 
             $ids = array_map('intval', array_column($filtered, 'id'));
 
-            // Batch: última manutenção realizada por ativo (1 query por tipo)
+            // Batch: última manutenção realizada por ativo (1 query por tipo) — sem MAX/GROUPBY para compatibilidade GLPI
             $last_maintenance = [];
-            foreach ($DB->request([
-                'SELECT'  => ['items_id', 'MAX' => 'date_creation AS last_date'],
-                'FROM'    => 'glpi_plugin_assetmgrstatus_histories',
-                'WHERE'   => ['itemtype' => $itemtype, 'items_id' => $ids, 'record_type' => self::RECORD_MANUTENCAO],
-                'GROUPBY' => ['items_id'],
-            ]) as $m) {
-                $last_maintenance[(int)$m['items_id']] = $m['last_date'];
+            $iter_m = $DB->request([
+                'SELECT' => ['items_id', 'date_creation'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
+                'WHERE'  => ['items_id' => $ids, 'record_type' => self::RECORD_MANUTENCAO],
+                'ORDER'  => ['date_creation DESC'],
+            ]);
+            foreach ($iter_m as $m) {
+                $mid = (int)$m['items_id'];
+                if (!isset($last_maintenance[$mid])) $last_maintenance[$mid] = $m['date_creation'];
             }
 
             // Batch: última mudança de status não desfeita por ativo (1 query por tipo)
             $last_status_change = [];
-            foreach ($DB->request([
-                'SELECT'  => ['items_id', 'MAX' => 'date_creation AS last_date'],
-                'FROM'    => 'glpi_plugin_assetmgrstatus_histories',
-                'WHERE'   => ['itemtype' => $itemtype, 'items_id' => $ids, 'record_type' => self::RECORD_STATUS_CHANGE, 'is_undone' => 0],
-                'GROUPBY' => ['items_id'],
-            ]) as $s) {
-                $last_status_change[(int)$s['items_id']] = $s['last_date'];
+            $iter_s = $DB->request([
+                'SELECT' => ['items_id', 'date_creation'],
+                'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
+                'WHERE'  => ['items_id' => $ids, 'record_type' => self::RECORD_STATUS_CHANGE, 'is_undone' => 0],
+                'ORDER'  => ['date_creation DESC'],
+            ]);
+            foreach ($iter_s as $s) {
+                $sid = (int)$s['items_id'];
+                if (!isset($last_status_change[$sid])) $last_status_change[$sid] = $s['date_creation'];
             }
 
             $now_ts = time();
