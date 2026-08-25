@@ -74,8 +74,12 @@ $raw_entity = $_POST['filter_entity'] ?? [];
 if (is_string($raw_entity)) $raw_entity = [$raw_entity];
 if (!is_array($raw_entity)) $raw_entity = [];
 $filter_entities = array_values(array_filter(array_map('intval', $raw_entity)));
+$filter_entity_recursive = !empty($_POST['filter_entity_recursive']);
 $qs = 'view=' . urlencode($view);
 if (!empty($filter_entities) && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
     foreach ($filter_entities as $eid) $qs .= '&entity%5B%5D=' . $eid;
+    if ($filter_entity_recursive) $qs .= '&entity_recursive=1';
+} elseif ($filter_entity_recursive && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+    $qs .= '&entity_recursive=1';
 }
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

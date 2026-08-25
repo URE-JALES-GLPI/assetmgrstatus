@@ -219,10 +219,11 @@ class MaintenanceRecord extends CommonDBTM
         } else {
             $entity_id = Session::getActiveEntity();
         }
-        // Expande para incluir sub-entidades (MÃE + filhas) — ADMIN sempre, não-ADMIN só se recursivo
+        // Expande só se entity_recursive=1 (ADMIN) ou flag recursiva GLPI
+        $do_expand_manu = !empty($_GET['entity_recursive']);
         if ($entity_id !== 0 && $entity_id !== null) {
             $is_admin_filter = ($entity_filter !== null && $has_admin);
-            if ($is_admin_filter || !empty($_SESSION['glpiactiveentity_is_recursive'])) {
+            if (($is_admin_filter && $do_expand_manu) || (!empty($_SESSION['glpiactiveentity_is_recursive']))) {
                 $entity_id = self::expandEntityIds($entity_id);
             }
         }
@@ -484,8 +485,10 @@ class MaintenanceRecord extends CommonDBTM
             } else {
                 $effective_entity = (int)$entity_filter; // 0 = todas
             }
-            // ADMIN com filtro explícito: sempre expande MÃE -> filhas (permite MAE + outra)
-            if ($effective_entity !== 0 && $effective_entity !== null) {
+            // ADMIN com filtro explícito: por enquanto SEM expansão automática (filtro exato MAE + outra)
+            // Para incluir filhas, use entity_recursive=1 (ver abaixo)
+            $do_expand = !empty($_GET['entity_recursive']);
+            if ($do_expand && $effective_entity !== 0 && $effective_entity !== null) {
                 $effective_entity = self::expandEntityIds($effective_entity);
             }
         } else {

@@ -23,6 +23,7 @@ if (!is_array($raw_fab)) $raw_fab = [];
 $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
 // ADMIN — filtro por entidade independente da ativa (multi-checkbox)
 $can_admin_entity = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+$filter_entity_recursive = !empty($_GET['entity_recursive']);
 if ($can_admin_entity) {
     $raw_entity = $_GET['entity'] ?? [];
     if (is_string($raw_entity)) $raw_entity = $raw_entity !== '' ? [$raw_entity] : [];
@@ -55,6 +56,7 @@ function am_qs(array $overrides = []): string {
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
     $can_admin_qs = Session::haveRight('plugin_assetmgrstatus_admin', READ);
     $cur_entity = [];
+    $cur_entity_rec = !empty($_GET['entity_recursive']);
     if ($can_admin_qs) {
         $raw_e = $_GET['entity'] ?? [];
         if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
@@ -69,8 +71,13 @@ function am_qs(array $overrides = []): string {
         'status' => array_key_exists('status', $overrides) ? $overrides['status'] : $cur_status,
         'view'   => array_key_exists('view', $overrides)   ? $overrides['view']   : $cur_view,
     ];
-    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides) || array_key_exists('entity', $overrides);
+    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides) || array_key_exists('entity', $overrides) || array_key_exists('entity_recursive', $overrides);
     $params['page'] = $has_filter_override ? 1 : (array_key_exists('page', $overrides) ? $overrides['page'] : $cur_page);
+    // Preserva entity_recursive se não houver override explícito
+    $cur_er = array_key_exists('entity_recursive', $overrides) ? $overrides['entity_recursive'] : $cur_entity_rec;
+    if (!empty($cur_er) && $cur_er !== '0' && $cur_er !== 0) {
+        $params['entity_recursive'] = 1;
+    }
     $comp = array_key_exists('comp', $overrides) ? $overrides['comp'] : $cur_comp;
     if (!is_array($comp)) $comp = [];
     $fab  = array_key_exists('fabricante', $overrides) ? $overrides['fabricante'] : $cur_fab;
@@ -177,7 +184,14 @@ if ($can_admin_entity) {
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
             </button>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&type=<?= urlencode($filter_type) ?>&status=<?= urlencode($filter_status) ?><?= $can_admin_entity ? '&entity='.(int)$filter_entity : '' ?>"
+            <?php
+            $export_qs = http_build_query(['type' => $filter_type, 'status' => $filter_status]);
+            if ($can_admin_entity && !empty($filter_entity)) {
+                foreach ($filter_entity as $ee) $export_qs .= '&entity%5B%5D=' . (int)$ee;
+                if ($filter_entity_recursive) $export_qs .= '&entity_recursive=1';
+            }
+            ?>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&<?= $export_qs ?>"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-file-spreadsheet"></i> Excel
             </a>
@@ -259,6 +273,10 @@ if ($can_admin_entity) {
                             <strong>Filtrar por entidade</strong>
                             <small>Selecione uma ou mais entidades. Deixe vazio para <strong>Todas</strong>. Busque por nome.</small>
                             <input type="text" id="am-entity-search" placeholder="🔍 Buscar entidade..." oninput="amFilterEntityList(this.value)" style="margin-top:8px;width:100%;padding:7px 10px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;">
+                            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;cursor:pointer;font-size:.78rem;color:#374151;">
+                                <input type="checkbox" name="entity_recursive" value="1" <?= $filter_entity_recursive ? 'checked' : '' ?> style="accent-color:#4f46e5;width:16px;height:16px;">
+                                Incluir sub-entidades (MÃE → filhas)
+                            </label>
                         </div>
                         <div class="am-comp-panel-list" id="am-entity-list" style="max-height:220px;overflow-y:auto;">
                             <?php foreach ($entities_for_filter as $ent):
@@ -270,10 +288,10 @@ if ($can_admin_entity) {
                                     $shortName = htmlspecialchars(trim(end($parts)));
                                 }
                             ?>
-                            <div class="am-comp-panel-row am-entity-row" data-name="<?= strtolower(htmlspecialchars($ent['name'] . ' ' . $ent['completename'])) ?>" onclick="amToggleEntityRow(this, event)" style="cursor:pointer;">
+                            <label class="am-comp-panel-row am-entity-row" data-name="<?= strtolower(htmlspecialchars($ent['name'] . ' ' . $ent['completename'])) ?>" style="cursor:pointer;">
                                 <span class="am-comp-panel-label" title="<?= htmlspecialchars($ent['completename']) ?>"><?= $shortName ?></span>
-                                <input type="checkbox" name="entity[]" value="<?= (int)$ent['id'] ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;pointer-events:auto;" onclick="event.stopPropagation()">
-                            </div>
+                                <input type="checkbox" name="entity[]" value="<?= (int)$ent['id'] ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;flex-shrink:0;">
+                            </label>
                             <?php endforeach; ?>
                         </div>
                         <div class="am-comp-panel-footer">
@@ -304,7 +322,7 @@ if ($can_admin_entity) {
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
-                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
+                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; if ($filter_entity_recursive): ?><input type="hidden" name="entity_recursive" value="1"><?php endif; endif; ?>
                         <?php foreach ($filter_comp as $ck => $cv): ?>
                         <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
                         <?php endforeach; ?>
@@ -355,7 +373,7 @@ if ($can_admin_entity) {
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
-                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
+                        <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; if ($filter_entity_recursive): ?><input type="hidden" name="entity_recursive" value="1"><?php endif; endif; ?>
                         <?php foreach ($filter_fabricante as $ffid): ?>
                         <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
                         <?php endforeach; ?>
@@ -394,7 +412,7 @@ if ($can_admin_entity) {
             <form method="GET" action="" id="am-search-form" style="flex:1;display:flex;gap:8px;align-items:center;">
                 <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
                 <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
-                <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
+                <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="entity[]" value="<?= (int)$eid ?>"><?php endforeach; if ($filter_entity_recursive): ?><input type="hidden" name="entity_recursive" value="1"><?php endif; endif; ?>
                 <?php foreach ($filter_comp as $ckey => $cval): ?>
                 <input type="hidden" name="comp[<?= htmlspecialchars($ckey) ?>]" value="<?= htmlspecialchars($cval) ?>">
                 <?php endforeach; ?>
@@ -1216,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'filter_status': '<?= htmlspecialchars($filter_status) ?>',
         'filter_search': '<?= htmlspecialchars($filter_search) ?>',
     };
-    <?php if ($can_admin_entity): ?>var filterEntities = <?= json_encode(array_values($filter_entity)) ?>;<?php endif; ?>
+    <?php if ($can_admin_entity): ?>var filterEntities = <?= json_encode(array_values($filter_entity)) ?>; var filterEntityRecursive = <?= $filter_entity_recursive ? '1' : '0' ?>;<?php endif; ?>
     // Seleciona todos os forms que fazem POST para o plugin (exceto busca)
     document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
         var action = form.getAttribute('action') || '';
@@ -1242,6 +1260,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     form.appendChild(inp);
                 }
             });
+            if (filterEntityRecursive && !form.querySelector('[name="filter_entity_recursive"]')) {
+                var inp2 = document.createElement('input');
+                inp2.type = 'hidden';
+                inp2.name = 'filter_entity_recursive';
+                inp2.value = '1';
+                form.appendChild(inp2);
+            }
         }
         <?php endif; ?>
     });
