@@ -28,8 +28,8 @@ if ($can_admin_entity) {
     $raw_entity = $_GET['entity'] ?? [];
     if (is_string($raw_entity)) $raw_entity = $raw_entity !== '' ? [$raw_entity] : [];
     if (!is_array($raw_entity)) $raw_entity = [];
-    $filter_entity = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v > 0));
-    // vazio = Todas as entidades
+    $filter_entity = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v >= 0));
+    // vazio = Todas as entidades (0 é válido para URE Jales)
 } else {
     $filter_entity = Session::getActiveEntity();
 }
@@ -61,7 +61,7 @@ function am_qs(array $overrides = []): string {
         $raw_e = $_GET['entity'] ?? [];
         if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
         if (!is_array($raw_e)) $raw_e = [];
-        $cur_entity = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v > 0));
+        $cur_entity = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v >= 0));
     }
 
     // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
@@ -97,12 +97,13 @@ function am_qs(array $overrides = []): string {
     }
     if ($can_admin_qs) {
         $ent = array_key_exists('entity', $overrides) ? $overrides['entity'] : $cur_entity;
-        // Normaliza entity para array (aceita 0, '', null, int, array)
-        if ($ent === 0 || $ent === '0' || $ent === '' || $ent === null) $ent = [];
+        // Normaliza entity para array (aceita 0, '', null, int, array) — 0 é id válido (URE Jales)
+        if ($ent === '' || $ent === null) $ent = [];
+        elseif ($ent === 0 || $ent === '0') $ent = array_key_exists('entity', $overrides) ? [] : [0];
         elseif (is_string($ent)) $ent = [$ent];
         elseif (is_int($ent)) $ent = [$ent];
         elseif (!is_array($ent)) $ent = [];
-        $ent = array_values(array_filter(array_map('intval', $ent), fn($v) => $v > 0));
+        $ent = array_values(array_filter(array_map('intval', $ent), fn($v) => $v >= 0));
         foreach ($ent as $eid) {
             $qs .= '&entity%5B%5D=' . urlencode($eid);
         }

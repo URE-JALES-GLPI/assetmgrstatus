@@ -168,7 +168,7 @@ class MaintenanceRecord extends CommonDBTM
         global $DB;
         if ($ids === 0 || $ids === null) return 0;
         $flat = is_array($ids) ? $ids : [$ids];
-        $flat = array_values(array_unique(array_filter(array_map('intval', $flat), fn($v) => $v > 0)));
+        $flat = array_values(array_unique(array_filter(array_map('intval', $flat), fn($v) => $v >= 0)));
         if (empty($flat)) return 0;
         try {
             // Carrega árvore completa de entidades uma vez
@@ -211,7 +211,7 @@ class MaintenanceRecord extends CommonDBTM
         $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
         if ($entity_filter !== null && $has_admin) {
             if (is_array($entity_filter)) {
-                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v > 0));
+                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v >= 0));
                 $entity_id = empty($entity_filter) ? 0 : $entity_filter;
             } else {
                 $entity_id = (int)$entity_filter;
@@ -478,12 +478,12 @@ class MaintenanceRecord extends CommonDBTM
         $effective_entity = null;
         $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
         if ($entity_filter !== null && $has_admin) {
-            // Normaliza: [] ou 0 ou [0] = todas
+            // Normaliza: [] = Todas, [0] = filtra URE 0 exata (UNIDADE REGIONAL DE ENSINO DE JALES)
             if (is_array($entity_filter)) {
-                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v > 0));
+                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v >= 0));
                 $effective_entity = empty($entity_filter) ? 0 : $entity_filter;
             } else {
-                $effective_entity = (int)$entity_filter; // 0 = todas
+                $effective_entity = (int)$entity_filter;
             }
             // ADMIN com filtro explícito: por enquanto SEM expansão automática (filtro exato MAE + outra)
             // Para incluir filhas, use entity_recursive=1 (ver abaixo)

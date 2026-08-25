@@ -73,7 +73,7 @@ $view = $_POST['view_mode'] ?? 'list';
 $raw_entity = $_POST['filter_entity'] ?? [];
 if (is_string($raw_entity)) $raw_entity = [$raw_entity];
 if (!is_array($raw_entity)) $raw_entity = [];
-$filter_entities = array_values(array_filter(array_map('intval', $raw_entity)));
+$filter_entities = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v >= 0));
 $filter_entity_recursive = !empty($_POST['filter_entity_recursive']);
 $qs = 'view=' . urlencode($view);
 if (!empty($filter_entities) && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {

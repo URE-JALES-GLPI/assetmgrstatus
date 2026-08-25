@@ -131,7 +131,7 @@ class Stats
             $def_id = $def_iter->current()['id'];
             $where_c = ['assets_assetdefinitions_id' => $def_id, 'is_deleted' => 0];
             if (is_array($entity_id)) {
-                $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v > 0));
+                $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v >= 0));
                 if (!empty($ids)) $where_c['entities_id'] = $ids;
             } elseif ($entity_id !== 0) {
                 $where_c['entities_id'] = $entity_id;
@@ -466,7 +466,7 @@ class Stats
 
         $where = ['is_deleted' => 0];
         if (is_array($entity_id)) {
-            $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v > 0));
+            $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v >= 0));
             if (!empty($ids)) $where['entities_id'] = $ids;
         } elseif ($entity_id !== 0) {
             $where['entities_id'] = $entity_id;

@@ -66,7 +66,7 @@ $filter_fabricante = $_POST['filter_fabricante'] ?? [];
 $raw_entity = $_POST['filter_entity'] ?? [];
 if (is_string($raw_entity)) $raw_entity = [$raw_entity];
 if (!is_array($raw_entity)) $raw_entity = [];
-$filter_entities = array_values(array_filter(array_map('intval', $raw_entity)));
+$filter_entities = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v >= 0));
 $filter_entity_recursive = !empty($_POST['filter_entity_recursive']);
 $qs = http_build_query(['view' => $view, 'type' => $filter_type, 'status' => $filter_status, 'search' => $filter_search]);
 foreach ((array)$filter_comp as $k => $v) { $qs .= '&comp%5B' . urlencode($k) . '%5D=' . urlencode($v); }

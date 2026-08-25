@@ -16,7 +16,7 @@ if ($can_admin_exp && isset($_GET['entity'])) {
     $raw_e = $_GET['entity'];
     if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
     if (!is_array($raw_e)) $raw_e = [];
-    $entity_id = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v > 0));
+    $entity_id = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v >= 0));
     if (empty($entity_id)) $entity_id = 0;
 } else {
     $entity_id = $can_admin_exp ? 0 : (int)Session::getActiveEntity();
