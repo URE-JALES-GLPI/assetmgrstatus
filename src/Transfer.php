@@ -25,6 +25,8 @@ class Transfer
 
     // Erro da última tentativa de abrir chamado/anexar PDF (vazio = sucesso)
     public static string $last_ticket_error = '';
+    // ID da última transferência de pendência criada em finalizar() (0 = nenhuma)
+    public static int $last_pending_transfer_id = 0;
 
     public static function getStatusOptions(): array
     {
@@ -802,19 +804,108 @@ class Transfer
 
     // -------------------------------------------------------
     // Finalizar — aplica status no inventário e desbloqueia
+    // Suporta pendências: $pending_item_ids = ids que ficaram pendentes (serão movidos p/ nova transferência pendente)
     // -------------------------------------------------------
 
-    public static function finalizar(int $transfer_id): bool
+    public static function finalizar(int $transfer_id, array $pending_item_ids = [], string $pending_reason = ''): bool
     {
         global $DB;
         self::$last_ticket_error = '';
+        self::$last_pending_transfer_id = 0;
         $row = self::getById($transfer_id);
         if (!$row || $row['status'] !== self::STATUS_PRONTO) return false;
 
-        $items_iter = $DB->request([
+        $items_all = iterator_to_array($DB->request([
             'FROM'  => 'glpi_plugin_assetmgrstatus_transfer_items',
             'WHERE' => ['transfers_id' => $transfer_id],
-        ]);
+        ]));
+        if (empty($items_all)) return false;
+
+        // Separa pendentes vs a finalizar
+        $pending_item_ids = array_map('intval', $pending_item_ids);
+        $pending_map = array_flip($pending_item_ids);
+        $toFinalize = [];
+        $toPending  = [];
+        foreach ($items_all as $it) {
+            $iid = (int)$it['items_id'];
+            if (isset($pending_map[$iid])) {
+                $toPending[] = $it;
+            } else {
+                $toFinalize[] = $it;
+            }
+        }
+
+        // Se houve seleção de pendentes mas nenhum pertence à transferência, trata como finalize normal
+        if (!empty($pending_item_ids) && empty($toPending)) {
+            // nenhum pending válido -> finaliza tudo
+            $toFinalize = $items_all;
+            $toPending  = [];
+        }
+
+        // Validação: precisa sobrar ao menos 1 para finalizar
+        if (!empty($toPending) && empty($toFinalize)) {
+            self::$last_ticket_error = 'Selecione ao menos um equipamento para finalizar; os marcados como pendentes ficarão para novo chamado.';
+            return false;
+        }
+
+        $items_iter = $toFinalize;
+        $hasPending = !empty($toPending);
+        $newTransferId = 0;
+        $newTicketId = 0;
+
+        // ---- Se houve pendentes, cria nova transferência pendente ANTES de finalizar os demais ----
+        // (evita deixar pendentes travados com transferência finalizada em caso de falha)
+        if ($hasPending) {
+            $nowPend = date('Y-m-d H:i:s');
+            $pending_reason_trim = trim($pending_reason);
+            $orig_reason_trim = trim($row['reason'] ?? '');
+            $new_reason_tmp = 'Pendência da Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT);
+            if ($orig_reason_trim !== '') $new_reason_tmp .= ' — ' . mb_substr($orig_reason_trim, 0, 120);
+            if ($pending_reason_trim !== '') $new_reason_tmp .= ' | Motivo pendência: ' . mb_substr($pending_reason_trim, 0, 200);
+
+            $DB->insert('glpi_plugin_assetmgrstatus_transfers', [
+                'entity_dest'      => $row['entity_dest'],
+                'reason'           => $new_reason_tmp,
+                'status'           => self::STATUS_PENDENTE,
+                'users_id_created' => Session::getLoginUserID(),
+                'users_id_tech'    => 0,
+                'tickets_id'       => 0,
+                'date_pending'     => $nowPend,
+                'date_creation'    => $nowPend,
+            ]);
+            $newTransferId = (int)$DB->insertId();
+            self::$last_pending_transfer_id = $newTransferId;
+
+            self::logStatus($newTransferId, self::STATUS_PENDENTE, 'Criada automaticamente a partir de pendências da Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . count($toPending) . ' item(ns) pendente(s)' . ($pending_reason_trim !== '' ? ' — ' . mb_substr($pending_reason_trim, 0, 120) : ''));
+
+            $origin_entities_for_ticket_tmp = [];
+            foreach ($toPending as $pitem) {
+                $DB->insert('glpi_plugin_assetmgrstatus_transfer_items', [
+                    'transfers_id'       => $newTransferId,
+                    'items_id'           => $pitem['items_id'],
+                    'itemtype'           => $pitem['itemtype'],
+                    'item_name'          => $pitem['item_name'],
+                    'origin_entity_id'   => $pitem['origin_entity_id'],
+                    'origin_entity_name' => $pitem['origin_entity_name'],
+                    'work_status'        => 'pending',
+                    'work_log'           => null,
+                    'work_components'    => null,
+                    'final_status'       => null,
+                    'final_reason'       => null,
+                    'final_components'   => null,
+                ]);
+                $origin_entities_for_ticket_tmp[(int)$pitem['items_id']] = (int)$pitem['origin_entity_id'];
+                $DB->update('glpi_plugin_assetmgrstatus_records', [
+                    'transfers_id'    => $newTransferId,
+                    'transfer_status' => 'transferido',
+                    'date_mod'        => $nowPend,
+                ], ['itemtype' => $pitem['itemtype'], 'items_id' => (int)$pitem['items_id']]);
+                $DB->delete('glpi_plugin_assetmgrstatus_transfer_items', ['id' => $pitem['id']]);
+            }
+            // Guarda para uso posterior no fechamento do chamado
+            $GLOBALS['_am_pending_ticket_origins'] = $origin_entities_for_ticket_tmp;
+            $GLOBALS['_am_pending_new_reason'] = $new_reason_tmp;
+        }
 
         $uid = Session::getLoginUserID();
         // Permite saveRecord mesmo com ativo bloqueado (finalização é exceção)
@@ -829,7 +920,6 @@ class Transfer
         }
         if ($dest_name_hist === '') $dest_name_hist = 'URE';
         $tech_name_hist = self::getUserName($uid);
-        // Se o técnico que assumiu é diferente de quem finaliza, prioriza quem está finalizando mas mantém referência
         if ($tech_name_hist === 'Sistema' && !empty($row['users_id_tech'])) {
             $tech_name_hist = self::getUserName((int)$row['users_id_tech']);
         }
@@ -843,7 +933,6 @@ class Transfer
 
             if (empty($item['final_status'])) {
                 self::unlockAsset($item['itemtype'], (int)$item['items_id']);
-                // Ainda registra retorno mesmo sem status final (caso excepcional)
                 try {
                     MaintenanceRecord::logTransferRetorno(
                         $item['itemtype'],
@@ -873,10 +962,8 @@ class Transfer
                 $uid
             );
 
-            // Desbloqueia após aplicar
             self::unlockAsset($item['itemtype'], (int)$item['items_id']);
 
-            // ---- Histórico Manutenção: retorno à entidade de origem ----
             try {
                 MaintenanceRecord::logTransferRetorno(
                     $item['itemtype'],
@@ -895,20 +982,84 @@ class Transfer
 
         $PLUGIN_ASSETMGRSTATUS_BYPASS_LOCK = false;
 
+        // ---- Pendentes: cria chamado para nova transferência (já criada antes do loop) ----
+        if ($hasPending) {
+            $origin_entities_for_ticket = $GLOBALS['_am_pending_ticket_origins'] ?? [];
+            $new_reason = $GLOBALS['_am_pending_new_reason'] ?? ('Pendência da Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT));
+            if (empty($origin_entities_for_ticket)) {
+                foreach ($toPending as $pitem) $origin_entities_for_ticket[(int)$pitem['items_id']] = (int)$pitem['origin_entity_id'];
+            }
+            // Tenta criar novo chamado para a pendência reaproveitando categoria do chamado original
+            $newTicketId = 0;
+            $catId = 0;
+            if ((int)$row['tickets_id'] > 0) {
+                try {
+                    $trow = $DB->request(['SELECT' => ['itilcategories_id'], 'FROM' => 'glpi_tickets', 'WHERE' => ['id' => (int)$row['tickets_id']], 'LIMIT' => 1])->current();
+                    $catId = (int)($trow['itilcategories_id'] ?? 0);
+                } catch (\Throwable $e) {}
+            }
+            if ($catId > 0) {
+                $ticketItems = [];
+                foreach ($toPending as $p) {
+                    $ticketItems[] = ['id' => (int)$p['items_id'], 'itemtype' => $p['itemtype'], 'name' => $p['item_name']];
+                }
+                try {
+                    $newTicketId = self::openTicketForTransfer($newTransferId, (int)$row['entity_dest'], $new_reason, $ticketItems, $origin_entities_for_ticket, $catId);
+                    if ($newTicketId) {
+                        $DB->update('glpi_plugin_assetmgrstatus_transfers', ['tickets_id' => $newTicketId], ['id' => $newTransferId]);
+                        self::attachStageDoc($newTransferId, 'transfer');
+                    }
+                } catch (\Throwable $e) {
+                    error_log('[assetmgrstatus] ticket pendencia: ' . $e->getMessage());
+                }
+            }
+
+            // Notifica chamado original sobre a pendência
+            if ((int)$row['tickets_id'] > 0) {
+                $pendNames = implode(', ', array_map(fn($p) => $p['item_name'], $toPending));
+                $msg = "⚠️ Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada parcialmente** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\n"
+                     . count($toPending) . " item(ns) ficou(aram) pendente(s) e foi(ram) movido(s) para a nova **Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . "**.\n"
+                     . ($pending_reason !== '' ? "Motivo da pendência: $pending_reason\n" : "")
+                     . ($newTicketId ? "Novo chamado criado: #$newTicketId\n" : "Nova transferência pendente: #$newTransferId\n")
+                     . "Itens pendentes: $pendNames";
+                self::addTicketFollowup((int)$row['tickets_id'], $msg);
+                if ($newTicketId) {
+                    self::addTicketFollowup($newTicketId,
+                        "🔁 Esta transferência foi criada automaticamente a partir de pendências da **Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . "** finalizada em " . date('d/m/Y H:i') . ".\n"
+                        . ($pending_reason !== '' ? "Motivo da pendência: $pending_reason\n" : "")
+                        . "Chamado de origem: #" . (int)$row['tickets_id']
+                    );
+                }
+            }
+            unset($GLOBALS['_am_pending_ticket_origins'], $GLOBALS['_am_pending_new_reason']);
+        }
+
         $DB->update('glpi_plugin_assetmgrstatus_transfers', [
             'status'          => self::STATUS_FINALIZADO,
             'date_finalizado' => date('Y-m-d H:i:s'),
         ], ['id' => $transfer_id]);
 
-        self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada — status aplicados no inventário');
+        if ($hasPending) {
+            self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada parcialmente — ' . count($toFinalize) . ' finalizado(s), ' . count($toPending) . ' pendente(s) movido(s) para Transferência #' . str_pad($newTransferId, 4, '0', STR_PAD_LEFT));
+        } else {
+            self::logStatus($transfer_id, self::STATUS_FINALIZADO, 'Transferência finalizada — status aplicados no inventário');
+        }
 
         // Chamado: fecha (CLOSED=6) e registra acompanhamento final
         if ((int)$row['tickets_id'] > 0) {
             self::setTicketStatus((int)$row['tickets_id'], defined('Ticket::CLOSED') ? Ticket::CLOSED : 6);
-            self::addTicketFollowup(
-                (int)$row['tickets_id'],
-                "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado fechado automaticamente."
-            );
+            if ($hasPending) {
+                self::addTicketFollowup(
+                    (int)$row['tickets_id'],
+                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada (parcial)** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\n"
+                    . count($toFinalize) . " equipamento(s) finalizado(s) com status aplicados no inventário. " . count($toPending) . " pendente(s) movido(s) para Transferência #" . str_pad($newTransferId, 4, '0', STR_PAD_LEFT) . ".\nChamado fechado automaticamente."
+                );
+            } else {
+                self::addTicketFollowup(
+                    (int)$row['tickets_id'],
+                    "🏁 Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " **finalizada** por " . self::getUserName(Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . ".\nStatus dos equipamentos aplicados no inventário. O termo de devolução foi anexado a este chamado.\nChamado fechado automaticamente."
+                );
+            }
         }
 
         return true;
