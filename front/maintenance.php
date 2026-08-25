@@ -381,6 +381,73 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
         if(e && e.target !== document.getElementById('am-modal-transfer-confirm')) return;
         var m=document.getElementById('am-modal-transfer-confirm'); if(m) m.classList.remove('open');
     };
+    // Fallback Bulk — garante confirmação com lista mesmo se assetmgrstatus.js falhar
+    window.amToggleBulkConfirmBtn = window.amToggleBulkConfirmBtn || function(){
+        var cb=document.getElementById('am-bulk-agree'); var btn=document.getElementById('am-bulk-confirm-btn'); if(!cb||!btn) return;
+        var checked=cb.checked; var count=document.querySelectorAll('.am-bulk-confirm-cb:checked').length;
+        var hasList=document.getElementById('am-bulk-confirm-list') && document.querySelectorAll('.am-bulk-confirm-cb').length>0;
+        var enable=hasList ? (checked && count>0) : checked;
+        btn.disabled=!enable; btn.style.opacity=enable?'1':'.4'; btn.style.cursor=enable?'pointer':'not-allowed';
+    };
+    window.amBulkConfirmUpdateCount = window.amBulkConfirmUpdateCount || function(){
+        var c=document.querySelectorAll('.am-bulk-confirm-cb:checked').length;
+        var el=document.getElementById('am-bulk-confirm-count'); if(el) el.textContent=c;
+        if(typeof window.amToggleBulkConfirmBtn==='function') window.amToggleBulkConfirmBtn();
+    };
+    window.amBulkConfirmToggleAll = window.amBulkConfirmToggleAll || function(checked){
+        document.querySelectorAll('.am-bulk-confirm-cb').forEach(function(cb){cb.checked=checked;});
+        if(typeof window.amBulkConfirmUpdateCount==='function') window.amBulkConfirmUpdateCount();
+    };
+    window.amSubmitBulkConfirmed = window.amSubmitBulkConfirmed || function(){
+        var cbs=document.querySelectorAll('.am-bulk-confirm-cb:checked');
+        if(!cbs.length){alert('Selecione ao menos um ativo.');return;}
+        var items=[]; cbs.forEach(function(cb){items.push({id:parseInt(cb.value),itemtype:cb.dataset.itemtype,name:cb.dataset.name,otherserial:cb.dataset.otherserial});});
+        var inp=document.getElementById('am-bulk-selected-assets'); if(inp) inp.value=JSON.stringify(items);
+        var kept=items.map(function(i){return String(i.id);});
+        document.querySelectorAll('.am-bulk-checkbox:checked').forEach(function(bcb){if(kept.indexOf(bcb.value)===-1) bcb.checked=false;});
+        if(typeof window.amUpdateBulkBar==='function') window.amUpdateBulkBar();
+        var lst=document.getElementById('am-bulk-asset-list');
+        if(lst){ var names=items.map(function(i){return i.name+(i.otherserial?' ('+i.otherserial+')':'');}); lst.innerHTML='<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', '); }
+        var m=document.getElementById('am-modal-bulk-confirm'); if(m) m.classList.remove('open');
+        var f=document.getElementById('am-bulk-form'); if(f) f.submit();
+    };
+    window.amCloseBulkConfirm = window.amCloseBulkConfirm || function(e){
+        if(e && e.target !== document.getElementById('am-modal-bulk-confirm')) return;
+        var m=document.getElementById('am-modal-bulk-confirm'); if(m) m.classList.remove('open');
+    };
+    window.amConfirmBulk = window.amConfirmBulk || function(){
+        var bulkForm=document.getElementById('am-bulk-form');
+        var statusChecked=bulkForm?bulkForm.querySelector('input[name="status"]:checked'):document.querySelector('#am-bulk-form input[name="status"]:checked');
+        var reasonEl=document.getElementById('am-bulk-reason');
+        var reason=reasonEl?reasonEl.value.trim():'';
+        if(!statusChecked){alert('Selecione um status.');return;}
+        if(!reason){alert('Preencha o motivo.'); if(reasonEl) reasonEl.focus(); return;}
+        var statusLabel=statusChecked.nextElementSibling.textContent.trim();
+        var inp=document.getElementById('am-bulk-selected-assets'); var items=[];
+        try{items=JSON.parse(inp.value||'[]');}catch(e){items=[];}
+        if(!items.length){ var cbs=document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)'); items=[]; cbs.forEach(function(cb){ var oserial=cb.dataset.otherserial||cb.dataset.serial||''; items.push({id:parseInt(cb.value,10),itemtype:cb.dataset.itemtype,name:cb.dataset.name,otherserial:oserial});}); if(inp) inp.value=JSON.stringify(items); }
+        if(!items.length){alert('Nenhum ativo selecionado.');return;}
+        var comps=[]; document.querySelectorAll('input[name="bulk_comp_check[]"]:checked').forEach(function(cb){comps.push(cb.nextElementSibling.textContent.trim());});
+        var html='<div style="text-align:center;margin-bottom:20px;"><div style="width:56px;height:56px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-alert-triangle" style="font-size:1.8rem;color:#fff;"></i></div><div style="font-size:1.05rem;font-weight:800;color:#1e1b4b;margin-bottom:6px;">Tem certeza que quer fazer isso?</div><div style="font-size:.85rem;color:#9ca3af;">Esta ação será aplicada a <strong>'+items.length+' ativo(s)</strong> ao mesmo tempo.</div></div><div style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;"><div style="display:flex;justify-content:space-between;font-size:.85rem;"><span style="color:#9ca3af;">Novo status</span><strong>'+statusLabel+'</strong></div><div style="display:flex;justify-content:space-between;font-size:.85rem;gap:10px;"><span style="color:#9ca3af;flex-shrink:0;">Motivo</span><span style="text-align:right;color:#374151;">'+reason.substring(0,80)+(reason.length>80?'...':'')+'</span></div>'+(comps.length?'<div style="display:flex;justify-content:space-between;font-size:.85rem;gap:10px;"><span style="color:#9ca3af;flex-shrink:0;">Componentes</span><span style="text-align:right;color:#374151;">'+comps.join(', ')+'</span></div>':'')+'</div>';
+        var body=document.getElementById('am-bulk-confirm-body'); if(body) body.innerHTML=html;
+        var listEl=document.getElementById('am-bulk-confirm-list'); var listHtml='';
+        items.forEach(function(it,idx){ var label=it.name||('Ativo #'+it.id); var num=it.otherserial?'Nº '+it.otherserial:''; listHtml+='<label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:8px 10px;cursor:pointer;"><input type="checkbox" class="am-bulk-confirm-cb" value="'+it.id+'" data-itemtype="'+it.itemtype+'" data-name="'+(it.name||'').replace(/"/g,'&quot;')+'" data-otherserial="'+(it.otherserial||'').replace(/"/g,'&quot;')+'" checked style="width:18px;height:18px;accent-color:#4f46e5;flex-shrink:0;" onchange="amBulkConfirmUpdateCount()"><span style="flex:1;min-width:0;"><span style="font-weight:700;font-size:.85rem;color:#1f2937;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</span><span style="font-size:.75rem;color:#9ca3af;">'+num+'</span></span></label>'; });
+        if(listEl) listEl.innerHTML=listHtml;
+        var countEl=document.getElementById('am-bulk-confirm-count'); if(countEl) countEl.textContent=items.length;
+        var agree=document.getElementById('am-bulk-agree'); if(agree) agree.checked=false; if(typeof window.amToggleBulkConfirmBtn==='function') window.amToggleBulkConfirmBtn();
+        var mod=document.getElementById('am-modal-bulk-confirm'); if(mod) mod.classList.add('open');
+    };
+    window.amOpenBulkModal = window.amOpenBulkModal || function(){
+        var cbs=document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)'); if(!cbs.length){alert('Selecione ao menos um ativo.');return;}
+        var items=[],names=[]; cbs.forEach(function(cb){ var oserial=cb.dataset.otherserial||cb.dataset.serial||''; items.push({id:parseInt(cb.value,10),itemtype:cb.dataset.itemtype,name:cb.dataset.name,otherserial:oserial}); names.push(cb.dataset.name+(oserial?' ('+oserial+')':'')); });
+        var inp=document.getElementById('am-bulk-selected-assets'); var lst=document.getElementById('am-bulk-asset-list');
+        if(inp) inp.value=JSON.stringify(items);
+        if(lst) lst.innerHTML='<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', ');
+        var form=document.getElementById('am-bulk-form'); if(form) form.reset(); if(inp) inp.value=JSON.stringify(items);
+        document.querySelectorAll('[id^="bulk-comp-field-"]').forEach(function(f){f.style.display='none';});
+        document.querySelectorAll('[id^="bulk-comp-item-"]').forEach(function(i){i.classList.remove('checked');});
+        var mod=document.getElementById('am-modal-bulk'); if(mod){mod.classList.add('open'); document.body.style.overflow='hidden';}
+    };
     </script>
 
     <!-- GRID -->
@@ -850,14 +917,24 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
     </div>
 </div>
 
-<!-- Modal de confirmação final (sim/não) -->
+<!-- Modal de confirmação final (sim/não) — igual Transferência: lista desmarcável -->
 <div id="am-modal-bulk-confirm" class="am-modal-overlay" onclick="event.stopPropagation()">
-    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:440px;">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#1e1b4b,#4f46e5);">
             <div class="am-modal-title"><i class="ti ti-alert-triangle"></i><span>Confirmar Ação em Massa</span></div>
         </div>
         <div class="am-modal-body" style="padding:24px 28px;">
             <div id="am-bulk-confirm-body"></div>
+            <div style="margin-top:16px;">
+                <div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.06em;margin-bottom:8px;"><i class="ti ti-list"></i> Ativos selecionados — desmarque para remover</div>
+                <div id="am-bulk-confirm-list" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:6px;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px;background:#f8f9fb;"></div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:.78rem;">
+                    <span style="color:#9ca3af;"><span id="am-bulk-confirm-count">0</span> selecionado(s)</span>
+                    <button type="button" style="background:transparent;border:none;color:#4f46e5;font-weight:700;font-size:.78rem;cursor:pointer;" onclick="amBulkConfirmToggleAll(true)">Marcar todos</button>
+                    <span style="color:#e5e7eb;">|</span>
+                    <button type="button" style="background:transparent;border:none;color:#6b7280;font-weight:700;font-size:.78rem;cursor:pointer;" onclick="amBulkConfirmToggleAll(false)">Desmarcar todos</button>
+                </div>
+            </div>
         </div>
         <div style="padding:0 28px 16px;">
             <label class="am-agree-check" id="am-bulk-agree-label">
@@ -869,7 +946,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <button type="button" class="am-btn am-btn-secondary" style="min-width:130px;" onclick="amCloseBulkConfirm()">
                 <i class="ti ti-x"></i> Não, cancelar
             </button>
-            <button type="button" id="am-bulk-confirm-btn" class="am-btn am-btn-primary" style="min-width:130px;opacity:.4;cursor:not-allowed;" disabled onclick="document.getElementById('am-bulk-form').submit()">
+            <button type="button" id="am-bulk-confirm-btn" class="am-btn am-btn-primary" style="min-width:130px;opacity:.4;cursor:not-allowed;" disabled onclick="amSubmitBulkConfirmed()">
                 <i class="ti ti-check"></i> Sim, confirmar
             </button>
         </div>

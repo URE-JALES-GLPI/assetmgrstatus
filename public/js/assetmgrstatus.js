@@ -441,10 +441,16 @@
 
     window.amToggleBulkConfirmBtn = function () {
         var btn = document.getElementById('am-bulk-confirm-btn');
-        var checked = document.getElementById('am-bulk-agree').checked;
-        btn.disabled = !checked;
-        btn.style.opacity = checked ? '1' : '.4';
-        btn.style.cursor  = checked ? 'pointer' : 'not-allowed';
+        var cb = document.getElementById('am-bulk-agree');
+        if (!btn || !cb) return;
+        var checked = cb.checked;
+        var count = document.querySelectorAll('.am-bulk-confirm-cb:checked').length;
+        // Se a lista ainda não foi criada (primeiro modal), permite habilitar só pelo checkbox — compatibilidade
+        var hasList = document.getElementById('am-bulk-confirm-list') && document.querySelectorAll('.am-bulk-confirm-cb').length > 0;
+        var enable = hasList ? (checked && count > 0) : checked;
+        btn.disabled = !enable;
+        btn.style.opacity = enable ? '1' : '.4';
+        btn.style.cursor  = enable ? 'pointer' : 'not-allowed';
     };
 
     document.addEventListener('keydown', function (e) {
@@ -708,8 +714,9 @@
         var items = [];
         var names = [];
         checkboxes.forEach(function(cb) {
-            items.push({ id: parseInt(cb.value, 10), itemtype: cb.dataset.itemtype });
-            names.push(cb.dataset.name);
+            var oserial = cb.dataset.otherserial || cb.dataset.serial || '';
+            items.push({ id: parseInt(cb.value, 10), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: oserial });
+            names.push(cb.dataset.name + (oserial ? ' ('+oserial+')' : ''));
         });
 
         document.getElementById('am-bulk-selected-assets').value = JSON.stringify(items);
@@ -744,7 +751,22 @@
         if (!reason) { alert('Preencha o motivo.'); if (reasonEl) { reasonEl.focus(); reasonEl.scrollIntoView({behavior:'smooth',block:'center'}); reasonEl.style.borderColor='#ef4444'; setTimeout(function(){reasonEl.style.borderColor='';},1500);} return; }
 
         var statusLabel = statusChecked.nextElementSibling.textContent.trim();
-        var assetCount  = document.querySelectorAll('.am-bulk-checkbox:checked').length;
+
+        // Itens selecionados — pega do JSON já salvo (igual Transferência)
+        var inp = document.getElementById('am-bulk-selected-assets');
+        var items = [];
+        try { items = JSON.parse(inp.value || '[]'); } catch(e){ items=[]; }
+        if (!items.length) {
+            var cbs = document.querySelectorAll('.am-bulk-checkbox:checked:not(:disabled)');
+            items = [];
+            cbs.forEach(function(cb){
+                var oserial = cb.dataset.otherserial || cb.dataset.serial || '';
+                items.push({id: parseInt(cb.value,10), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: oserial});
+            });
+            if (inp) inp.value = JSON.stringify(items);
+        }
+        if (!items.length) { alert('Nenhum ativo selecionado.'); return; }
+        var assetCount = items.length;
 
         // Componentes selecionados
         var comps = [];
@@ -766,12 +788,66 @@
             '</div>';
 
         document.getElementById('am-bulk-confirm-body').innerHTML = html;
+
+        // Monta lista desmarcável (igual Transferência)
+        var listEl = document.getElementById('am-bulk-confirm-list');
+        var listHtml = '';
+        items.forEach(function(it, idx){
+            var label = it.name || ('Ativo #'+it.id);
+            var num = it.otherserial ? 'Nº '+it.otherserial : '';
+            listHtml += '<label style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:8px 10px;cursor:pointer;">' +
+                        '<input type="checkbox" class="am-bulk-confirm-cb" data-idx="'+idx+'" value="'+it.id+'" data-itemtype="'+it.itemtype+'" data-name="'+(it.name||'').replace(/"/g,'&quot;')+'" data-otherserial="'+(it.otherserial||'').replace(/"/g,'&quot;')+'" checked style="width:18px;height:18px;accent-color:#4f46e5;flex-shrink:0;" onchange="amBulkConfirmUpdateCount()">' +
+                        '<span style="flex:1;min-width:0;"><span style="font-weight:700;font-size:.85rem;color:#1f2937;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</span><span style="font-size:.75rem;color:#9ca3af;">'+num+'</span></span>' +
+                        '</label>';
+        });
+        if (listEl) listEl.innerHTML = listHtml;
+        var countEl = document.getElementById('am-bulk-confirm-count');
+        if (countEl) countEl.textContent = items.length;
+
         document.getElementById('am-bulk-agree').checked = false; amToggleBulkConfirmBtn();
         document.getElementById('am-modal-bulk-confirm').classList.add('open');
     };
 
-    window.amCloseBulkConfirm = function () {
+    window.amCloseBulkConfirm = function (e) {
+        if (e && e.target !== document.getElementById('am-modal-bulk-confirm')) return;
         document.getElementById('am-modal-bulk-confirm').classList.remove('open');
+    };
+    window.amToggleBulkConfirmBtn = function () {
+        var cb=document.getElementById('am-bulk-agree'); var btn=document.getElementById('am-bulk-confirm-btn'); if(!cb||!btn) return;
+        var checked = cb.checked; var count = document.querySelectorAll('.am-bulk-confirm-cb:checked').length;
+        var hasList = document.getElementById('am-bulk-confirm-list') && document.querySelectorAll('.am-bulk-confirm-cb').length > 0;
+        var enable = hasList ? (checked && count>0) : checked;
+        btn.disabled=!enable; btn.style.opacity=enable?'1':'.4'; btn.style.cursor=enable?'pointer':'not-allowed';
+    };
+    window.amBulkConfirmUpdateCount = function(){
+        var count = document.querySelectorAll('.am-bulk-confirm-cb:checked').length;
+        var el=document.getElementById('am-bulk-confirm-count'); if(el) el.textContent = count;
+        amToggleBulkConfirmBtn();
+    };
+    window.amBulkConfirmToggleAll = function(checked){
+        document.querySelectorAll('.am-bulk-confirm-cb').forEach(function(cb){ cb.checked=checked; });
+        amBulkConfirmUpdateCount();
+    };
+    window.amSubmitBulkConfirmed = function(){
+        var cbs = document.querySelectorAll('.am-bulk-confirm-cb:checked');
+        if (!cbs.length) { alert('Selecione ao menos um ativo.'); return; }
+        var items=[];
+        cbs.forEach(function(cb){ items.push({id: parseInt(cb.value), itemtype: cb.dataset.itemtype, name: cb.dataset.name, otherserial: cb.dataset.otherserial}); });
+        var inp=document.getElementById('am-bulk-selected-assets'); if(inp) inp.value = JSON.stringify(items);
+        // Sincroniza seleção original na grade/lista (desmarca os removidos) — igual Transferência
+        var keptIds = items.map(function(i){return String(i.id)});
+        document.querySelectorAll('.am-bulk-checkbox:checked').forEach(function(bcb){
+            if (keptIds.indexOf(bcb.value)===-1) { bcb.checked=false; }
+        });
+        if (typeof window.amUpdateBulkBar === 'function') window.amUpdateBulkBar();
+        // Atualiza lista resumida do primeiro modal
+        var lst=document.getElementById('am-bulk-asset-list');
+        if (lst) {
+            var names = items.map(function(i){return i.name + (i.otherserial ? ' ('+i.otherserial+')' : '')});
+            lst.innerHTML = '<strong>'+items.length+' ativo(s) selecionado(s):</strong><br>'+names.join(', ');
+        }
+        document.getElementById('am-modal-bulk-confirm').classList.remove('open');
+        document.getElementById('am-bulk-form').submit();
     };
 
     window.amCloseBulkModal = function (e) {

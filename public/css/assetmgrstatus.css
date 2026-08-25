@@ -92,7 +92,10 @@
 #am-modal-bulk-confirm,
 #am-modal-undo-confirm,
 #am-modal-bulk-delete,
-#am-modal-transfer-confirm{ z-index:10000; }
+#am-modal-transfer-confirm,
+#am-modal-pegar,
+#am-modal-finalizar,
+#am-modal-cancelar{ z-index:10000; }
 .am-modal{background:#fff;border-radius:20px;width:100%;max-width:700px;display:flex;flex-direction:column;box-shadow:0 25px 80px rgba(0,0,0,.25);animation:amModalIn .25s cubic-bezier(.4,0,.2,1);margin:auto}
 @keyframes amModalIn{from{opacity:0;transform:translateY(-20px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 .am-modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 26px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-radius:20px 20px 0 0;flex-shrink:0}
@@ -627,18 +630,29 @@ body.am-dark-mode {
         grid-template-columns: 1fr !important;
         gap: 12px;
     }
-    /* Deixa linha de status (Estoque, Ativo...) com scroll suave e snap no mobile */
+    /* Deixa linha de status (Estoque, Ativo...) com scroll suave e snap no mobile — corrige corte com justify-content:center */
     .am-inv-dash-row {
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
+        overflow-y: hidden !important;
         -webkit-overflow-scrolling: touch;
         scroll-snap-type: x mandatory;
-        padding-bottom: 8px;
+        scroll-padding: 0 10px;
+        justify-content: flex-start !important;
+        padding: 4px 2px 12px !important;
+        margin: 0 0 20px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
         gap: 10px !important;
+        scrollbar-width: thin;
     }
     .am-inv-dash-row .am-dash-card {
         scroll-snap-align: start;
+        flex: 0 0 140px !important;
         min-width: 140px !important;
+        max-width: 140px !important;
+        width: 140px !important;
     }
     /* Botoes da box: so icone no mobile para nao estourar */
     .am-asset-card-footer { flex-wrap: nowrap !important; gap:6px !important; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; scrollbar-width:none; }
@@ -726,6 +740,7 @@ body.am-dark-mode {
 }
 
 @media (max-width: 480px) {
+    .am-inv-dash-row .am-dash-card { flex: 0 0 130px !important; min-width: 130px !important; max-width: 130px !important; width: 130px !important; }
     .am-page-title h2 { font-size: 1rem; }
     .am-page-header .am-btn { font-size: .7rem !important; padding: 7px 8px !important; }
     .am-page-header .am-btn .ti { font-size: .85rem; }

@@ -222,7 +222,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </button>
                     <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
                         title="Cancelar transferência"
-                        onclick="amCancelar(<?= $t['id'] ?>)">
+                        onclick="amOpenCancelarModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', <?= $t['items_count'] ?>)">
                         <i class="ti ti-x"></i>
                     </button>
 
@@ -241,7 +241,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </a>
                     <button class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;color:#dc2626;border-color:#fecaca;"
                         title="Cancelar transferência"
-                        onclick="amCancelar(<?= $t['id'] ?>)">
+                        onclick="amOpenCancelarModal(<?= $t['id'] ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', <?= $t['items_count'] ?>)">
                         <i class="ti ti-x"></i>
                     </button>
 
@@ -389,23 +389,75 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     </div>
 </div>
 
+<!-- Modal Cancelar — mesmo padrão Pegar/Finalizar -->
+<div id="am-modal-cancelar" class="am-modal-overlay" onclick="event.stopPropagation()">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#dc2626,#ef4444);">
+            <div class="am-modal-title"><i class="ti ti-trash"></i><span>Cancelar Transferência</span></div>
+        </div>
+        <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php">
+            <input type="hidden" name="action" value="cancelar">
+            <input type="hidden" name="transfer_id" id="am-cancelar-id">
+            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <div class="am-modal-body" style="padding:24px;">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+                        <i class="ti ti-alert-triangle" style="font-size:1.8rem;color:#fff;"></i>
+                    </div>
+                    <div style="font-size:1rem;font-weight:700;color:#1e1b4b;">Cancelar esta transferência?</div>
+                    <div id="am-cancelar-info" style="font-size:.85rem;color:#6b7280;margin-top:6px;"></div>
+                    <div style="font-size:.82rem;color:#991b1b;margin-top:10px;background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:8px 12px;text-align:left;">
+                        <i class="ti ti-info-circle"></i> Os ativos serão <strong>liberados</strong> e o chamado receberá um aviso de cancelamento. Esta ação não pode ser desfeita.
+                    </div>
+                </div>
+                <div class="am-form-section" style="margin-bottom:16px;">
+                    <label class="am-form-label">Motivo do cancelamento <span class="am-required">*</span></label>
+                    <textarea id="am-cancelar-motivo" name="motivo" class="am-textarea" required placeholder="Descreva o motivo do cancelamento..." rows="3" oninput="amToggleCancelarBtn()"></textarea>
+                </div>
+                <label class="am-agree-check">
+                    <input type="checkbox" id="am-cancelar-agree" onchange="amToggleCancelarBtn()">
+                    <span>Confirmo o <strong>cancelamento</strong> desta transferência e estou ciente de que os ativos serão liberados.</span>
+                </label>
+            </div>
+            <div class="am-modal-footer" style="justify-content:center;gap:16px;">
+                <button type="button" class="am-btn am-btn-secondary" style="min-width:120px;" onclick="amCloseCancelarModal()"><i class="ti ti-x"></i> Cancelar</button>
+                <button type="submit" id="am-cancelar-btn" class="am-btn" style="min-width:120px;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;opacity:.4;cursor:not-allowed;" disabled>
+                    <i class="ti ti-trash"></i> Confirmar Cancelamento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
-function amCancelar(id) {
-    var num = String(id).padStart(4, '0');
-    if (!confirm('Cancelar a transferência #' + num + '?\nOs ativos serão liberados e o chamado receberá um aviso.')) return;
-    var motivo = prompt('Motivo do cancelamento da transferência #' + num + ' (obrigatório):');
-    if (motivo === null) return;
-    motivo = motivo.trim();
-    if (!motivo) { alert('Informe o motivo para cancelar.'); return; }
-    var f = document.createElement('form');
-    f.method = 'POST';
-    f.action = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php';
-    f.innerHTML = '<input type="hidden" name="action" value="cancelar">'
-        + '<input type="hidden" name="transfer_id" value="' + id + '">'
-        + '<input type="hidden" name="motivo" value="' + motivo.replace(/"/g, '&quot;') + '">'
-        + '<input type="hidden" name="_glpi_csrf_token" value="<?= Session::getNewCSRFToken() ?>">';
-    document.body.appendChild(f);
-    f.submit();
+function amOpenCancelarModal(id, entity, count) {
+    document.getElementById('am-cancelar-id').value = id;
+    var info = '#' + String(id).padStart(4, '0');
+    if (count) info += ' • ' + count + ' ativo(s)';
+    if (entity) info += ' • ' + entity;
+    var infoEl = document.getElementById('am-cancelar-info');
+    if (infoEl) infoEl.textContent = info;
+    var mot = document.getElementById('am-cancelar-motivo');
+    if (mot) mot.value = '';
+    var agree = document.getElementById('am-cancelar-agree');
+    if (agree) agree.checked = false;
+    amToggleCancelarBtn();
+    var mod = document.getElementById('am-modal-cancelar');
+    if (mod) { mod.classList.add('open'); document.body.style.overflow = 'hidden'; }
+    if (mot) setTimeout(function(){ mot.focus(); }, 80);
+}
+function amCloseCancelarModal() {
+    var mod = document.getElementById('am-modal-cancelar');
+    if (mod) mod.classList.remove('open');
+    document.body.style.overflow = '';
+}
+function amToggleCancelarBtn() {
+    var motEl = document.getElementById('am-cancelar-motivo');
+    var agreeEl = document.getElementById('am-cancelar-agree');
+    var btn = document.getElementById('am-cancelar-btn');
+    if (!motEl || !agreeEl || !btn) return;
+    var ok = motEl.value.trim().length > 0 && agreeEl.checked;
+    btn.disabled = !ok; btn.style.opacity = ok ? '1' : '.4'; btn.style.cursor = ok ? 'pointer' : 'not-allowed';
 }
 function amOpenPegarModal(id, entity, count) {
     document.getElementById('am-pegar-id').value = id;
@@ -443,7 +495,7 @@ function amToggleFinalizarBtn() {
 }
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
-    amClosePegarModal(); amCloseFinalizarModal();
+    amClosePegarModal(); amCloseFinalizarModal(); amCloseCancelarModal();
 });
 
 // Cronômetro em tempo real (para em finalizados)
