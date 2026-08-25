@@ -27,4 +27,9 @@ if ($ok) {
 }
 
 $view = $_POST['view_mode'] ?? 'list';
-Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view));
+$filter_entity = $_POST['filter_entity'] ?? null;
+$qs = 'view=' . urlencode($view);
+if ($filter_entity !== null && $filter_entity !== '' && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+    $qs .= '&entity=' . (int)$filter_entity;
+}
+Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

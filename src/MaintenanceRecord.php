@@ -156,7 +156,7 @@ class MaintenanceRecord extends CommonDBTM
         ];
     }
 
-    public static function getManufacturers(string $type_filter = 'Notebook'): array
+    public static function getManufacturers(string $type_filter = 'Notebook', ?int $entity_filter = null): array
     {
         global $DB;
         $types = self::getAssetTypes();
@@ -164,18 +164,26 @@ class MaintenanceRecord extends CommonDBTM
         $def_iter = $DB->request(['SELECT' => ['id'], 'FROM' => 'glpi_assets_assetdefinitions', 'WHERE' => ['system_name' => $type_filter], 'LIMIT' => 1]);
         if ($def_iter->count() === 0) return [];
         $def_id = $def_iter->current()['id'];
-        $entity_id = Session::getActiveEntity();
+        $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+        if ($entity_filter !== null && $has_admin) {
+            $entity_id = $entity_filter;
+        } else {
+            $entity_id = Session::getActiveEntity();
+        }
         try {
+            $where_m = [
+                'glpi_assets_assets.assets_assetdefinitions_id' => $def_id,
+                'glpi_assets_assets.is_deleted' => 0,
+                'glpi_assets_assets.manufacturers_id' => ['>', 0],
+            ];
+            if ($entity_id !== 0 && $entity_id !== null) {
+                $where_m['glpi_assets_assets.entities_id'] = $entity_id;
+            }
             $iter = $DB->request([
                 'SELECT' => ['glpi_assets_assets.manufacturers_id AS mid', 'glpi_manufacturers.name AS mname'],
                 'FROM'   => 'glpi_assets_assets',
                 'LEFT JOIN' => ['glpi_manufacturers' => ['ON' => ['glpi_assets_assets' => 'manufacturers_id', 'glpi_manufacturers' => 'id']]],
-                'WHERE'  => [
-                    'glpi_assets_assets.assets_assetdefinitions_id' => $def_id,
-                    'glpi_assets_assets.is_deleted' => 0,
-                    'glpi_assets_assets.entities_id' => $entity_id,
-                    'glpi_assets_assets.manufacturers_id' => ['>', 0],
-                ],
+                'WHERE'  => $where_m,
                 'GROUPBY' => ['glpi_assets_assets.manufacturers_id'],
                 'ORDER'   => ['glpi_manufacturers.name ASC'],
             ]);
@@ -401,12 +409,21 @@ class MaintenanceRecord extends CommonDBTM
 
     // ---- Busca ativos ----
 
-    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], array $fabricante_filter = []): array
+    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], array $fabricante_filter = [], ?int $entity_filter = null): array
     {
         global $DB;
         $types     = self::getAssetTypes();
         $results   = [];
         $type_keys = $type_filter && isset($types[$type_filter]) ? [$type_filter] : array_keys($types);
+
+        // Determina entidade efetiva: se ADMIN tem filtro solicitado respeita, senão usa ativa
+        $effective_entity = null;
+        $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+        if ($entity_filter !== null && $has_admin) {
+            $effective_entity = $entity_filter; // 0 = todas
+        } else {
+            $effective_entity = Session::getActiveEntity();
+        }
 
         foreach ($type_keys as $system_name) {
             $def      = $types[$system_name];
@@ -422,8 +439,11 @@ class MaintenanceRecord extends CommonDBTM
             $where = [
                 'glpi_assets_assets.assets_assetdefinitions_id' => $def_id,
                 'glpi_assets_assets.is_deleted'                 => 0,
-                'glpi_assets_assets.entities_id'                => Session::getActiveEntity(),
             ];
+            // Filtro por entidade: 0 = todas (apenas ADMIN)
+            if ($effective_entity !== 0 && $effective_entity !== null) {
+                $where['glpi_assets_assets.entities_id'] = $effective_entity;
+            }
 
             if ($search) $where[] = ['OR' => [['glpi_assets_assets.name' => ['LIKE', "%$search%"]], ['glpi_assets_assets.serial' => ['LIKE', "%$search%"]], ['glpi_assets_assets.otherserial' => ['LIKE', "%$search%"]]]];
 
@@ -545,16 +565,18 @@ class MaintenanceRecord extends CommonDBTM
         return $results;
     }
 
-    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], $fabricante_filter = [], int $page = 1, int $per_page = 24): array
+    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], $fabricante_filter = [], int $page = 1, int $per_page = 24, ?int $entity_filter = null): array
     {
-        // Compatibilidade: chamada antiga passava $page como 5º param (int)
+        // Compatibilidade: chamada antiga passava $page como 5º param (int) ou $fabricante_filter como int
         if (is_int($fabricante_filter)) {
+            // Detecta se o 5º param é na verdade $page (legado) ou $entity_filter
+            // Se per_page == 24 default e page é int grande, trata como compat
             $per_page = $page;
             $page = $fabricante_filter;
             $fabricante_filter = [];
         }
         if (!is_array($fabricante_filter)) $fabricante_filter = [];
-        $all      = self::getAssets($type_filter, $search, $status_filter, $component_filters, $fabricante_filter);
+        $all      = self::getAssets($type_filter, $search, $status_filter, $component_filters, $fabricante_filter, $entity_filter);
         $total    = count($all);
         $per_page = max(1, $per_page);
         $pages    = max(1, (int)ceil($total / $per_page));

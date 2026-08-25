@@ -63,7 +63,11 @@ $filter_status = $_POST['filter_status'] ?? '';
 $filter_search = $_POST['filter_search'] ?? '';
 $filter_comp = $_POST['filter_comp'] ?? [];
 $filter_fabricante = $_POST['filter_fabricante'] ?? [];
+$filter_entity = $_POST['filter_entity'] ?? null;
 $qs = http_build_query(['view' => $view, 'type' => $filter_type, 'status' => $filter_status, 'search' => $filter_search]);
 foreach ((array)$filter_comp as $k => $v) { $qs .= '&comp%5B' . urlencode($k) . '%5D=' . urlencode($v); }
 foreach ((array)$filter_fabricante as $fid) { $qs .= '&fabricante%5B%5D=' . urlencode($fid); }
+if ($filter_entity !== null && $filter_entity !== '' && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+    $qs .= '&entity=' . (int)$filter_entity;
+}
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

@@ -10,6 +10,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
     public const RIGHT_TECNICO    = 'plugin_assetmgrstatus_tecnico';
     public const RIGHT_TRANSFER   = 'plugin_assetmgrstatus_transfer';
     public const RIGHT_DELETE     = 'plugin_assetmgrstatus_delete';
+    public const RIGHT_ADMIN      = 'plugin_assetmgrstatus_admin';
 
     public static function getAllRights(): array
     {
@@ -18,6 +19,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             ['field' => self::RIGHT_TECNICO,    'default' => 0],
             ['field' => self::RIGHT_TRANSFER,   'default' => 0],
             ['field' => self::RIGHT_DELETE,     'default' => 0],
+            ['field' => self::RIGHT_ADMIN,      'default' => 0],
         ];
     }
 
@@ -177,6 +179,20 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             Dropdown::showYesNo('rights_delete', ($r_delete & DELETE) ? 1 : 0);
         } else {
             echo ($r_delete & DELETE) ? '✅ Permitido' : '❌ Negado';
+        }
+        echo "</td></tr>";
+
+        // ADMIN — filtro por entidade independente da entidade ativa
+        echo "<tr class='tab_bg_1'><td>
+            <strong>ADMIN — Filtrar por Entidade (todas)</strong><br>
+            <small style='color:#6b7280;'>Permite que este perfil, <strong>independente da entidade ativa</strong>, filtre e visualize ativos de <strong>qualquer entidade</strong> no Inventário (dropdown de Entidade). Ideal para administradores.</small>
+            </td><td>";
+        if ($canedit) {
+            $r_admin = self::getRightValue($pid, self::RIGHT_ADMIN);
+            Dropdown::showYesNo('rights_admin', ($r_admin & READ) ? 1 : 0);
+        } else {
+            $r_admin = self::getRightValue($pid, self::RIGHT_ADMIN);
+            echo ($r_admin & READ) ? '✅ Permitido (vê todas entidades)' : '❌ Restrito à entidade ativa';
         }
         echo "</td></tr>";
 

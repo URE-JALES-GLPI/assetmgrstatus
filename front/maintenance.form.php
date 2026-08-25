@@ -19,6 +19,7 @@ $view_mode     = $_POST['view_mode']     ?? 'list';
 $filter_type   = $_POST['filter_type']   ?? '';
 $filter_status = $_POST['filter_status'] ?? '';
 $filter_search = $_POST['filter_search'] ?? '';
+$filter_entity = $_POST['filter_entity'] ?? null;
 
 if (!$itemtype || !$items_id || !$status || !$reason) {
     Session::addMessageAfterRedirect('Dados inválidos.', false, ERROR);
@@ -65,4 +66,7 @@ if ($ok) {
     exit;
 }
 $qs = http_build_query(['view'=>$view_mode,'type'=>$filter_type,'status'=>$filter_status,'search'=>$filter_search]);
+if ($filter_entity !== null && $filter_entity !== '' && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+    $qs .= '&entity=' . (int)$filter_entity;
+}
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

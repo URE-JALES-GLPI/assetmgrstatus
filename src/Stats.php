@@ -443,10 +443,15 @@ class Stats
     {
         global $DB;
 
+        $where = ['is_deleted' => 0];
+        // 0 = todas as entidades (apenas para ADMIN)
+        if ($entity_id !== 0) {
+            $where['entities_id'] = $entity_id;
+        }
         $iter = $DB->request([
             'SELECT' => ['id'],
             'FROM'   => 'glpi_assets_assets',
-            'WHERE'  => ['entities_id' => $entity_id, 'is_deleted' => 0],
+            'WHERE'  => $where,
         ]);
 
         return array_column(iterator_to_array($iter), 'id');

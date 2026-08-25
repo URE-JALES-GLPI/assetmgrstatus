@@ -11,14 +11,15 @@ Session::checkRight(MaintenanceRecord::RIGHT_VIEW, READ);
 global $DB, $CFG_GLPI;
 
 $format       = $_GET['format']       ?? 'excel';
-$entity_id    = (int)($_GET['entity'] ?? Session::getActiveEntity());
+$can_admin_exp = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+$entity_id    = $can_admin_exp && isset($_GET['entity']) ? (int)$_GET['entity'] : (int)Session::getActiveEntity();
 $type         = $_GET['type']         ?? '';
 $status       = $_GET['status']       ?? '';
 $mode         = $_GET['mode']         ?? 'assets';
 $period_start = $_GET['period_start'] ?? '';
 $period_end   = $_GET['period_end']   ?? '';
 
-$assets    = MaintenanceRecord::getAssets($type, '', $status);
+$assets    = MaintenanceRecord::getAssets($type, '', $status, [], [], $can_admin_exp ? $entity_id : null);
 $asset_ids = array_column($assets, 'id');
 $comp_list = MaintenanceRecord::getComponents();
 

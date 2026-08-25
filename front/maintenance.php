@@ -21,6 +21,14 @@ $raw_fab = $_GET['fabricante'] ?? [];
 if (is_string($raw_fab)) $raw_fab = $raw_fab !== '' ? [$raw_fab] : [];
 if (!is_array($raw_fab)) $raw_fab = [];
 $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
+// ADMIN — filtro por entidade independente da ativa
+$can_admin_entity = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+$filter_entity = 0;
+if ($can_admin_entity) {
+    $filter_entity = (int)($_GET['entity'] ?? 0); // 0 = Todas as entidades
+} else {
+    $filter_entity = Session::getActiveEntity();
+}
 $is_mobile_ua  = preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
 $view_mode     = $_GET['view']   ?? ($is_mobile_ua ? 'grid' : 'list');
 if ($is_mobile_ua && $view_mode === 'list') $view_mode = 'grid'; // força grade no mobile mesmo se view=list na URL
@@ -42,6 +50,11 @@ function am_qs(array $overrides = []): string {
     $cur_view   = $_GET['view']   ?? ($is_mobile_qs ? 'grid' : 'list');
     if ($is_mobile_qs && $cur_view === 'list') $cur_view = 'grid';
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
+    $can_admin_qs = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+    $cur_entity = 0;
+    if ($can_admin_qs) {
+        $cur_entity = (int)($_GET['entity'] ?? 0);
+    }
 
     // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
     $params = [
@@ -50,7 +63,10 @@ function am_qs(array $overrides = []): string {
         'status' => array_key_exists('status', $overrides) ? $overrides['status'] : $cur_status,
         'view'   => array_key_exists('view', $overrides)   ? $overrides['view']   : $cur_view,
     ];
-    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides);
+    if ($can_admin_qs) {
+        $params['entity'] = array_key_exists('entity', $overrides) ? $overrides['entity'] : $cur_entity;
+    }
+    $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides) || array_key_exists('entity', $overrides);
     $params['page'] = $has_filter_override ? 1 : (array_key_exists('page', $overrides) ? $overrides['page'] : $cur_page);
     $comp = array_key_exists('comp', $overrides) ? $overrides['comp'] : $cur_comp;
     if (!is_array($comp)) $comp = [];
@@ -77,18 +93,20 @@ Html::header('Inventário de Ativos', $_SERVER['PHP_SELF'], 'tools', 'assetmgrst
 // Força GRADE no mobile via JS (viewport) — além do UA no PHP
 echo '<script>try{if(window.matchMedia&&window.matchMedia("(max-width: 768px)").matches){var p=new URLSearchParams(window.location.search);if(p.get("view")==="list"){p.set("view","grid");var u=window.location.pathname+(p.toString()?"?"+p.toString():"");window.location.replace(u);}}}catch(e){}</script>';
 
-$paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $filter_fabricante, $page);
+$effective_entity = $can_admin_entity ? $filter_entity : Session::getActiveEntity();
+$paged        = MaintenanceRecord::getAssetsPaged($filter_type, $filter_search, $filter_status, $filter_comp, $filter_fabricante, $page, 24, $can_admin_entity ? $filter_entity : null);
 $assets       = $paged['rows'];
 $types        = MaintenanceRecord::getAssetTypes();
 $status_opts  = MaintenanceRecord::getStatusOptions();
-$fab_list     = ($filter_type === 'Notebook') ? MaintenanceRecord::getManufacturers('Notebook') : [];
+$fab_list     = ($filter_type === 'Notebook') ? MaintenanceRecord::getManufacturers('Notebook', $can_admin_entity ? $filter_entity : null) : [];
 $comp_list    = MaintenanceRecord::getComponents();
-$entity_id    = Session::getActiveEntity();
+$entity_id    = $effective_entity;
+// Para ADMIN com "Todas" (0), Stats deve considerar todas entidades; Stats::getAll lida com 0 como todas
 $stats        = Stats::getAll($entity_id);
 $type_counts  = Stats::getCountsByType($entity_id);
 // Contagens dinâmicas para os cards (filtradas pelo contexto atual)
 // Status: filtra por tipo/busca/componentes/fabricante, ignora status para mostrar distribuição dentro do filtro
-$assets_for_status = MaintenanceRecord::getAssets($filter_type, $filter_search, '', $filter_comp, $filter_fabricante);
+$assets_for_status = MaintenanceRecord::getAssets($filter_type, $filter_search, '', $filter_comp, $filter_fabricante, $can_admin_entity ? $filter_entity : null);
 $status_counts_filtered = array_fill_keys(array_keys(MaintenanceRecord::getStatusOptions()), 0);
 foreach ($assets_for_status as $af) {
     $s = $af['plugin_status'] ?? MaintenanceRecord::STATUS_ESTOQUE;
@@ -96,7 +114,7 @@ foreach ($assets_for_status as $af) {
     $status_counts_filtered[$s]++;
 }
 // Tipo: filtra por status/busca/componentes/fabricante, ignora tipo
-$assets_for_type = MaintenanceRecord::getAssets('', $filter_search, $filter_status, $filter_comp, $filter_fabricante);
+$assets_for_type = MaintenanceRecord::getAssets('', $filter_search, $filter_status, $filter_comp, $filter_fabricante, $can_admin_entity ? $filter_entity : null);
 $type_counts_filtered = [];
 foreach ($types as $k => $def) $type_counts_filtered[$k] = 0;
 foreach ($assets_for_type as $af) {
@@ -112,6 +130,10 @@ $can_transfer = Session::haveRight('plugin_assetmgrstatus_transfer', CREATE) || 
 $entities_ure    = $can_transfer ? Transfer::getEntidades('ure') : [];
 $entities_escola = $can_transfer ? Transfer::getEntidades('escola') : [];
 $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Session::haveRight('plugin_assetmgrstatus', DELETE);
+$entities_for_filter = [];
+if ($can_admin_entity) {
+    $entities_for_filter = iterator_to_array($DB->request(['SELECT' => ['id','completename','name'], 'FROM' => 'glpi_entities', 'ORDER' => ['completename ASC']]));
+}
 ?>
 
 <div class="container-fluid am-page">
@@ -140,7 +162,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
             </button>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&type=<?= urlencode($filter_type) ?>&status=<?= urlencode($filter_status) ?>"
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&type=<?= urlencode($filter_type) ?>&status=<?= urlencode($filter_status) ?><?= $can_admin_entity ? '&entity='.(int)$filter_entity : '' ?>"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-file-spreadsheet"></i> Excel
             </a>
@@ -195,6 +217,21 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             </div>
         </div>
 
+        <?php if ($can_admin_entity): ?>
+        <div class="am-filter-group">
+            <label>Entidade <span style="font-size:.65rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:4px;">ADMIN</span></label>
+            <select class="am-input" style="min-width:240px;" onchange="var u=new URL(window.location.href);u.searchParams.set('entity',this.value);u.searchParams.set('page','1');window.location.href=u.href;">
+                <option value="0" <?= $filter_entity===0 ? 'selected' : '' ?>>🌐 Todas as entidades (<?= count($entities_for_filter) ?>)</option>
+                <?php foreach ($entities_for_filter as $ent): ?>
+                <option value="<?= (int)$ent['id'] ?>" <?= $filter_entity===(int)$ent['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ent['completename']) ?> (<?= (int)$ent['id'] ?>)</option>
+                <?php endforeach; ?>
+            </select>
+            <?php if ($filter_entity !== 0): ?>
+            <a href="?<?= am_qs(['entity' => 0]) ?>" style="font-size:.72rem;color:#6b7280;margin-top:4px;display:inline-block;"><i class="ti ti-x"></i> Ver todas</a>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
         <?php if ($filter_type === 'Notebook'): ?>
         <div class="am-filter-group">
             <label>Fabricante</label>
@@ -212,6 +249,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
+                        <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
                         <?php foreach ($filter_comp as $ck => $cv): ?>
                         <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
                         <?php endforeach; ?>
@@ -262,6 +300,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
                         <input type="hidden" name="view"   value="<?= $view_mode ?>">
+                        <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
                         <?php foreach ($filter_fabricante as $ffid): ?>
                         <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
                         <?php endforeach; ?>
@@ -300,6 +339,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <form method="GET" action="" id="am-search-form" style="flex:1;display:flex;gap:8px;align-items:center;">
                 <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
                 <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                <?php if ($can_admin_entity): ?><input type="hidden" name="entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
                 <?php foreach ($filter_comp as $ckey => $cval): ?>
                 <input type="hidden" name="comp[<?= htmlspecialchars($ckey) ?>]" value="<?= htmlspecialchars($cval) ?>">
                 <?php endforeach; ?>
@@ -861,6 +901,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <input type="hidden" name="selected_assets" id="am-bulk-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
+            <?php if ($can_admin_entity): ?><input type="hidden" name="filter_entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
             <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
             <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filter_status) ?>">
             <input type="hidden" name="filter_search" value="<?= htmlspecialchars($filter_search) ?>">
@@ -1085,6 +1126,7 @@ $can_delete = Session::haveRight('plugin_assetmgrstatus_delete', DELETE) || Sess
             <input type="hidden" name="selected_assets" id="am-bulk-delete-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
+            <?php if ($can_admin_entity): ?><input type="hidden" name="filter_entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;">
                     <i class="ti ti-alert-triangle" style="color:#dc2626;font-size:1.4rem;flex-shrink:0;"></i>
@@ -1116,6 +1158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'filter_type':   '<?= htmlspecialchars($filter_type) ?>',
         'filter_status': '<?= htmlspecialchars($filter_status) ?>',
         'filter_search': '<?= htmlspecialchars($filter_search) ?>',
+        <?php if ($can_admin_entity): ?>'filter_entity': '<?= (int)$filter_entity ?>',<?php endif; ?>
     };
     // Seleciona todos os forms que fazem POST para o plugin (exceto busca)
     document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
