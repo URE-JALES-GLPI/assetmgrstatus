@@ -121,11 +121,25 @@
             }, { passive: true });
         });
 
-        // Preserva view mode em todos os forms de ação (POST)
-        var viewMode = new URLSearchParams(window.location.search).get('view') || 'grid';
+        // Preserva view mode em todos os forms de ação (POST) — respeita view já injetado pelo PHP e fallback igual ao PHP (list no desktop, grid no mobile)
+        var viewParam = new URLSearchParams(window.location.search).get('view');
+        var viewMode = viewParam || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches ? 'grid' : 'list');
+        // Se a página já tem um input view_mode injetado pelo PHP (maintenance.php), usa o valor de lá como fonte da verdade
+        var phpViewInput = document.querySelector('input[name="view_mode"][value]');
+        if (phpViewInput && phpViewInput.value) viewMode = phpViewInput.value;
+        // Fallback: se houver botão de view ativo, reflete o estado visual atual
+        else {
+            var activeViewBtn = document.querySelector('.am-view-btn.active');
+            if (activeViewBtn) {
+                var href = activeViewBtn.getAttribute('href') || '';
+                if (href.indexOf('view=list') !== -1) viewMode = 'list';
+                else if (href.indexOf('view=grid') !== -1) viewMode = 'grid';
+            }
+        }
         ['am-maintenance-form', 'am-bulk-form', 'am-undo-form', 'am-delete-form'].forEach(function(id) {
             var form = document.getElementById(id);
             if (!form) return;
+            if (form.querySelector('[name="view_mode"]')) return; // já injetado pelo PHP, não duplica (evita grid sobrescrever list)
             var inp = document.createElement('input');
             inp.type = 'hidden'; inp.name = 'view_mode'; inp.value = viewMode;
             form.appendChild(inp);

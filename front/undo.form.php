@@ -26,5 +26,5 @@ if ($ok) {
     Session::addMessageAfterRedirect('Não foi possível reverter (prazo de 48h expirado ou não há alteração recente).', false, ERROR);
 }
 
-$view = $_POST['view_mode'] ?? 'grid';
+$view = $_POST['view_mode'] ?? 'list';
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view));

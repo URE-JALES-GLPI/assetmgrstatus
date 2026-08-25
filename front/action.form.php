@@ -69,5 +69,5 @@ if ($action === 'manutencao') {
     Session::addMessageAfterRedirect('Observação registrada com sucesso!', false, INFO);
 }
 
-$view = $_POST['view_mode'] ?? 'grid';
+$view = $_POST['view_mode'] ?? 'list';
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . urlencode($view));

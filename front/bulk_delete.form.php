@@ -57,7 +57,7 @@ if ($count > 0) {
     Session::addMessageAfterRedirect('Nenhum ativo pôde ser excluído. Verifique permissões.', false, ERROR);
 }
 
-$view = $_POST['view_mode'] ?? $_POST['view'] ?? 'grid';
+$view = $_POST['view_mode'] ?? $_POST['view'] ?? 'list';
 $filter_type = $_POST['filter_type'] ?? '';
 $filter_status = $_POST['filter_status'] ?? '';
 $filter_search = $_POST['filter_search'] ?? '';

@@ -49,7 +49,7 @@ if ($blocked > 0) {
 } else {
     Session::addMessageAfterRedirect("Status alterado em massa para $count ativo(s)!", false, INFO);
 }
-$view = $_POST['view_mode'] ?? $_POST['view'] ?? 'grid';
+$view = $_POST['view_mode'] ?? $_POST['view'] ?? 'list';
 $filter_type = $_POST['filter_type'] ?? '';
 $filter_status = $_POST['filter_status'] ?? '';
 $filter_search = $_POST['filter_search'] ?? '';
