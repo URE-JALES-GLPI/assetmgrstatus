@@ -21,11 +21,14 @@ $raw_fab = $_GET['fabricante'] ?? [];
 if (is_string($raw_fab)) $raw_fab = $raw_fab !== '' ? [$raw_fab] : [];
 if (!is_array($raw_fab)) $raw_fab = [];
 $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
-// ADMIN — filtro por entidade independente da ativa
+// ADMIN — filtro por entidade independente da ativa (multi-checkbox)
 $can_admin_entity = Session::haveRight('plugin_assetmgrstatus_admin', READ);
-$filter_entity = 0;
 if ($can_admin_entity) {
-    $filter_entity = (int)($_GET['entity'] ?? 0); // 0 = Todas as entidades
+    $raw_entity = $_GET['entity'] ?? [];
+    if (is_string($raw_entity)) $raw_entity = $raw_entity !== '' ? [$raw_entity] : [];
+    if (!is_array($raw_entity)) $raw_entity = [];
+    $filter_entity = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v > 0));
+    // vazio = Todas as entidades
 } else {
     $filter_entity = Session::getActiveEntity();
 }
@@ -51,9 +54,12 @@ function am_qs(array $overrides = []): string {
     if ($is_mobile_qs && $cur_view === 'list') $cur_view = 'grid';
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
     $can_admin_qs = Session::haveRight('plugin_assetmgrstatus_admin', READ);
-    $cur_entity = 0;
+    $cur_entity = [];
     if ($can_admin_qs) {
-        $cur_entity = (int)($_GET['entity'] ?? 0);
+        $raw_e = $_GET['entity'] ?? [];
+        if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
+        if (!is_array($raw_e)) $raw_e = [];
+        $cur_entity = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v > 0));
     }
 
     // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
@@ -63,9 +69,6 @@ function am_qs(array $overrides = []): string {
         'status' => array_key_exists('status', $overrides) ? $overrides['status'] : $cur_status,
         'view'   => array_key_exists('view', $overrides)   ? $overrides['view']   : $cur_view,
     ];
-    if ($can_admin_qs) {
-        $params['entity'] = array_key_exists('entity', $overrides) ? $overrides['entity'] : $cur_entity;
-    }
     $has_filter_override = array_key_exists('type', $overrides) || array_key_exists('search', $overrides) || array_key_exists('status', $overrides) || array_key_exists('comp', $overrides) || array_key_exists('fabricante', $overrides) || array_key_exists('entity', $overrides);
     $params['page'] = $has_filter_override ? 1 : (array_key_exists('page', $overrides) ? $overrides['page'] : $cur_page);
     $comp = array_key_exists('comp', $overrides) ? $overrides['comp'] : $cur_comp;
@@ -84,6 +87,18 @@ function am_qs(array $overrides = []): string {
     }
     foreach ($fab as $fid) {
         $qs .= '&fabricante%5B%5D=' . urlencode($fid);
+    }
+    if ($can_admin_qs) {
+        $ent = array_key_exists('entity', $overrides) ? $overrides['entity'] : $cur_entity;
+        // Normaliza entity para array (aceita 0, '', null, int, array)
+        if ($ent === 0 || $ent === '0' || $ent === '' || $ent === null) $ent = [];
+        elseif (is_string($ent)) $ent = [$ent];
+        elseif (is_int($ent)) $ent = [$ent];
+        elseif (!is_array($ent)) $ent = [];
+        $ent = array_values(array_filter(array_map('intval', $ent), fn($v) => $v > 0));
+        foreach ($ent as $eid) {
+            $qs .= '&entity%5B%5D=' . urlencode($eid);
+        }
     }
     return $qs;
 }
@@ -220,27 +235,56 @@ if ($can_admin_entity) {
         <?php if ($can_admin_entity): ?>
         <div class="am-filter-group">
             <label>Entidade <span style="font-size:.65rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:4px;">ADMIN</span></label>
-            <form method="GET" action="" id="am-entity-filter-form" style="display:flex;gap:8px;align-items:center;">
-                <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
-                <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
-                <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
-                <input type="hidden" name="view"   value="<?= htmlspecialchars($view_mode) ?>">
-                <?php foreach ($filter_comp as $ck => $cv): ?>
-                <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
-                <?php endforeach; ?>
-                <?php foreach ($filter_fabricante as $ffid): ?>
-                <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
-                <?php endforeach; ?>
-                <select name="entity" class="am-input" style="min-width:240px;" onchange="this.form.submit()">
-                    <option value="0" <?= $filter_entity===0 ? 'selected' : '' ?>>🌐 Todas as entidades (<?= count($entities_for_filter) ?>)</option>
-                    <?php foreach ($entities_for_filter as $ent): ?>
-                    <option value="<?= (int)$ent['id'] ?>" <?= $filter_entity===(int)$ent['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ent['completename']) ?> (<?= (int)$ent['id'] ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </form>
-            <?php if ($filter_entity !== 0): ?>
-            <a href="?<?= am_qs(['entity' => 0]) ?>" style="font-size:.72rem;color:#6b7280;margin-top:4px;display:inline-block;"><i class="ti ti-x"></i> Ver todas</a>
-            <?php endif; ?>
+            <div style="position:relative;">
+                <button type="button" class="am-comp-filter-btn" onclick="amToggleEntityPanel()">
+                    <i class="ti ti-building"></i> Filtrar por entidade
+                    <?php if (!empty($filter_entity)): ?>
+                    <span class="am-comp-filter-count"><?= count($filter_entity) ?></span>
+                    <?php endif; ?>
+                </button>
+                <div id="am-entity-panel" class="am-comp-panel">
+                    <form method="GET" action="" id="am-entity-filter-form">
+                        <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
+                        <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
+                        <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
+                        <input type="hidden" name="view"   value="<?= htmlspecialchars($view_mode) ?>">
+                        <?php foreach ($filter_comp as $ck => $cv): ?>
+                        <input type="hidden" name="comp[<?= htmlspecialchars($ck) ?>]" value="<?= htmlspecialchars($cv) ?>">
+                        <?php endforeach; ?>
+                        <?php foreach ($filter_fabricante as $ffid): ?>
+                        <input type="hidden" name="fabricante[]" value="<?= (int)$ffid ?>">
+                        <?php endforeach; ?>
+
+                        <div class="am-comp-panel-header">
+                            <strong>Filtrar por entidade</strong>
+                            <small>Selecione uma ou mais entidades. Deixe vazio para <strong>Todas</strong>. Busque por nome.</small>
+                            <input type="text" id="am-entity-search" placeholder="🔍 Buscar entidade..." oninput="amFilterEntityList(this.value)" style="margin-top:8px;width:100%;padding:7px 10px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;">
+                        </div>
+                        <div class="am-comp-panel-list" id="am-entity-list" style="max-height:220px;overflow-y:auto;">
+                            <?php foreach ($entities_for_filter as $ent):
+                                $checked = in_array((int)$ent['id'], $filter_entity, true);
+                                $shortName = htmlspecialchars($ent['name']);
+                                // Fallback se name vazio, usa último segmento de completename
+                                if (trim($ent['name']) === '') {
+                                    $parts = explode('>', $ent['completename']);
+                                    $shortName = htmlspecialchars(trim(end($parts)));
+                                }
+                            ?>
+                            <div class="am-comp-panel-row am-entity-row" data-name="<?= strtolower(htmlspecialchars($ent['name'] . ' ' . $ent['completename'])) ?>">
+                                <span class="am-comp-panel-label" title="<?= htmlspecialchars($ent['completename']) ?>"><?= $shortName ?></span>
+                                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                                    <input type="checkbox" name="entity[]" value="<?= (int)$ent['id'] ?>" <?= $checked ? 'checked' : '' ?> style="width:18px;height:18px;accent-color:#4f46e5;">
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="am-comp-panel-footer">
+                            <button type="button" class="am-btn am-btn-secondary" style="padding:7px 14px;font-size:.8rem;" onclick="amClearEntityFilters()">Limpar</button>
+                            <button type="submit" class="am-btn am-btn-primary" style="padding:7px 14px;font-size:.8rem;">Aplicar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
         <?php endif; ?>
 
@@ -913,7 +957,7 @@ if ($can_admin_entity) {
             <input type="hidden" name="selected_assets" id="am-bulk-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
-            <?php if ($can_admin_entity): ?><input type="hidden" name="filter_entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
+            <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="filter_entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
             <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
             <input type="hidden" name="filter_status" value="<?= htmlspecialchars($filter_status) ?>">
             <input type="hidden" name="filter_search" value="<?= htmlspecialchars($filter_search) ?>">
@@ -1138,7 +1182,7 @@ if ($can_admin_entity) {
             <input type="hidden" name="selected_assets" id="am-bulk-delete-selected-assets">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
-            <?php if ($can_admin_entity): ?><input type="hidden" name="filter_entity" value="<?= (int)$filter_entity ?>"><?php endif; ?>
+            <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="filter_entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;gap:10px;align-items:flex-start;">
                     <i class="ti ti-alert-triangle" style="color:#dc2626;font-size:1.4rem;flex-shrink:0;"></i>
@@ -1170,8 +1214,8 @@ document.addEventListener('DOMContentLoaded', function() {
         'filter_type':   '<?= htmlspecialchars($filter_type) ?>',
         'filter_status': '<?= htmlspecialchars($filter_status) ?>',
         'filter_search': '<?= htmlspecialchars($filter_search) ?>',
-        <?php if ($can_admin_entity): ?>'filter_entity': '<?= (int)$filter_entity ?>',<?php endif; ?>
     };
+    <?php if ($can_admin_entity): ?>var filterEntities = <?= json_encode(array_values($filter_entity)) ?>;<?php endif; ?>
     // Seleciona todos os forms que fazem POST para o plugin (exceto busca)
     document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(form) {
         var action = form.getAttribute('action') || '';
@@ -1186,6 +1230,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 form.appendChild(input);
             }
         });
+        <?php if ($can_admin_entity): ?>
+        if (typeof filterEntities !== 'undefined' && Array.isArray(filterEntities)) {
+            filterEntities.forEach(function(eid){
+                if (!form.querySelector('[name="filter_entity[]"][value="'+eid+'"]')) {
+                    var inp = document.createElement('input');
+                    inp.type  = 'hidden';
+                    inp.name  = 'filter_entity[]';
+                    inp.value = eid;
+                    form.appendChild(inp);
+                }
+            });
+        }
+        <?php endif; ?>
     });
 });
 

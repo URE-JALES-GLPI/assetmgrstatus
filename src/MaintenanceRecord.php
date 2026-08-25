@@ -156,7 +156,7 @@ class MaintenanceRecord extends CommonDBTM
         ];
     }
 
-    public static function getManufacturers(string $type_filter = 'Notebook', ?int $entity_filter = null): array
+    public static function getManufacturers(string $type_filter = 'Notebook', int|array|null $entity_filter = null): array
     {
         global $DB;
         $types = self::getAssetTypes();
@@ -166,7 +166,12 @@ class MaintenanceRecord extends CommonDBTM
         $def_id = $def_iter->current()['id'];
         $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
         if ($entity_filter !== null && $has_admin) {
-            $entity_id = $entity_filter;
+            if (is_array($entity_filter)) {
+                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v > 0));
+                $entity_id = empty($entity_filter) ? 0 : $entity_filter;
+            } else {
+                $entity_id = (int)$entity_filter;
+            }
         } else {
             $entity_id = Session::getActiveEntity();
         }
@@ -409,7 +414,7 @@ class MaintenanceRecord extends CommonDBTM
 
     // ---- Busca ativos ----
 
-    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], array $fabricante_filter = [], ?int $entity_filter = null): array
+    public static function getAssets(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], array $fabricante_filter = [], int|array|null $entity_filter = null): array
     {
         global $DB;
         $types     = self::getAssetTypes();
@@ -420,7 +425,13 @@ class MaintenanceRecord extends CommonDBTM
         $effective_entity = null;
         $has_admin = Session::haveRight('plugin_assetmgrstatus_admin', READ);
         if ($entity_filter !== null && $has_admin) {
-            $effective_entity = $entity_filter; // 0 = todas
+            // Normaliza: [] ou 0 ou [0] = todas
+            if (is_array($entity_filter)) {
+                $entity_filter = array_values(array_filter(array_map('intval', $entity_filter), fn($v) => $v > 0));
+                $effective_entity = empty($entity_filter) ? 0 : $entity_filter;
+            } else {
+                $effective_entity = (int)$entity_filter; // 0 = todas
+            }
         } else {
             $effective_entity = Session::getActiveEntity();
         }
@@ -565,7 +576,7 @@ class MaintenanceRecord extends CommonDBTM
         return $results;
     }
 
-    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], $fabricante_filter = [], int $page = 1, int $per_page = 24, ?int $entity_filter = null): array
+    public static function getAssetsPaged(string $type_filter = '', string $search = '', string $status_filter = '', array $component_filters = [], $fabricante_filter = [], int $page = 1, int $per_page = 24, int|array|null $entity_filter = null): array
     {
         // Compatibilidade: chamada antiga passava $page como 5º param (int) ou $fabricante_filter como int
         if (is_int($fabricante_filter)) {

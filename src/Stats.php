@@ -11,7 +11,7 @@ if (!defined('GLPI_ROOT')) {
 
 class Stats
 {
-    public static function getAll(int $entity_id): array
+    public static function getAll(int|array $entity_id): array
     {
         global $DB;
 
@@ -111,7 +111,7 @@ class Stats
         return $result;
     }
 
-    public static function getCountsByType(int $entity_id): array
+    public static function getCountsByType(int|array $entity_id): array
     {
         global $DB;
         $types = MaintenanceRecord::getAssetTypes();
@@ -123,10 +123,17 @@ class Stats
                 continue;
             }
             $def_id = $def_iter->current()['id'];
+            $where_c = ['assets_assetdefinitions_id' => $def_id, 'is_deleted' => 0];
+            if (is_array($entity_id)) {
+                $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v > 0));
+                if (!empty($ids)) $where_c['entities_id'] = $ids;
+            } elseif ($entity_id !== 0) {
+                $where_c['entities_id'] = $entity_id;
+            }
             $cnt = $DB->request([
                 'SELECT' => ['COUNT' => 'id AS total'],
                 'FROM'   => 'glpi_assets_assets',
-                'WHERE'  => ['assets_assetdefinitions_id' => $def_id, 'entities_id' => $entity_id, 'is_deleted' => 0],
+                'WHERE'  => $where_c,
             ])->current()['total'] ?? 0;
             $result[$key] = (int)$cnt;
         }
@@ -439,13 +446,15 @@ class Stats
         return $result;
     }
 
-    private static function getEntityAssetIds(int $entity_id): array
+    private static function getEntityAssetIds(int|array $entity_id): array
     {
         global $DB;
 
         $where = ['is_deleted' => 0];
-        // 0 = todas as entidades (apenas para ADMIN)
-        if ($entity_id !== 0) {
+        if (is_array($entity_id)) {
+            $ids = array_values(array_filter(array_map('intval', $entity_id), fn($v) => $v > 0));
+            if (!empty($ids)) $where['entities_id'] = $ids;
+        } elseif ($entity_id !== 0) {
             $where['entities_id'] = $entity_id;
         }
         $iter = $DB->request([

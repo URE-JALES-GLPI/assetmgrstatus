@@ -45,6 +45,23 @@
         if (panel) panel.classList.toggle('open');
     };
 
+    window.amToggleEntityPanel = function () {
+        var panel = document.getElementById('am-entity-panel');
+        if (panel) panel.classList.toggle('open');
+    };
+
+    window.amClearEntityFilters = function () {
+        document.querySelectorAll('#am-entity-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
+    };
+
+    window.amFilterEntityList = function (term) {
+        term = (term || '').toLowerCase();
+        document.querySelectorAll('.am-entity-row').forEach(function(row){
+            var name = row.dataset.name || '';
+            row.style.display = name.indexOf(term) !== -1 ? '' : 'none';
+        });
+    };
+
     window.amClearCompFilters = function () {
         document.querySelectorAll('.am-comp-3state').forEach(function(group) {
             var compKey = group.dataset.comp;
@@ -78,10 +95,10 @@
         }
 
         // Fecha painéis se clicar fora
-        ['am-comp-panel','am-fab-panel'].forEach(function(pid){
+        ['am-comp-panel','am-fab-panel','am-entity-panel'].forEach(function(pid){
             var p = document.getElementById(pid);
             if (!p || !p.classList.contains('open')) return;
-            var btnSelector = pid === 'am-comp-panel' ? '[onclick="amToggleCompPanel()"]' : '[onclick="amToggleFabPanel()"]';
+            var btnSelector = pid === 'am-comp-panel' ? '[onclick="amToggleCompPanel()"]' : pid === 'am-fab-panel' ? '[onclick="amToggleFabPanel()"]' : '[onclick="amToggleEntityPanel()"]';
             var btn = document.querySelector(btnSelector);
             if (!p.contains(e.target) && (!btn || !btn.contains(e.target))) {
                 p.classList.remove('open');

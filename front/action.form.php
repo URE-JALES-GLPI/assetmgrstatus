@@ -70,9 +70,12 @@ if ($action === 'manutencao') {
 }
 
 $view = $_POST['view_mode'] ?? 'list';
-$filter_entity = $_POST['filter_entity'] ?? null;
+$raw_entity = $_POST['filter_entity'] ?? [];
+if (is_string($raw_entity)) $raw_entity = [$raw_entity];
+if (!is_array($raw_entity)) $raw_entity = [];
+$filter_entities = array_values(array_filter(array_map('intval', $raw_entity)));
 $qs = 'view=' . urlencode($view);
-if ($filter_entity !== null && $filter_entity !== '' && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
-    $qs .= '&entity=' . (int)$filter_entity;
+if (!empty($filter_entities) && Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+    foreach ($filter_entities as $eid) $qs .= '&entity%5B%5D=' . $eid;
 }
 Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?' . $qs);

@@ -12,7 +12,17 @@ global $DB, $CFG_GLPI;
 
 $format       = $_GET['format']       ?? 'excel';
 $can_admin_exp = Session::haveRight('plugin_assetmgrstatus_admin', READ);
-$entity_id    = $can_admin_exp && isset($_GET['entity']) ? (int)$_GET['entity'] : (int)Session::getActiveEntity();
+if ($can_admin_exp && isset($_GET['entity'])) {
+    $raw_e = $_GET['entity'];
+    if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
+    if (!is_array($raw_e)) $raw_e = [];
+    $entity_id = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v > 0));
+    if (empty($entity_id)) $entity_id = 0;
+} else {
+    $entity_id = $can_admin_exp ? 0 : (int)Session::getActiveEntity();
+    // Para ADMIN sem filtro, mostra todas (0); para não-ADMIN, usa ativa
+    if ($can_admin_exp && $entity_id === 0) $entity_id = 0;
+}
 $type         = $_GET['type']         ?? '';
 $status       = $_GET['status']       ?? '';
 $mode         = $_GET['mode']         ?? 'assets';
