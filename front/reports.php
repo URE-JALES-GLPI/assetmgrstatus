@@ -23,7 +23,7 @@ $status_opts = MaintenanceRecord::getStatusOptions();
 $entity_id   = Session::getActiveEntity();
 $comp_list   = MaintenanceRecord::getComponents();
 
-// Dados base
+// Dados base - filtrado pela entidade ativa (Session::getActiveEntity)
 $preview_assets = MaintenanceRecord::getAssets($filter_type, '', $filter_status);
 $asset_ids      = array_column($preview_assets, 'id');
 
@@ -47,7 +47,7 @@ if ($report_mode === 'history' && !empty($asset_ids)) {
 } elseif ($report_mode === 'technician') {
     $tech_data = Stats::getByTechnician($entity_id, $period_start, $period_end);
 } elseif ($report_mode === 'entity') {
-    $entity_data = Stats::getByEntity();
+    $entity_data = Stats::getByEntity($entity_id);
 } elseif ($report_mode === 'components') {
     $component_data = Stats::getComponentRanking($entity_id, $period_start, $period_end);
 } elseif ($report_mode === 'avg_time') {
@@ -83,7 +83,7 @@ $preview_count = match($report_mode) {
                     'assets'     => ['icon' => 'ti-list-details',  'title' => 'Lista de Ativos',         'desc' => 'Estado atual de cada ativo',                    'color' => '#4f46e5'],
                     'history'    => ['icon' => 'ti-history',        'title' => 'Histórico de Movimentações','desc' => 'Todas as mudanças de status e manutenções',    'color' => '#0891b2'],
                     'technician' => ['icon' => 'ti-user-check',     'title' => 'Por Técnico',              'desc' => 'Quantas ações cada técnico realizou',           'color' => '#7c3aed'],
-                    'entity'     => ['icon' => 'ti-building-community','title' => 'Por Entidade',          'desc' => 'Consolidado de todas as 33 entidades',          'color' => '#059669'],
+                    'entity'     => ['icon' => 'ti-building-community','title' => 'Por Entidade',          'desc' => 'Consolidado filtrado pela entidade ativa',          'color' => '#059669'],
                     'components' => ['icon' => 'ti-cpu',             'title' => 'Componentes Problemáticos','desc' => 'Ranking de componentes mais afetados',         'color' => '#dc2626'],
                     'avg_time'   => ['icon' => 'ti-clock',           'title' => 'Tempo Médio em Manutenção','desc' => 'Dias que ativos ficam em manutenção por tipo', 'color' => '#d97706'],
                     'mensal'     => ['icon' => 'ti-file-spreadsheet',  'title' => 'Relatório Mensal',          'desc' => 'Gera planilha ODS no padrão da Secretaria',   'color' => '#16a34a'],
@@ -295,7 +295,7 @@ elseif (in_array($report_mode, ['history','technician','components','avg_time'])
                 <?php endif; ?>
 
             <?php elseif ($report_mode === 'entity'): ?>
-                <h3><i class="ti ti-building-community"></i> Consolidado por Entidade</h3>
+                <h3><i class="ti ti-building-community"></i> Consolidado por Entidade <small style="font-weight:400;color:#9ca3af;font-size:.75rem;margin-left:8px;">filtrado pela entidade ativa</small></h3>
                 <?php if (empty($entity_data)): ?>
                 <div class="am-empty-state am-empty-small"><i class="ti ti-building-off"></i><p>Nenhuma entidade com ativos encontrada.</p></div>
                 <?php else: ?>

@@ -12,16 +12,15 @@ global $DB, $CFG_GLPI;
 
 $format       = $_GET['format']       ?? 'excel';
 $can_admin_exp = Session::haveRight('plugin_assetmgrstatus_admin', READ);
-if ($can_admin_exp && isset($_GET['entity'])) {
+$has_explicit_entity = $can_admin_exp && isset($_GET['entity']);
+if ($has_explicit_entity) {
     $raw_e = $_GET['entity'];
     if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
     if (!is_array($raw_e)) $raw_e = [];
     $entity_id = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v >= 0));
-    if (empty($entity_id)) $entity_id = 0;
+    if (empty($entity_id)) $entity_id = (int)Session::getActiveEntity();
 } else {
-    $entity_id = $can_admin_exp ? 0 : (int)Session::getActiveEntity();
-    // Para ADMIN sem filtro, mostra todas (0); para não-ADMIN, usa ativa
-    if ($can_admin_exp && $entity_id === 0) $entity_id = 0;
+    $entity_id = (int)Session::getActiveEntity();
 }
 $type         = $_GET['type']         ?? '';
 $status       = $_GET['status']       ?? '';
@@ -29,7 +28,8 @@ $mode         = $_GET['mode']         ?? 'assets';
 $period_start = $_GET['period_start'] ?? '';
 $period_end   = $_GET['period_end']   ?? '';
 
-$assets    = MaintenanceRecord::getAssets($type, '', $status, [], [], $can_admin_exp ? $entity_id : null);
+$assets_entity_param = $has_explicit_entity ? $entity_id : null;
+$assets    = MaintenanceRecord::getAssets($type, '', $status, [], [], $assets_entity_param);
 $asset_ids = array_column($assets, 'id');
 $comp_list = MaintenanceRecord::getComponents();
 
@@ -48,7 +48,7 @@ if ($mode === 'history' && !empty($asset_ids)) {
 } elseif ($mode === 'technician') {
     $tech_data = Stats::getByTechnician($entity_id, $period_start, $period_end);
 } elseif ($mode === 'entity') {
-    $entity_data = Stats::getByEntity();
+    $entity_data = Stats::getByEntity($entity_id);
 } elseif ($mode === 'components') {
     $component_data = Stats::getComponentRanking($entity_id, $period_start, $period_end);
 } elseif ($mode === 'avg_time') {

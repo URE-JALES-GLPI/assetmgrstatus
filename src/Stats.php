@@ -248,7 +248,7 @@ class Stats
     // Relatório 1: Por Técnico
     // -------------------------------------------------------
 
-    public static function getByTechnician(int $entity_id = 0, string $period_start = '', string $period_end = ''): array
+    public static function getByTechnician(int|array $entity_id = 0, string $period_start = '', string $period_end = ''): array
     {
         global $DB;
 
@@ -290,26 +290,46 @@ class Stats
     }
 
     // -------------------------------------------------------
-    // Relatório 2: Por Entidade (consolidado, todas entidades)
+    // Relatório 2: Por Entidade (consolidado, filtrado pela entidade ativa)
     // -------------------------------------------------------
 
-    public static function getByEntity(): array
+    public static function getByEntity(int|array $entity_id = 0): array
     {
         global $DB;
+
+        // Se entidade ativa específica for informada, limita ao escopo (0 = todas)
+        $allowed_ids = null;
+        if ($entity_id !== 0 && $entity_id !== null) {
+            $flat = is_array($entity_id) ? $entity_id : [$entity_id];
+            $flat = array_values(array_filter(array_map('intval', $flat), fn($v) => $v >= 0));
+            if (!empty($flat)) {
+                $do_expand = !empty($_GET['entity_recursive']) || !empty($_SESSION['glpiactiveentity_is_recursive']);
+                if ($do_expand) {
+                    $flat = MaintenanceRecord::expandEntityIds($flat);
+                }
+                $allowed_ids = $flat;
+            }
+        }
+
+        $where = [];
+        if ($allowed_ids !== null) {
+            $where['id'] = $allowed_ids;
+        }
 
         $entities_iter = $DB->request([
             'SELECT' => ['id', 'completename'],
             'FROM'   => 'glpi_entities',
+            'WHERE'  => $where,
         ]);
 
         $result = [];
         foreach ($entities_iter as $entity) {
-            $entity_id = (int)$entity['id'];
-            $asset_ids = self::getEntityAssetIds($entity_id);
+            $entity_id_cur = (int)$entity['id'];
+            $asset_ids = self::getEntityAssetIds($entity_id_cur);
             if (empty($asset_ids)) continue;
 
             $row = [
-                'entity_id'   => $entity_id,
+                'entity_id'   => $entity_id_cur,
                 'entity_name' => $entity['completename'],
                 'total'       => count($asset_ids),
                 'by_status'   => [],
@@ -343,7 +363,7 @@ class Stats
     // Relatório 3: Componentes mais problemáticos
     // -------------------------------------------------------
 
-    public static function getComponentRanking(int $entity_id = 0, string $period_start = '', string $period_end = ''): array
+    public static function getComponentRanking(int|array $entity_id = 0, string $period_start = '', string $period_end = ''): array
     {
         global $DB;
 
@@ -387,7 +407,7 @@ class Stats
     // Relatório 4: Tempo médio em manutenção (por tipo de ativo)
     // -------------------------------------------------------
 
-    public static function getAverageMaintenanceTime(int $entity_id = 0, string $period_start = '', string $period_end = ''): array
+    public static function getAverageMaintenanceTime(int|array $entity_id = 0, string $period_start = '', string $period_end = ''): array
     {
         global $DB;
 
