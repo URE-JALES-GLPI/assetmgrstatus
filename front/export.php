@@ -48,6 +48,7 @@ if ($mode === 'history' && !empty($asset_ids)) {
 } elseif ($mode === 'technician') {
     $tech_data = Stats::getByTechnician($entity_id, $period_start, $period_end);
 } elseif ($mode === 'entity') {
+    Session::checkRight('plugin_assetmgrstatus_admin', READ);
     $entity_data = Stats::getByEntity($entity_id);
 } elseif ($mode === 'components') {
     $component_data = Stats::getComponentRanking($entity_id, $period_start, $period_end);

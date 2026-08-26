@@ -22,6 +22,7 @@ $types       = MaintenanceRecord::getAssetTypes();
 $status_opts = MaintenanceRecord::getStatusOptions();
 $entity_id   = Session::getActiveEntity();
 $comp_list   = MaintenanceRecord::getComponents();
+$can_admin   = Session::haveRight('plugin_assetmgrstatus_admin', READ);
 
 // Dados base - filtrado pela entidade ativa (Session::getActiveEntity)
 $preview_assets = MaintenanceRecord::getAssets($filter_type, '', $filter_status);
@@ -47,6 +48,7 @@ if ($report_mode === 'history' && !empty($asset_ids)) {
 } elseif ($report_mode === 'technician') {
     $tech_data = Stats::getByTechnician($entity_id, $period_start, $period_end);
 } elseif ($report_mode === 'entity') {
+    Session::checkRight('plugin_assetmgrstatus_admin', READ);
     $entity_data = Stats::getByEntity($entity_id);
 } elseif ($report_mode === 'components') {
     $component_data = Stats::getComponentRanking($entity_id, $period_start, $period_end);
@@ -83,11 +85,19 @@ $preview_count = match($report_mode) {
                     'assets'     => ['icon' => 'ti-list-details',  'title' => 'Lista de Ativos',         'desc' => 'Estado atual de cada ativo',                    'color' => '#4f46e5'],
                     'history'    => ['icon' => 'ti-history',        'title' => 'Histórico de Movimentações','desc' => 'Todas as mudanças de status e manutenções',    'color' => '#0891b2'],
                     'technician' => ['icon' => 'ti-user-check',     'title' => 'Por Técnico',              'desc' => 'Quantas ações cada técnico realizou',           'color' => '#7c3aed'],
-                    'entity'     => ['icon' => 'ti-building-community','title' => 'Por Entidade',          'desc' => 'Consolidado filtrado pela entidade ativa',          'color' => '#059669'],
                     'components' => ['icon' => 'ti-cpu',             'title' => 'Componentes Problemáticos','desc' => 'Ranking de componentes mais afetados',         'color' => '#dc2626'],
                     'avg_time'   => ['icon' => 'ti-clock',           'title' => 'Tempo Médio em Manutenção','desc' => 'Dias que ativos ficam em manutenção por tipo', 'color' => '#d97706'],
                     'mensal'     => ['icon' => 'ti-file-spreadsheet',  'title' => 'Relatório Mensal',          'desc' => 'Gera planilha ODS no padrão da Secretaria',   'color' => '#16a34a'],
                 ];
+                // So ADMIN vê "Por Entidade" (consolidado por entidade)
+                if ($can_admin) {
+                    // insere após technician, antes de components
+                    $modes = array_merge(
+                        array_slice($modes, 0, 3, true),
+                        ['entity' => ['icon' => 'ti-building-community','title' => 'Por Entidade', 'desc' => 'Consolidado por entidade (ADMIN)', 'color' => '#059669']],
+                        array_slice($modes, 3, null, true)
+                    );
+                }
                 foreach ($modes as $key => $def):
                 ?>
                 <a href="?mode=<?= $key ?>&type=<?= urlencode($filter_type) ?>&status=<?= urlencode($filter_status) ?>"
@@ -389,7 +399,9 @@ elseif (in_array($report_mode, ['history','technician','components','avg_time'])
                 <a href="?mode=assets&type=&status=<?= MaintenanceRecord::STATUS_INSERVIVEL ?>" class="am-quick-report-card"><i class="ti ti-package-off" style="color:#991b1b;"></i><strong>Inservíveis</strong><small>Candidatos à baixa</small></a>
                 <a href="?mode=assets&type=&status=<?= MaintenanceRecord::STATUS_ESTOQUE ?>" class="am-quick-report-card"><i class="ti ti-box" style="color:#6d28d9;"></i><strong>Em Estoque</strong><small>Disponíveis</small></a>
                 <a href="?mode=components" class="am-quick-report-card"><i class="ti ti-cpu" style="color:#dc2626;"></i><strong>Componentes</strong><small>Ver ranking</small></a>
-                <a href="?mode=entity" class="am-quick-report-card"><i class="ti ti-building-community" style="color:#059669;"></i><strong>Por Entidade</strong><small>Consolidado</small></a>
+                <?php if ($can_admin): ?>
+                <a href="?mode=entity" class="am-quick-report-card"><i class="ti ti-building-community" style="color:#059669;"></i><strong>Por Entidade</strong><small>Consolidado (ADMIN)</small></a>
+                <?php endif; ?>
             </div>
         </div>
         <?php endif; ?>
