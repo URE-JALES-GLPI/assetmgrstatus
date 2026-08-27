@@ -26,6 +26,12 @@ if ($ok) {
     Session::addMessageAfterRedirect('Não foi possível reverter (prazo de 48h expirado ou não há alteração recente).', false, ERROR);
 }
 
+$return_to = $_POST['return_to'] ?? '';
+if ($return_to === 'dashboard') {
+    Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/dashboard.php');
+    exit;
+}
+
 $view = $_POST['view_mode'] ?? 'list';
 $raw_entity = $_POST['filter_entity'] ?? [];
 if (is_string($raw_entity)) $raw_entity = [$raw_entity];

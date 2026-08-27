@@ -140,13 +140,25 @@ $alert_list = Stats::getAlertAssets($entity_id);
             $record_type = $h['record_type'] ?? MaintenanceRecord::RECORD_STATUS_CHANGE;
             $border = MaintenanceRecord::getRecordTypeColor($record_type);
             $type_label = MaintenanceRecord::getRecordTypeLabel($record_type);
+            // Verifica se este registro específico é desfazível (último status_change não desfeito dentro de 48h)
+            $can_undo_history = false;
+            $is_undone_history = !empty($h['is_undone']);
+            if (!$is_undone_history && $record_type === MaintenanceRecord::RECORD_STATUS_CHANGE && Session::haveRight(MaintenanceRecord::RIGHT_VIEW, UPDATE)) {
+                $undo_candidate = MaintenanceRecord::getUndoableChange($h['itemtype'], (int)$h['items_id']);
+                if ($undo_candidate && (int)$undo_candidate['id'] === (int)$h['id']) {
+                    $can_undo_history = true;
+                }
+            }
         ?>
-        <div class="am-history-card" style="border-left:4px solid <?= $border ?>;">
+        <div class="am-history-card" style="border-left:4px solid <?= $border ?>;<?= $is_undone_history ? 'opacity:.75;background:#f9fafb;' : '' ?>">
             <div class="am-history-card-header">
-                <div class="am-history-card-title"><i class="ti ti-device-laptop"></i><?= htmlspecialchars($h['item_name']) ?><span style="font-size:.78rem;font-weight:600;color:#6b7280;margin-left:8px;"><?= $type_label ?></span></div>
+                <div class="am-history-card-title"><i class="ti ti-device-laptop"></i><?= htmlspecialchars($h['item_name']) ?><span style="font-size:.78rem;font-weight:600;color:#6b7280;margin-left:8px;"><?= $type_label ?></span><?php if ($is_undone_history): ?><span style="background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;border-radius:20px;padding:2px 8px;font-size:.70rem;font-weight:700;margin-left:8px;"><i class="ti ti-arrow-back-up"></i> Revertido</span><?php endif; ?></div>
                 <div class="am-history-card-meta">
                     <span><i class="ti ti-calendar"></i> <?= Html::convDateTime($h['date_creation']) ?></span>
                     <span><i class="ti ti-user"></i> <?= htmlspecialchars($uname) ?></span>
+                    <?php if ($can_undo_history): ?>
+                    <button class="am-btn am-btn-undo" style="padding:4px 10px;font-size:.75rem;margin-left:8px;" onclick="amConfirmUndo(<?= (int)$h['items_id'] ?>,'<?= htmlspecialchars(addslashes($h['itemtype'])) ?>')" title="Desfazer esta alteração (até 48h)"><i class="ti ti-arrow-back-up"></i> Desfazer</button>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="am-history-card-body">
@@ -188,6 +200,36 @@ $alert_list = Stats::getAlertAssets($entity_id);
             </div>
         </div>
         <?php endforeach; endif; ?>
+    </div>
+
+    <form id="am-undo-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/undo.form.php" style="display:none">
+        <input type="hidden" name="itemtype" id="am-undo-itemtype">
+        <input type="hidden" name="items_id" id="am-undo-items-id">
+        <input type="hidden" name="return_to" value="dashboard">
+        <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+    </form>
+
+    <!-- Modal de confirmação de reversão com diff visual -->
+    <div id="am-modal-undo-confirm" class="am-modal-overlay" onclick="amCloseUndoConfirm(event)">
+        <div class="am-modal" onclick="event.stopPropagation()" style="max-width:540px;">
+            <div class="am-modal-header" style="background:linear-gradient(135deg,#4b5563,#374151);">
+                <div class="am-modal-title"><i class="ti ti-arrow-back-up"></i><span>Reverter Status</span></div>
+                <button class="am-modal-close" onclick="amCloseUndoConfirm()"><i class="ti ti-x"></i></button>
+            </div>
+            <div class="am-modal-body" id="am-undo-confirm-body" style="padding:20px 24px;">
+                <div style="text-align:center;color:#9ca3af;">Carregando...</div>
+            </div>
+            <div style="padding:0 24px 16px;">
+                <label class="am-agree-check" id="am-undo-agree-label">
+                    <input type="checkbox" id="am-undo-agree" onchange="amToggleUndoBtn()">
+                    <span>Confirmo e concordo com a <strong>REVERSÃO</strong></span>
+                </label>
+            </div>
+            <div class="am-modal-footer">
+                <button type="button" class="am-btn am-btn-secondary" onclick="amCloseUndoConfirm()"><i class="ti ti-x"></i> Cancelar</button>
+                <button type="button" id="am-undo-confirm-btn" class="am-btn" style="background:linear-gradient(135deg,#4b5563,#374151);color:#fff;opacity:.4;cursor:not-allowed;" disabled onclick="document.getElementById('am-undo-form').submit()"><i class="ti ti-arrow-back-up"></i> Confirmar Reversão</button>
+            </div>
+        </div>
     </div>
 </div>
 <?php Html::footer(); ?>

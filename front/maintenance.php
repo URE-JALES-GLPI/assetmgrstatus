@@ -660,9 +660,6 @@ if ($can_admin_entity) {
                 <button class="am-btn am-btn-orange" style="flex:1;padding:7px 8px;font-size:.78rem;" onclick="event.stopPropagation();amOpenBaixa(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')"><i class="ti ti-package-off"></i> Baixa</button>
                 <?php endif; ?>
                 <button class="am-btn am-btn-primary" style="flex:1;padding:7px 8px;font-size:.78rem;" onclick="event.stopPropagation();amOpenModal(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>','<?= htmlspecialchars($asset['asset_type_label']) ?>','<?= $plugin_status ?>')"><i class="ti ti-edit"></i> Status</button>
-                <?php if (!empty($asset['can_undo'])): ?>
-                <button class="am-btn am-btn-undo" style="padding:7px 10px;width:auto;" onclick="event.stopPropagation();amConfirmUndo(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>')" title="Reverter Status (até 48h)"><i class="ti ti-arrow-back-up"></i></button>
-                <?php endif; ?>
             </div>
         </div>
         <?php endforeach; endif; ?>
@@ -740,9 +737,6 @@ if ($can_admin_entity) {
                     <button class="am-btn am-btn-orange" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenBaixa(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Baixa"><i class="ti ti-package-off"></i></button>
                     <?php endif; ?>
                     <button class="am-btn am-btn-primary" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amOpenModal(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>','<?= htmlspecialchars($asset['asset_type_label']) ?>','<?= $plugin_status ?>')" title="Alterar Status"><i class="ti ti-edit"></i></button>
-                    <?php if (!empty($asset['can_undo'])): ?>
-                    <button class="am-btn am-btn-undo" style="padding:6px 8px;min-width:auto;justify-content:center;" onclick="amConfirmUndo(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>')" title="Reverter Status (até 48h)"><i class="ti ti-arrow-back-up"></i></button>
-                    <?php endif; ?>
                     <?php endif; ?>
                     </div>
                 </td>
@@ -862,35 +856,6 @@ if ($can_admin_entity) {
             <input type="hidden" name="items_id" id="am-del-items-id">
             <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
         </form>
-    </div>
-</div>
-
-<form id="am-undo-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/undo.form.php" style="display:none">
-    <input type="hidden" name="itemtype" id="am-undo-itemtype">
-    <input type="hidden" name="items_id" id="am-undo-items-id">
-    <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
-</form>
-
-<!-- Modal de confirmação de reversão com diff visual -->
-<div id="am-modal-undo-confirm" class="am-modal-overlay" onclick="amCloseUndoConfirm(event)">
-    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:540px;">
-        <div class="am-modal-header" style="background:linear-gradient(135deg,#4b5563,#374151);">
-            <div class="am-modal-title"><i class="ti ti-arrow-back-up"></i><span>Reverter Status</span></div>
-            <button class="am-modal-close" onclick="amCloseUndoConfirm()"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="am-modal-body" id="am-undo-confirm-body" style="padding:20px 24px;">
-            <div style="text-align:center;color:#9ca3af;">Carregando...</div>
-        </div>
-        <div style="padding:0 24px 16px;">
-            <label class="am-agree-check" id="am-undo-agree-label">
-                <input type="checkbox" id="am-undo-agree" onchange="amToggleUndoBtn()">
-                <span>Confirmo e concordo com a <strong>REVERSÃO</strong></span>
-            </label>
-        </div>
-        <div class="am-modal-footer">
-            <button type="button" class="am-btn am-btn-secondary" onclick="amCloseUndoConfirm()"><i class="ti ti-x"></i> Cancelar</button>
-            <button type="button" id="am-undo-confirm-btn" class="am-btn" style="background:linear-gradient(135deg,#4b5563,#374151);color:#fff;opacity:.4;cursor:not-allowed;" disabled onclick="document.getElementById('am-undo-form').submit()"><i class="ti ti-arrow-back-up"></i> Confirmar Reversão</button>
-        </div>
     </div>
 </div>
 
