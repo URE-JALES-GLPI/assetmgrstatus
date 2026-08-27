@@ -613,6 +613,26 @@ if ($can_admin_entity) {
                     <span style="font-size:.75rem;opacity:.85;">Ativo em Manutenção com devolução atrasada. Verifique com o responsável.</span>
                 </div>
             </div>
+            <?php else:
+                $daysOk = $asset['days_since_maintenance'];
+                if ($daysOk !== null):
+                    $daysOkInt = (int)$daysOk;
+                    $remaining = max(0, 60 - $daysOkInt);
+                    $pct = min(100, max(0, round($daysOkInt / 60 * 100)));
+                    $okMsg = $daysOkInt === 0 ? 'Manutenção realizada hoje — contador zerado!' : 'Última manutenção há ' . $daysOkInt . ' dia(s) — faltam ' . $remaining . ' dia(s) para o limite de 60 dias.';
+            ?>
+            <div class="am-ok-60 am-alert-trigger" tabindex="0" onclick="event.stopPropagation()">
+                <i class="ti ti-circle-check"></i> <?= $daysOkInt ?>d • OK
+                <span style="margin-left:auto;font-size:.70rem;font-weight:600;opacity:.75;"><?= $remaining ?>d restantes</span>
+                <div class="am-alert-popup">
+                    <strong style="display:block;margin-bottom:4px;"><i class="ti ti-circle-check" style="color:#6ee7b7;"></i> Em dia</strong>
+                    <?= htmlspecialchars($okMsg) ?>
+                    <span style="display:block;margin-top:6px;font-size:.72rem;opacity:.8;">Progresso: <?= $daysOkInt ?>/60 dias (<?= $pct ?>%) — trava em +60d</span>
+                    <div style="margin-top:8px;height:6px;background:#1f2937;border-radius:99px;overflow:hidden;"><div style="height:100%;width:<?= $pct ?>%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px;"></div></div>
+                </div>
+            </div>
+            <div style="height:3px;background:#ecfdf5;"><div style="height:100%;width:<?= $pct ?>%;background:linear-gradient(90deg,#10b981,#059669);transition:width .3s;"></div></div>
+            <?php endif; ?>
             <?php endif; ?>
             <div class="am-asset-card-header">
                 <div class="am-asset-type-icon"><i class="ti <?= $asset['asset_icon'] ?>"></i></div>
@@ -696,6 +716,23 @@ if ($can_admin_entity) {
                         <i class="ti ti-calendar-x"></i> Atraso <?= $retDays ?>d
                         <span class="am-alert-popup">Prazo previsto <strong><?= htmlspecialchars($retDate) ?></strong> vencido há <strong><?= $retDays ?> dia(s)</strong>. Ativo em manutenção atrasado.</span>
                     </span>
+                    <?php else:
+                        $daysOkL = $asset['days_since_maintenance'];
+                        if ($daysOkL !== null):
+                            $daysOkIntL = (int)$daysOkL;
+                            $remainingL = max(0, 60 - $daysOkIntL);
+                            $pctL = min(100, max(0, round($daysOkIntL / 60 * 100)));
+                    ?>
+                    <span class="am-alert-trigger" style="color:#065f46;background:#d1fae5;border:1px solid #a7f3d0;border-radius:20px;padding:2px 8px;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;position:relative;" tabindex="0" onclick="event.stopPropagation()">
+                        <i class="ti ti-circle-check" style="color:#10b981;"></i> <?= $daysOkIntL ?>d OK
+                        <span class="am-alert-popup">
+                            <strong style="display:block;margin-bottom:4px;"><i class="ti ti-circle-check" style="color:#6ee7b7;"></i> Em dia — <?= $daysOkIntL ?>/60d (<?= $pctL ?>%)</strong>
+                            Última manutenção há <?= $daysOkIntL ?> dia(s) — faltam <?= $remainingL ?> dia(s) para o limite de 60 dias.<br>
+                            <span style="font-size:.72rem;opacity:.8;">Trava em +60d e vira alerta vermelho.</span>
+                            <div style="margin-top:8px;height:6px;background:#1f2937;border-radius:99px;overflow:hidden;"><div style="height:100%;width:<?= $pctL ?>%;background:linear-gradient(90deg,#10b981,#059669);border-radius:99px;"></div></div>
+                        </span>
+                    </span>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </td>
                 <td style="min-width:110px;padding:4px 6px;">
