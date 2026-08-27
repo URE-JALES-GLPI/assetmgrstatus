@@ -161,8 +161,25 @@ class Transfer
         }
         if (empty($valid_items)) return 0;
 
-        // Valida em lote: ativo existe, não deletado e pertence à entidade ativa
+        // Valida em lote: ativo existe, não deletado e pertence à entidade ativa (com suporte a recursividade e ADMIN)
         $active_entity = (int)Session::getActiveEntity();
+        $is_recursive = !empty($_SESSION['glpiactiveentity_is_recursive']);
+        $allowed_entities = null;
+        if ($active_entity !== 0 && $is_recursive) {
+            $allowed_entities = MaintenanceRecord::expandEntityIds($active_entity);
+        } elseif ($active_entity !== 0) {
+            $allowed_entities = [$active_entity];
+        } else {
+            // Entidade 0 (raiz) — considera recursivo implícito ou "Todas" para ADMIN: permite qualquer entidade com acesso
+            if ($is_recursive) {
+                $allowed_entities = MaintenanceRecord::expandEntityIds($active_entity);
+                if (is_array($allowed_entities) && count($allowed_entities) <= 1) {
+                    $allowed_entities = null;
+                }
+            } else {
+                $allowed_entities = null;
+            }
+        }
         $origin_entities = [];
         foreach ($ids_by_type as $itemtype => $ids) {
             foreach ($DB->request([
@@ -170,8 +187,24 @@ class Transfer
                 'FROM'   => 'glpi_assets_assets',
                 'WHERE'  => ['id' => $ids, 'is_deleted' => 0],
             ]) as $asset) {
-                if ((int)$asset['entities_id'] !== $active_entity) continue;
-                $origin_entities[(int)$asset['id']] = (int)$asset['entities_id'];
+                $eid = (int)$asset['entities_id'];
+                if ($allowed_entities !== null) {
+                    if (!in_array($eid, $allowed_entities, true)) {
+                        // Fallback: se usuário tem acesso explícito à entidade, permite (caso de ADMIN com filtro multi-entidade)
+                        if (method_exists('Session', 'haveAccessToEntity')) {
+                            if (!Session::haveAccessToEntity($eid)) continue;
+                        } else {
+                            continue;
+                        }
+                    }
+                } else {
+                    // allowed null = todas permitidas, mas ainda verifica acesso geral
+                    if (method_exists('Session', 'haveAccessToEntity') && !Session::haveAccessToEntity($eid)) {
+                        // Permite se for admin (vê todas)
+                        if (!Session::haveRight('plugin_assetmgrstatus_admin', READ)) continue;
+                    }
+                }
+                $origin_entities[(int)$asset['id']] = $eid;
             }
         }
 
@@ -1180,6 +1213,18 @@ class Transfer
 
             if (empty($item['final_status'])) {
                 self::unlockAsset($item['itemtype'], (int)$item['items_id']);
+                // Zera alerta se houve manutenção registrada no Diário
+                $workDoneEmpty = (($item['work_status'] ?? 'pending') === 'done') || trim((string)($item['work_log'] ?? '')) !== '';
+                if ($workDoneEmpty) {
+                    $manutDescEmpty = trim((string)($item['work_log'] ?? ''));
+                    if ($manutDescEmpty === '') $manutDescEmpty = trim((string)($item['final_reason'] ?? ''));
+                    if ($manutDescEmpty === '') $manutDescEmpty = 'Manutenção realizada via Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . $tech_name_hist;
+                    try {
+                        MaintenanceRecord::saveManutencaoRealizada($item['itemtype'], (int)$item['items_id'], $manutDescEmpty, []);
+                    } catch (\Throwable $e) {
+                        error_log('[assetmgrstatus] saveManutencao via finalizar (sem status): ' . $e->getMessage());
+                    }
+                }
                 try {
                     MaintenanceRecord::logTransferRetorno(
                         $item['itemtype'],
@@ -1210,6 +1255,29 @@ class Transfer
             );
 
             self::unlockAsset($item['itemtype'], (int)$item['items_id']);
+
+            // Zera alerta de +60 dias: registra manutenção realizada se houve trabalho no Diário ou status final saudável
+            $workDone = (($item['work_status'] ?? 'pending') === 'done') || trim((string)($item['work_log'] ?? '')) !== '';
+            if (!$workDone && in_array($item['final_status'], [MaintenanceRecord::STATUS_ATIVO, MaintenanceRecord::STATUS_GARANTIA, MaintenanceRecord::STATUS_INSERVIVEL], true)) {
+                $workDone = true;
+            }
+            // Também considera componentes resolvidos no Diário como manutenção
+            if (!$workDone && !empty($item['work_components'])) {
+                $wc = is_string($item['work_components']) ? json_decode($item['work_components'], true) : $item['work_components'];
+                if (is_array($wc)) {
+                    foreach ($wc as $v) { if ($v === 'resolved') { $workDone = true; break; } }
+                }
+            }
+            if ($workDone) {
+                $manutDesc = trim((string)($item['work_log'] ?? ''));
+                if ($manutDesc === '') $manutDesc = trim((string)($item['final_reason'] ?? ''));
+                if ($manutDesc === '') $manutDesc = 'Manutenção realizada via Transferência #' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . ' — ' . $tech_name_hist;
+                try {
+                    MaintenanceRecord::saveManutencaoRealizada($item['itemtype'], (int)$item['items_id'], $manutDesc, []);
+                } catch (\Throwable $e) {
+                    error_log('[assetmgrstatus] saveManutencao via finalizar: ' . $e->getMessage());
+                }
+            }
 
             try {
                 MaintenanceRecord::logTransferRetorno(
