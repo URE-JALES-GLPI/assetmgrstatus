@@ -28,6 +28,12 @@ $mode         = $_GET['mode']         ?? 'assets';
 $period_start = $_GET['period_start'] ?? '';
 $period_end   = $_GET['period_end']   ?? '';
 
+// Modos ADMIN-only: bloqueia acesso direto por URL para não-ADMIN
+$admin_only_export = ['history', 'technician', 'entity', 'components', 'avg_time'];
+if (in_array($mode, $admin_only_export, true) && !$can_admin_exp) {
+    Session::checkRight('plugin_assetmgrstatus_admin', READ);
+}
+
 $assets_entity_param = $has_explicit_entity ? $entity_id : null;
 $assets    = MaintenanceRecord::getAssets($type, '', $status, [], [], $assets_entity_param);
 $asset_ids = array_column($assets, 'id');

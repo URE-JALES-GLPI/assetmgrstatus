@@ -31,7 +31,6 @@ $alert_list = Stats::getAlertAssets($entity_id);
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
             </button>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&entity=<?= $entity_id ?>" class="am-btn am-btn-secondary" style="padding:8px 16px;font-size:.85rem;"><i class="ti ti-file-spreadsheet"></i> Excel</a>
         </div>
     </div>
 

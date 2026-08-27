@@ -16,13 +16,21 @@ $report_mode    = $_GET['mode']   ?? 'assets';
 $period_start   = $_GET['period_start'] ?? '';
 $period_end     = $_GET['period_end']   ?? '';
 
+$can_admin   = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+
+// Restringe modos ADMIN-only: somente Lista de Ativos e Relatório Mensal para todos
+$admin_only_modes = ['history', 'technician', 'entity', 'components', 'avg_time'];
+if (!$can_admin && in_array($report_mode, $admin_only_modes, true)) {
+    // Bloqueia acesso direto por URL — redireciona para modo público
+    $report_mode = 'assets';
+}
+
 Html::header('Relatórios — Inventário', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'reports');
 
 $types       = MaintenanceRecord::getAssetTypes();
 $status_opts = MaintenanceRecord::getStatusOptions();
 $entity_id   = Session::getActiveEntity();
 $comp_list   = MaintenanceRecord::getComponents();
-$can_admin   = Session::haveRight('plugin_assetmgrstatus_admin', READ);
 
 // Dados base - filtrado pela entidade ativa (Session::getActiveEntity)
 $preview_assets = MaintenanceRecord::getAssets($filter_type, '', $filter_status);
@@ -105,6 +113,9 @@ $preview_count = match($report_mode) {
                         ['entity' => ['icon' => 'ti-building-community','title' => 'Por Entidade', 'desc' => 'Consolidado por entidade (ADMIN)', 'color' => '#059669']],
                         array_slice($modes, 3, null, true)
                     );
+                } else {
+                    // Não-ADMIN vê apenas Lista de Ativos e Relatório Mensal
+                    $modes = array_intersect_key($modes, array_flip(['assets', 'mensal']));
                 }
                 foreach ($modes as $key => $def):
                 ?>
@@ -406,8 +417,8 @@ elseif (in_array($report_mode, ['history','technician','components','avg_time'])
                 <a href="?mode=assets&type=&status=<?= MaintenanceRecord::STATUS_MANUTENCAO ?>" class="am-quick-report-card"><i class="ti ti-tools" style="color:#c2410c;"></i><strong>Em Manutenção</strong><small>Qualquer tipo</small></a>
                 <a href="?mode=assets&type=&status=<?= MaintenanceRecord::STATUS_INSERVIVEL ?>" class="am-quick-report-card"><i class="ti ti-package-off" style="color:#991b1b;"></i><strong>Inservíveis</strong><small>Candidatos à baixa</small></a>
                 <a href="?mode=assets&type=&status=<?= MaintenanceRecord::STATUS_ESTOQUE ?>" class="am-quick-report-card"><i class="ti ti-box" style="color:#6d28d9;"></i><strong>Em Estoque</strong><small>Disponíveis</small></a>
-                <a href="?mode=components" class="am-quick-report-card"><i class="ti ti-cpu" style="color:#dc2626;"></i><strong>Componentes</strong><small>Ver ranking</small></a>
                 <?php if ($can_admin): ?>
+                <a href="?mode=components" class="am-quick-report-card"><i class="ti ti-cpu" style="color:#dc2626;"></i><strong>Componentes</strong><small>Ver ranking</small></a>
                 <a href="?mode=entity" class="am-quick-report-card"><i class="ti ti-building-community" style="color:#059669;"></i><strong>Por Entidade</strong><small>Consolidado (ADMIN)</small></a>
                 <?php endif; ?>
             </div>

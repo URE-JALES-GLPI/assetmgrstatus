@@ -189,17 +189,6 @@ if ($can_admin_entity) {
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
             </button>
-            <?php
-            $export_qs = http_build_query(['type' => $filter_type, 'status' => $filter_status]);
-            if ($can_admin_entity && !empty($filter_entity)) {
-                foreach ($filter_entity as $ee) $export_qs .= '&entity%5B%5D=' . (int)$ee;
-                if ($filter_entity_recursive) $export_qs .= '&entity_recursive=1';
-            }
-            ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&<?= $export_qs ?>"
-               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
-                <i class="ti ti-file-spreadsheet"></i> Excel
-            </a>
             <div style="font-size:.85rem;color:#9ca3af;"><?= $paged['total'] ?> ativo(s)</div>
         </div>
     </div>
