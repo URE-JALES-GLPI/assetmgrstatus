@@ -20,13 +20,18 @@ $alert_list = Stats::getAlertAssets($entity_id);
 <div class="container-fluid am-page">
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-dashboard"></i><h2>Dashboard — Inventário de Ativos</h2></div>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:10px;align-items:center;">
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-clipboard-list"></i> Inventário</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/reports.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-report"></i> Relatórios</a>
+            <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>
+            <?php endif; ?>
+            <a href="http://10.180.152.27/glpi/plugins/cadastroativos/Cadastro" target="_blank" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-plus"></i> Cadastrar</a>
             <button id="am-theme-btn" onclick="amToggleTheme()"
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
             </button>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&entity=<?= $entity_id ?>" class="am-btn am-btn-secondary" style="padding:8px 16px;font-size:.85rem;"><i class="ti ti-file-spreadsheet"></i> Exportar Excel</a>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-primary" style="padding:8px 16px;font-size:.85rem;"><i class="ti ti-clipboard-list"></i> Inventário</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/export.php?format=excel&entity=<?= $entity_id ?>" class="am-btn am-btn-secondary" style="padding:8px 16px;font-size:.85rem;"><i class="ti ti-file-spreadsheet"></i> Excel</a>
         </div>
     </div>
 

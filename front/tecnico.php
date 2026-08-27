@@ -34,6 +34,18 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-tools"></i><h2>Painel do Técnico</h2></div>
         <div style="display:flex;gap:8px;align-items:center;">
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/dashboard.php"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-dashboard"></i> Dashboard
+            </a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/reports.php"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-report"></i> Relatórios
+            </a>
+            <a href="http://10.180.152.27/glpi/plugins/cadastroativos/Cadastro" target="_blank"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-plus"></i> Cadastrar
+            </a>
             <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
                 <i class="ti ti-refresh"></i> Atualizar
             </button>

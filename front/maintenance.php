@@ -181,6 +181,10 @@ if ($can_admin_entity) {
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-report"></i> Relatórios
             </a>
+            <a href="http://10.180.152.27/glpi/plugins/cadastroativos/Cadastro" target="_blank"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-plus"></i> Cadastrar
+            </a>
             <button id="am-theme-btn" onclick="amToggleTheme()"
                 class="am-btn am-btn-secondary" style="padding:8px 12px;font-size:.82rem;" title="Alternar tema claro/escuro">
                 <i class="ti ti-moon"></i>
