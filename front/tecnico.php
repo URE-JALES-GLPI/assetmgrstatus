@@ -1065,8 +1065,11 @@ function amSetView(view){
 }
 document.addEventListener('DOMContentLoaded', function(){
   try{
-    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'kanban';
+    var v=new URLSearchParams(window.location.search).get('view') || 'kanban';
     amSetView(v==='kanban'?'kanban':'grid');
+    // força kanban como padrão visual tipo Trello
+    document.getElementById('am-grid-view').style.display='none';
+    document.getElementById('am-kanban-view').style.display='block';
   }catch(e){}
 });
 </script>
