@@ -1,12 +1,29 @@
 <?php
 // Front handler para impressão na HP (CUPS do servidor Ubuntu)
 // Envia o PDF assinado para fila de impressão via lp/lpr
+// Fix 403 GLPI: copia token do header/JSON para $_POST antes do include (inc/includes.php valida CSRF via $_POST)
+if (isset($_SERVER['HTTP_X_GLPI_CSRF_TOKEN']) && !isset($_POST['_glpi_csrf_token']) && !isset($_GET['_glpi_csrf_token'])) {
+    $_POST['_glpi_csrf_token'] = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
+    $_REQUEST['_glpi_csrf_token'] = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+    $raw_pre = file_get_contents('php://input');
+    if ($raw_pre) {
+        $tmp_pre = json_decode($raw_pre, true);
+        if (is_array($tmp_pre) && isset($tmp_pre['_glpi_csrf_token']) && !isset($_POST['_glpi_csrf_token'])) {
+            $_POST['_glpi_csrf_token'] = $tmp_pre['_glpi_csrf_token'];
+            $_REQUEST['_glpi_csrf_token'] = $tmp_pre['_glpi_csrf_token'];
+        }
+        // preserva raw para uso posterior (evita esvaziar php://input)
+        $GLOBALS['_am_print_raw'] = $raw_pre;
+    }
+}
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
-header('Content-Type: application/json; charset=UTF-8');
 
 try {
     include('../../../inc/includes.php');
+    if (!headers_sent()) header('Content-Type: application/json; charset=UTF-8');
 
     if (isset($_GET['ping'])) {
         $printers = \GlpiPlugin\Assetmgrstatus\Transfer::getAvailablePrinters();
@@ -30,10 +47,12 @@ try {
         exit;
     }
 
-    // Aceita JSON ou form-encoded
-    $raw = file_get_contents('php://input');
+    // Aceita JSON ou form-encoded (usa raw já capturado antes do include se houver)
+    $raw = $GLOBALS['_am_print_raw'] ?? file_get_contents('php://input');
     $data = json_decode($raw, true);
     if (!$data) $data = $_POST;
+    // também aceita token via GET
+    if (empty($data) && !empty($_GET)) $data = array_merge($data ?: [], $_GET);
     if (isset($data['payload']) && is_string($data['payload'])) {
         $tmp = json_decode($data['payload'], true);
         if ($tmp) $data = $tmp;

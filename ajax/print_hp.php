@@ -1,11 +1,27 @@
 <?php
 // Ajax handler para impressão na HP (compatibilidade — espelho de front/print_hp.form.php)
+// Fix 403 GLPI: copia token do header/JSON para $_POST antes do include
+if (isset($_SERVER['HTTP_X_GLPI_CSRF_TOKEN']) && !isset($_POST['_glpi_csrf_token']) && !isset($_GET['_glpi_csrf_token'])) {
+    $_POST['_glpi_csrf_token'] = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
+    $_REQUEST['_glpi_csrf_token'] = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && strpos($_SERVER['CONTENT_TYPE'] ?? '', 'application/json') !== false) {
+    $raw_pre = file_get_contents('php://input');
+    if ($raw_pre) {
+        $tmp_pre = json_decode($raw_pre, true);
+        if (is_array($tmp_pre) && isset($tmp_pre['_glpi_csrf_token']) && !isset($_POST['_glpi_csrf_token'])) {
+            $_POST['_glpi_csrf_token'] = $tmp_pre['_glpi_csrf_token'];
+            $_REQUEST['_glpi_csrf_token'] = $tmp_pre['_glpi_csrf_token'];
+        }
+        $GLOBALS['_am_print_raw'] = $raw_pre;
+    }
+}
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
-header('Content-Type: application/json; charset=UTF-8');
 
 try {
     include('../../../inc/includes.php');
+    if (!headers_sent()) header('Content-Type: application/json; charset=UTF-8');
 
     if (($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'HEAD') && isset($_GET['ping'])) {
         $printers = \GlpiPlugin\Assetmgrstatus\Transfer::getAvailablePrinters();
@@ -32,9 +48,10 @@ try {
         exit;
     }
 
-    $raw = file_get_contents('php://input');
+    $raw = $GLOBALS['_am_print_raw'] ?? file_get_contents('php://input');
     $data = json_decode($raw, true);
     if (!$data) $data = $_POST;
+    if (empty($data) && !empty($_GET)) $data = array_merge($data ?: [], $_GET);
     if (isset($data['payload']) && is_string($data['payload'])) {
         $tmp = json_decode($data['payload'], true);
         if ($tmp) $data = $tmp;
