@@ -546,8 +546,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     $sKey = $stage['status'];
                     $sLabel = $stage['label'];
                     $sColor = $stage['color'];
-                    // Para AGUARDANDO PEGAR, mostra os mesmos PRONTO mas com ação de assinatura
-                    $colCards = array_values(array_filter($combined_page, function($it) use ($stageKey, $sKey){
+                    // Kanban mostra todos os cards filtrados (sem paginação) - diferente da grade paginada
+                    $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $sKey){
                         if ($it['type']!=='transfer') return false;
                         if ($it['data']['status']!==$sKey) return false;
                         // Diferencia CONCLUÍDO vs AGUARDANDO pela assinatura
@@ -602,7 +602,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             <?php endforeach; ?>
         </div>
         <?php if ($filter_tipo!=='transfer'): 
-            $ticketsForKanban = array_values(array_filter($combined_page, fn($it)=>$it['type']==='ticket'));
+            $ticketsForKanban = array_values(array_filter($combined, fn($it)=>$it['type']==='ticket'));
         ?>
         <h3 style="margin:20px 0 12px;font-size:1rem;font-weight:800;color:#1e1b4b;display:flex;align-items:center;gap:8px;"><i class="ti ti-ticket" style="color:#4f46e5;"></i> Chamados <span style="font-weight:400;color:#9ca3af;font-size:.85rem;">por categoria</span></h3>
         <div class="am-kanban" id="am-kanban-tickets">
