@@ -534,13 +534,35 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <!-- Kanban View (por etapa) -->
     <div id="am-kanban-view" style="display:none;">
         <div class="am-kanban">
-            <?php foreach (Transfer::getStatusOptions() as $sKey => $sLabel):
-                $colCards = array_values(array_filter($combined_page, fn($it) => $it['type']==='transfer' && $it['data']['status']===$sKey));
-                if ($filter_tipo==='ticket') continue;
+            <?php
+                $kanbanStages = [
+                    'pendente'   => ['label'=>'PENDENTE', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PENDENTE), 'status'=>Transfer::STATUS_PENDENTE],
+                    'pego'       => ['label'=>'PEGO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_MANUTENCAO), 'status'=>Transfer::STATUS_MANUTENCAO],
+                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PRONTO), 'status'=>Transfer::STATUS_PRONTO],
+                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'status'=>Transfer::STATUS_PRONTO, 'desc'=>'Assinar finaliza'],
+                    'finalizado' => ['label'=>'FINALIZADO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_FINALIZADO), 'status'=>Transfer::STATUS_FINALIZADO],
+                ];
+                foreach ($kanbanStages as $stageKey=>$stage):
+                    $sKey = $stage['status'];
+                    $sLabel = $stage['label'];
+                    $sColor = $stage['color'];
+                    // Para AGUARDANDO PEGAR, mostra os mesmos PRONTO mas com ação de assinatura
+                    $colCards = array_values(array_filter($combined_page, function($it) use ($stageKey, $sKey){
+                        if ($it['type']!=='transfer') return false;
+                        if ($it['data']['status']!==$sKey) return false;
+                        // Diferencia CONCLUÍDO vs AGUARDANDO pela assinatura
+                        if ($stageKey==='concluido' && !empty($it['data']['assinatura_image'])) return false;
+                        if ($stageKey==='aguardando' && empty($it['data']['assinatura_image'])) return false;
+                        // Para PENDENTE/PEGO/FINALIZADO mostra direto
+                        if (in_array($stageKey, ['pendente','pego','finalizado'])) return true;
+                        return true;
+                    }));
+                    if ($filter_tipo==='ticket') continue;
+                    if ($stageKey==='aguardando' && $filter_status!=='' && $filter_status!==Transfer::STATUS_PRONTO) continue;
             ?>
             <div class="am-kanban-column">
-                <div class="am-kanban-header" style="border-top:4px solid <?= Transfer::getStatusColor($sKey) ?>;">
-                    <span><?= htmlspecialchars($sLabel) ?></span><span class="am-kanban-count"><?= count($colCards) ?></span>
+                <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;">
+                    <span><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?></span><span class="am-kanban-count"><?= count($colCards) ?></span>
                 </div>
                 <div class="am-kanban-body">
                     <?php foreach ($colCards as $item): $t = $item['data'];
@@ -1043,7 +1065,7 @@ function amSetView(view){
 }
 document.addEventListener('DOMContentLoaded', function(){
   try{
-    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'grid';
+    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'kanban';
     amSetView(v==='kanban'?'kanban':'grid');
   }catch(e){}
 });
