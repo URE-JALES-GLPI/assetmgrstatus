@@ -207,6 +207,27 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     }
 
+    // -------------------------------------------------------
+    // 7. tecnicos — catálogo de assinaturas de técnicos (reuso no termo)
+    // -------------------------------------------------------
+    if (!$DB->tableExists('glpi_plugin_assetmgrstatus_tecnicos')) {
+        $DB->doQuery("
+            CREATE TABLE `glpi_plugin_assetmgrstatus_tecnicos` (
+                `id`            INT {$sign} NOT NULL AUTO_INCREMENT,
+                `name`          VARCHAR(255) NOT NULL DEFAULT '',
+                `document_type` VARCHAR(10)  DEFAULT NULL,
+                `document`      VARCHAR(20)  DEFAULT NULL,
+                `image`         LONGTEXT     DEFAULT NULL,
+                `users_id`      INT {$sign} NOT NULL DEFAULT '0',
+                `is_active`     TINYINT      NOT NULL DEFAULT 1,
+                `date_creation` DATETIME     DEFAULT NULL,
+                `date_mod`      DATETIME     DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `is_active` (`is_active`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
+        ") or die($DB->error());
+    }
+
     return true;
 }
 
@@ -282,6 +303,7 @@ function plugin_assetmgrstatus_uninstall(): bool
         'glpi_plugin_assetmgrstatus_transfer_items',
         'glpi_plugin_assetmgrstatus_views',
         'glpi_plugin_assetmgrstatus_transfer_history',
+        'glpi_plugin_assetmgrstatus_tecnicos',
     ] as $table) {
         if ($DB->tableExists($table)) {
             $DB->doQuery("DROP TABLE `{$table}`");

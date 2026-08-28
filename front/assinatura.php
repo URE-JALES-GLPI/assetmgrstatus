@@ -93,8 +93,25 @@ if (!empty($__am_ids)) {
     <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
         <i class="ti ti-info-circle" style="font-size:1.5rem;color:#1a73b5;"></i>
         <div style="font-size:.85rem;color:#1e3a5f;line-height:1.4;">
-            <strong>Tablet / Celular — 2 etapas:</strong> toque no <strong style="color:#92400e;">Pendente</strong> → <strong>1. Recebedor:</strong> escolha <strong>RG/CPF</strong> → teclado → assine → <strong>Próximo</strong> → <strong>2. Técnico:</strong> repita RG/CPF + teclado + assinatura. As duas ficam no termo.
+            <strong>Fluxo novo:</strong> cadastre <strong>Técnicos</strong> abaixo (nome+RG/CPF+assinatura) → na hora de assinar, <strong>selecione o Técnico</strong> → colete só <strong>Recebedor</strong> (nome → RG/CPF → número → assinatura).
         </div>
+    </div>
+
+    <!-- Técnicos cadastrados -->
+    <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <span style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;"><i class="ti ti-users" style="font-size:1.1rem;"></i></span>
+                <div>
+                    <div style="font-weight:800;color:#1e1b4b;">Técnicos Cadastrados</div>
+                    <div style="font-size:.78rem;color:#9ca3af;"><span id="am-tec-count">0</span> técnico(s) • usado para preencher "Responsável pela Entrega"</div>
+                </div>
+            </div>
+            <button type="button" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:9px 16px;" onclick="amOpenTecCadastroModal()"><i class="ti ti-plus"></i> Cadastrar Técnico</button>
+        </div>
+        <div id="am-tec-list" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;"></div>
+        <div id="am-tec-empty" style="display:none;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-user-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhum técnico cadastrado. Clique em Cadastrar Técnico.</div>
+        <div id="am-tec-loading" style="text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Carregando técnicos...</div>
     </div>
 
     <div class="am-filters-bar" style="margin-bottom:20px;">
@@ -197,13 +214,32 @@ if (!empty($__am_ids)) {
             <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura do Termo</span></div>
             <button class="am-modal-close" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i></button>
         </div>
-        <!-- Progresso 2 etapas -->
+        <!-- Progresso 2 etapas: Técnico (seleção) + Recebedor -->
         <div style="background:#f0f2f8;border-bottom:1px solid #e8eaf0;padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:.78rem;">
             <div style="display:flex;align-items:center;gap:6px;flex:1;">
-                <span id="am-sig-prog-rec" style="display:flex;align-items:center;gap:5px;background:#4f46e5;color:#fff;padding:4px 10px;border-radius:99px;font-weight:700;"><i class="ti ti-user"></i> 1. Recebedor</span>
+                <span id="am-sig-prog-tec" style="display:flex;align-items:center;gap:5px;background:#4f46e5;color:#fff;padding:4px 10px;border-radius:99px;font-weight:700;"><i class="ti ti-tool"></i> 1. Técnico</span>
                 <span style="flex:1;height:2px;background:#e8eaf0;border-radius:99px;overflow:hidden;"><span id="am-sig-prog-bar" style="display:block;height:100%;width:0%;background:#4f46e5;transition:width .3s;"></span></span>
-                <span id="am-sig-prog-tec" style="display:flex;align-items:center;gap:5px;background:#e8eaf0;color:#9ca3af;padding:4px 10px;border-radius:99px;font-weight:700;"><i class="ti ti-tool"></i> 2. Técnico</span>
+                <span id="am-sig-prog-rec" style="display:flex;align-items:center;gap:5px;background:#e8eaf0;color:#9ca3af;padding:4px 10px;border-radius:99px;font-weight:700;"><i class="ti ti-user"></i> 2. Recebedor</span>
             </div>
+        </div>
+
+        <!-- Step Select Técnico -->
+        <div id="am-sig-step-select-tec" class="am-modal-body" style="display:block;">
+            <div style="text-align:center;margin-bottom:12px;">
+                <div style="display:inline-flex;align-items:center;gap:5px;background:#4f46e5;color:#fff;padding:3px 10px;border-radius:99px;font-size:.70rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;"><i class="ti ti-tool"></i> TÉCNICO</div>
+                <div style="font-weight:800;font-size:1rem;color:#1e1b4b;">Selecione o técnico</div>
+                <div style="font-size:.82rem;color:#6b7280;">O técnico selecionado preencherá o termo automaticamente</div>
+            </div>
+            <div id="am-sig-tec-select-list" style="display:grid;gap:10px;max-height:280px;overflow-y:auto;"></div>
+            <div id="am-sig-tec-select-empty" style="display:none;text-align:center;color:#9ca3af;padding:16px;font-size:.85rem;"><i class="ti ti-user-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhum técnico cadastrado.<br>Cadastre o primeiro técnico.</div>
+            <div id="am-sig-tec-select-loading" style="text-align:center;color:#9ca3af;padding:12px;font-size:.85rem;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Carregando...</div>
+            <button type="button" class="am-btn am-btn-secondary" style="width:100%;margin-top:12px;" onclick="amOpenTecCadastroModal(true)"><i class="ti ti-plus"></i> Cadastrar novo técnico</button>
+            <div id="am-sig-tec-selected-preview" style="display:none;margin-top:12px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px 12px;">
+                <div style="font-size:.75rem;font-weight:700;color:#065f46;">✓ Técnico selecionado</div>
+                <div style="font-size:.82rem;color:#1e1b4b;" id="am-sig-tec-selected-name">—</div>
+                <div style="font-size:.75rem;color:#6b7280;" id="am-sig-tec-selected-doc">—</div>
+            </div>
+            <button type="button" id="am-sig-tec-next-btn" class="am-btn" style="display:none;width:100%;margin-top:12px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:12px;" onclick="amSigConfirmTecSelection()"><i class="ti ti-arrow-right"></i> Confirmar técnico e ir para Recebedor →</button>
         </div>
 
         <!-- Step Nome -->
@@ -316,8 +352,55 @@ if (!empty($__am_ids)) {
 
         <div id="am-sig-footer" class="am-modal-footer" style="display:none;">
             <button type="button" id="am-sig-next-num-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amSigConfirmNum()"><i class="ti ti-arrow-right"></i> Próximo: Assinatura →</button>
-            <button type="button" id="am-sig-next-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amSigNextToTecnico()"><i class="ti ti-arrow-right"></i> Próximo: Técnico →</button>
-            <button type="button" id="am-sig-save-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;" onclick="amSigSave()"><i class="ti ti-device-floppy"></i> Confirmar e Assinar (2 assinaturas)</button>
+            <button type="button" id="am-sig-save-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;" onclick="amSigSave()"><i class="ti ti-device-floppy"></i> Confirmar e Assinar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cadastro Técnico -->
+<div id="am-modal-tec-cadastro" class="am-modal-overlay" style="z-index:10002;">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:540px;max-height:92vh;display:flex;flex-direction:column;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#059669,#10b981);">
+            <div class="am-modal-title"><i class="ti ti-user-plus"></i><span id="am-tec-cad-title">Cadastrar Técnico</span></div>
+            <button class="am-modal-close" onclick="amCloseTecCadastroModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div id="am-tec-cad-step-nome" class="am-modal-body" style="display:block;">
+            <label class="am-form-label">Nome do técnico <span class="am-required">*</span></label>
+            <input type="text" id="am-tec-cad-nome" class="am-input" placeholder="Ex: João da Silva" style="font-size:1.05rem;" autocomplete="off">
+            <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 12px;font-size:.78rem;color:#065f46;margin:12px 0;"><i class="ti ti-info-circle"></i> Nome como aparecerá no termo.</div>
+            <button type="button" class="am-btn" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:#fff;padding:12px;" onclick="amTecCadNextNome()"><i class="ti ti-arrow-right"></i> Próximo: Documento</button>
+        </div>
+        <div id="am-tec-cad-step-doc" class="am-modal-body" style="display:none;">
+            <div style="text-align:center;margin-bottom:12px;"><div style="font-weight:800;color:#1e1b4b;">Tipo de documento</div><div style="font-size:.82rem;color:#6b7280;">Escolha RG ou CPF do técnico</div></div>
+            <div class="am-doc-choice">
+                <button type="button" class="am-doc-btn" data-tec-doc="RG" onclick="amTecCadChooseDoc('RG')"><i class="ti ti-id" style="font-size:1.6rem;"></i> RG<small>5-12 dígitos</small></button>
+                <button type="button" class="am-doc-btn" data-tec-doc="CPF" onclick="amTecCadChooseDoc('CPF')"><i class="ti ti-id-badge-2" style="font-size:1.6rem;"></i> CPF<small>11 dígitos</small></button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amTecCadBackToNome()"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amCloseTecCadastroModal()"><i class="ti ti-x"></i> Cancelar</button></div>
+        </div>
+        <div id="am-tec-cad-step-num" class="am-modal-body" style="display:none;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><span id="am-tec-cad-doc-badge" style="background:#059669;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span><span style="font-size:.82rem;color:#6b7280;" id="am-tec-cad-nome-preview">—</span></div>
+            <label class="am-form-label">Número do documento <span class="am-required">*</span> (<span id="am-tec-cad-doc-hint">11 dígitos</span>)</label>
+            <div id="am-tec-cad-display" class="am-sig-display empty">Toque no teclado</div>
+            <input type="hidden" id="am-tec-cad-doc-value">
+            <div class="am-numpad">
+                <button type="button" onclick="amTecCadPress('1')">1</button><button type="button" onclick="amTecCadPress('2')">2</button><button type="button" onclick="amTecCadPress('3')">3</button>
+                <button type="button" onclick="amTecCadPress('4')">4</button><button type="button" onclick="amTecCadPress('5')">5</button><button type="button" onclick="amTecCadPress('6')">6</button>
+                <button type="button" onclick="amTecCadPress('7')">7</button><button type="button" onclick="amTecCadPress('8')">8</button><button type="button" onclick="amTecCadPress('9')">9</button>
+                <button type="button" class="am-numpad-del" onclick="amTecCadPress('del')"><i class="ti ti-backspace"></i></button><button type="button" onclick="amTecCadPress('0')">0</button><button type="button" class="am-numpad-action" onclick="amTecCadConfirmNum()"><i class="ti ti-check"></i></button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amTecCadClear()"><i class="ti ti-trash"></i> Limpar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amTecCadBackspace()"><i class="ti ti-backspace"></i> Apagar</button></div>
+            <div style="display:flex;gap:8px;margin-top:12px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amTecCadBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amTecCadConfirmNum()"><i class="ti ti-arrow-right"></i> Próximo: Assinatura</button></div>
+        </div>
+        <div id="am-tec-cad-step-canvas" class="am-modal-body" style="display:none;flex:1;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-weight:700;color:#1e1b4b;font-size:.85rem;" id="am-tec-cad-canvas-preview">—</span><span id="am-tec-cad-canvas-doc" style="font-size:.75rem;color:#6b7280;">—</span></div>
+            <label class="am-form-label" style="margin-bottom:6px;">Assinatura do técnico <span class="am-required">*</span></label>
+            <div class="am-sig-canvas-wrap" style="flex:1;min-height:200px;"><canvas id="am-tec-cad-canvas" class="am-sig-canvas" style="height:100%;min-height:220px;"></canvas></div>
+            <div class="am-sig-hint">Desenhe com dedo/caneta.</div>
+            <div style="display:flex;gap:8px;margin-top:10px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amTecCadClearCanvas()"><i class="ti ti-eraser"></i> Limpar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amCloseTecCadastroModal()"><i class="ti ti-x"></i> Cancelar</button></div>
+        </div>
+        <div id="am-tec-cad-footer" class="am-modal-footer" style="display:none;">
+            <button type="button" id="am-tec-cad-save-btn" class="am-btn" style="flex:1;background:linear-gradient(135deg,#059669,#10b981);color:#fff;" onclick="amTecCadSave()"><i class="ti ti-device-floppy"></i> Salvar Técnico</button>
         </div>
     </div>
 </div>
@@ -327,18 +410,20 @@ const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
 let amSigTransferId = 0;
 let amSigDocType = '';
 let amSigDocNumber = '';
-let amSigStage = 'rec_nome'; // rec_nome | rec_doc | rec_num | rec_canvas | tec_nome | tec_doc | tec_num | tec_canvas
+let amSigStage = 'select_tec'; // select_tec | rec_nome | rec_doc | rec_num | rec_canvas
 let amSigRecDocType = '', amSigRecDocNumber = '', amSigRecNome = '', amSigRecImage = '';
-let amSigTecDocType = '', amSigTecDocNumber = '', amSigTecNome = '', amSigTecImage = '';
+let amSigSelectedTecId = 0, amSigSelectedTecData = null;
+let amSigTecCache = [];
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
 function amOpenAssinaturaModal(transferId) {
     amSigTransferId = transferId;
     amSigDocType = ''; amSigDocNumber = ''; amSigHasDrawn = false;
     amSigRecDocType=''; amSigRecDocNumber=''; amSigRecNome=''; amSigRecImage='';
-    amSigTecDocType=''; amSigTecDocNumber=''; amSigTecNome=''; amSigTecImage='';
-    amSigStage='rec_nome';
-    document.getElementById('am-sig-step-nome').style.display = 'block';
+    amSigSelectedTecId=0; amSigSelectedTecData=null;
+    amSigStage='select_tec';
+    document.getElementById('am-sig-step-select-tec').style.display = 'block';
+    document.getElementById('am-sig-step-nome').style.display = 'none';
     document.getElementById('am-sig-step1').style.display = 'none';
     document.getElementById('am-sig-step-num').style.display = 'none';
     document.getElementById('am-sig-step-canvas').style.display = 'none';
@@ -350,12 +435,15 @@ function amOpenAssinaturaModal(transferId) {
     document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0');
     document.getElementById('am-sig-doc-value').value = '';
     document.getElementById('am-sig-nome').value = '';
+    // reseta seleção visual
+    const selPrev=document.getElementById('am-sig-tec-selected-preview'); if(selPrev) selPrev.style.display='none';
+    const nextTec=document.getElementById('am-sig-tec-next-btn'); if(nextTec) nextTec.style.display='none';
     amSigUpdateStageUI();
     amSigUpdateDisplay();
     setTimeout(()=>amSigClearCanvas(), 80);
     document.getElementById('am-modal-assinatura').classList.add('open');
     document.body.style.overflow = 'hidden';
-    setTimeout(()=>{ document.getElementById('am-sig-nome').focus(); }, 250);
+    amLoadTecSelectList();
     setTimeout(amSigInitCanvas, 120);
 }
 function amToggleAssets(id){
@@ -369,10 +457,22 @@ function amCloseAssinaturaModal() {
     document.body.style.overflow = '';
 }
 function amSigUpdateStageUI(){
-    const isRec = amSigStage.startsWith('rec');
     const progRec = document.getElementById('am-sig-prog-rec');
     const progTec = document.getElementById('am-sig-prog-tec');
     const progBar = document.getElementById('am-sig-prog-bar');
+    const widths = {select_tec:'0%', rec_nome:'20%', rec_doc:'40%', rec_num:'65%', rec_canvas:'85%'};
+    if(progBar) progBar.style.width = widths[amSigStage] || '0%';
+    // progress colors: select_tec => tec active, rec stages => tec done + rec active
+    const isSelectTec = amSigStage==='select_tec';
+    const isRec = amSigStage.startsWith('rec');
+    if(isSelectTec){
+        if(progTec) { progTec.style.background='#4f46e5'; progTec.style.color='#fff'; }
+        if(progRec) { progRec.style.background='#e8eaf0'; progRec.style.color='#9ca3af'; }
+    } else if(isRec){
+        if(progTec) { progTec.style.background='#d1fae5'; progTec.style.color='#065f46'; }
+        if(progRec) { progRec.style.background='#4f46e5'; progRec.style.color='#fff'; }
+    }
+    // badges for nome/doc/canvas steps (only rec now)
     const badgeNome = document.getElementById('am-sig-nome-badge-text');
     const nomeTitle = document.getElementById('am-sig-nome-title');
     const nomeSub = document.getElementById('am-sig-nome-sub');
@@ -382,84 +482,131 @@ function amSigUpdateStageUI(){
     const stepTitle = document.getElementById('am-sig-step1-title');
     const stepSub = document.getElementById('am-sig-step1-sub');
     const stepInfo = document.getElementById('am-sig-step1-info');
-    const backWrap = document.getElementById('am-sig-step1-back-wrap');
-    const widths = {rec_nome:'0%', rec_doc:'12%', rec_num:'30%', rec_canvas:'45%', tec_nome:'50%', tec_doc:'62%', tec_num:'78%', tec_canvas:'92%'};
-    if(progBar) progBar.style.width = widths[amSigStage] || '0%';
-    // badges cores
     const stageBadges = ['am-sig-stage-badge-num','am-sig-stage-badge-canvas'];
     const docBadges = ['am-sig-doc-badge','am-sig-doc-badge-canvas'];
-    if(isRec){
-        if(progRec) { progRec.style.background='#4f46e5'; progRec.style.color='#fff'; }
-        if(progTec) { progTec.style.background='#e8eaf0'; progTec.style.color='#9ca3af'; }
-        if(badgeNome) badgeNome.textContent='RECEBEDOR';
-        if(nomeTitle) nomeTitle.textContent='Nome do recebedor';
-        if(nomeSub) nomeSub.textContent='Quem está recebendo os equipamentos';
-        if(nomeInfo) nomeInfo.innerHTML='Digite o nome do <strong>recebedor</strong> antes de escolher o documento.';
-        if(nomeBackWrap) nomeBackWrap.style.display='none';
-        if(badgeText) badgeText.textContent='RECEBEDOR';
-        if(stepTitle) stepTitle.textContent='Documento do recebedor';
-        if(stepSub) stepSub.textContent='Escolha o tipo de documento do recebedor';
-        if(stepInfo) stepInfo.innerHTML='Documento do <strong>recebedor</strong> será impresso no termo.';
-        if(backWrap) backWrap.style.display='none';
-        stageBadges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent='RECEBEDOR'; el.style.background='#4f46e5'; }});
-        docBadges.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.background='#4f46e5'; });
-        const lbl = document.getElementById('am-sig-canvas-label'); if(lbl) lbl.textContent='do recebedor';
-        const hint = document.getElementById('am-sig-step1-hint'); if(hint) hint.textContent='Selecione RG ou CPF do recebedor';
-    } else {
-        if(progRec) { progRec.style.background='#d1fae5'; progRec.style.color='#065f46'; }
-        if(progTec) { progTec.style.background='#4f46e5'; progTec.style.color='#fff'; }
-        if(badgeNome) badgeNome.textContent='TÉCNICO';
-        if(nomeTitle) nomeTitle.textContent='Nome do técnico';
-        if(nomeSub) nomeSub.textContent='Quem está entregando / responsável técnico';
-        if(nomeInfo) nomeInfo.innerHTML='Digite o nome do <strong>técnico</strong>.';
-        if(nomeBackWrap) nomeBackWrap.style.display='block';
-        if(badgeText) badgeText.textContent='TÉCNICO';
-        if(stepTitle) stepTitle.textContent='Documento do técnico';
-        if(stepSub) stepSub.textContent='Escolha o tipo de documento do técnico';
-        if(stepInfo) stepInfo.innerHTML='Documento do <strong>técnico</strong> será impresso no termo.';
-        if(backWrap) backWrap.style.display='block';
-        stageBadges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent='TÉCNICO'; el.style.background='#059669'; }});
-        docBadges.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.background='#059669'; });
-        const lbl = document.getElementById('am-sig-canvas-label'); if(lbl) lbl.textContent='do técnico';
-        const hint = document.getElementById('am-sig-step1-hint'); if(hint) hint.textContent='Selecione RG ou CPF do técnico';
-    }
+    // todos rec
+    if(badgeNome) badgeNome.textContent='RECEBEDOR';
+    if(nomeTitle) nomeTitle.textContent='Nome do recebedor';
+    if(nomeSub) nomeSub.textContent='Quem está recebendo os equipamentos';
+    if(nomeInfo) nomeInfo.innerHTML='Digite o nome do <strong>recebedor</strong> antes de escolher o documento.';
+    if(badgeText) badgeText.textContent='RECEBEDOR';
+    if(stepTitle) stepTitle.textContent='Documento do recebedor';
+    if(stepSub) stepSub.textContent='Escolha o tipo de documento do recebedor';
+    if(stepInfo) stepInfo.innerHTML='Documento do <strong>recebedor</strong> será impresso no termo.';
+    stageBadges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent='RECEBEDOR'; el.style.background='#4f46e5'; }});
+    docBadges.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.background='#4f46e5'; });
+    const lbl = document.getElementById('am-sig-canvas-label'); if(lbl) lbl.textContent='do recebedor';
+    const hint = document.getElementById('am-sig-step1-hint'); if(hint) hint.textContent='Selecione RG ou CPF do recebedor';
+    if(nomeBackWrap) nomeBackWrap.style.display='none'; // rec não volta para nada
     const hintEl = document.getElementById('am-sig-step1-hint'); if(hintEl) hintEl.style.color='#9ca3af';
-    // previews nome/doc
     const previewNum = document.getElementById('am-sig-step-num-nome-preview');
     const previewCanvasNome = document.getElementById('am-sig-canvas-nome-preview');
     const previewCanvasDoc = document.getElementById('am-sig-canvas-doc-preview');
-    const curNome = isRec ? amSigRecNome : amSigTecNome;
-    if(previewNum) previewNum.textContent = curNome || '—';
-    if(previewCanvasNome) previewCanvasNome.textContent = curNome || '—';
+    if(previewNum) previewNum.textContent = amSigRecNome || '—';
+    if(previewCanvasNome) previewCanvasNome.textContent = amSigRecNome || '—';
     if(previewCanvasDoc){
-        const curType = isRec ? amSigRecDocType : amSigTecDocType;
-        const curNum = isRec ? amSigRecDocNumber : amSigTecDocNumber;
-        // durante rec_num/tec_num mostra o doc digitado ao vivo, senão mostra salvo
-        let showType = curType; let showNum = curNum;
-        if(amSigStage==='rec_num' || amSigStage==='tec_num'){ showType = amSigDocType; showNum = amSigDocNumber; }
-        if(amSigStage==='rec_canvas' || amSigStage==='tec_canvas'){ showType = amSigDocType; showNum = amSigDocNumber; }
+        let showType = amSigRecDocType; let showNum = amSigRecDocNumber;
+        if(amSigStage==='rec_num' || amSigStage==='rec_canvas'){ showType = amSigDocType; showNum = amSigDocNumber; }
         previewCanvasDoc.textContent = showType ? (showType + ' ' + amSigMaskDoc(showNum, showType)) : '—';
     }
     const nextBtn = document.getElementById('am-sig-next-btn');
     const saveBtn = document.getElementById('am-sig-save-btn');
     const nextNumBtn = document.getElementById('am-sig-next-num-btn');
-    // reseta todos
     if(nextBtn) nextBtn.style.display='none';
     if(saveBtn) saveBtn.style.display='none';
     if(nextNumBtn) nextNumBtn.style.display='none';
     const footer = document.getElementById('am-sig-footer');
-    if(amSigStage==='rec_num' || amSigStage==='tec_num'){
+    if(amSigStage==='rec_num'){
         if(footer) footer.style.display='flex';
         if(nextNumBtn) nextNumBtn.style.display='flex';
     } else if(amSigStage==='rec_canvas'){
-        if(footer) footer.style.display='flex';
-        if(nextBtn){ nextBtn.style.display='flex'; nextBtn.innerHTML='<i class="ti ti-arrow-right"></i> Próximo: Técnico →'; nextBtn.onclick=amSigNextToTecnico; }
-    } else if(amSigStage==='tec_canvas'){
         if(footer) footer.style.display='flex';
         if(saveBtn) saveBtn.style.display='flex';
     } else {
         if(footer) footer.style.display='none';
     }
+}
+// --- Técnico seleção ---
+function amLoadTecSelectList(){
+    const list=document.getElementById('am-sig-tec-select-list');
+    const empty=document.getElementById('am-sig-tec-select-empty');
+    const loading=document.getElementById('am-sig-tec-select-loading');
+    if(!list) return;
+    if(loading) loading.style.display='block';
+    if(empty) empty.style.display='none';
+    const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+    fetch(base+'/ajax/tecnico_signature.php?action=list', {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(j=>{
+        if(loading) loading.style.display='none';
+        if(!j.ok){ list.innerHTML='<div style="color:#dc2626;padding:8px;">'+(j.error||'Erro')+'</div>'; return; }
+        amSigTecCache=j.data||[];
+        // também atualiza lista de gerenciamento
+        amRenderTecList(amSigTecCache);
+        if(!amSigTecCache.length){
+            if(empty) empty.style.display='block';
+            list.innerHTML='';
+            return;
+        }
+        list.innerHTML='';
+        amSigTecCache.forEach(t=>{
+            const sel = amSigSelectedTecId===t.id ? 'border-color:#4f46e5;background:#eef2ff;' : 'border-color:#e8eaf0;';
+            const row=document.createElement('div');
+            row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #e8eaf0;border-radius:10px;cursor:pointer;'+sel;
+            row.onclick=()=>amSelectTec(t.id);
+            const img = t.image ? '<img src="'+t.image+'" style="width:48px;height:32px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;">' : '<span style="width:48px;height:32px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span>';
+            row.innerHTML=img+'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div></div>'+(amSigSelectedTecId===t.id?'<i class="ti ti-circle-check" style="color:#4f46e5;font-size:1.2rem;"></i>':'<i class="ti ti-circle" style="color:#9ca3af;"></i>');
+            list.appendChild(row);
+        });
+      }).catch(e=>{ if(loading) loading.style.display='none'; list.innerHTML='<div style="color:#dc2626;">Erro rede</div>'; console.error(e); });
+}
+function amSelectTec(id){
+    const t=amSigTecCache.find(x=>x.id===id);
+    if(!t) return;
+    amSigSelectedTecId=id; amSigSelectedTecData=t;
+    document.querySelectorAll('#am-sig-tec-select-list > div').forEach(el=>el.style.borderColor='#e8eaf0');
+    // re-render to show check
+    amLoadTecSelectList();
+    const prev=document.getElementById('am-sig-tec-selected-preview');
+    const nameEl=document.getElementById('am-sig-tec-selected-name');
+    const docEl=document.getElementById('am-sig-tec-selected-doc');
+    const nextBtn=document.getElementById('am-sig-tec-next-btn');
+    if(prev){ prev.style.display='block'; if(nameEl) nameEl.textContent=t.name; if(docEl) docEl.textContent=t.document_type+' '+t.doc_masked; }
+    if(nextBtn) nextBtn.style.display='flex';
+}
+function amSigConfirmTecSelection(){
+    if(!amSigSelectedTecId || !amSigSelectedTecData) return alert('Selecione um técnico.');
+    // avança para recebedor nome
+    amSigStage='rec_nome';
+    document.getElementById('am-sig-step-select-tec').style.display='none';
+    document.getElementById('am-sig-step-nome').style.display='block';
+    document.getElementById('am-sig-nome').value = amSigRecNome;
+    amSigUpdateStageUI();
+    setTimeout(()=>document.getElementById('am-sig-nome').focus(), 100);
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+// --- Gerenciamento lista fora do modal ---
+function amRenderTecList(list){
+    const cont=document.getElementById('am-tec-list');
+    const empty=document.getElementById('am-tec-empty');
+    const count=document.getElementById('am-tec-count');
+    if(!cont) return;
+    if(count) count.textContent=list.length;
+    if(!list.length){ cont.innerHTML=''; if(empty) empty.style.display='block'; return; }
+    if(empty) empty.style.display='none';
+    const loading=document.getElementById('am-tec-loading'); if(loading) loading.style.display='none';
+    cont.innerHTML='';
+    list.forEach(t=>{
+        const card=document.createElement('div');
+        card.style.cssText='background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;';
+        card.innerHTML='<div style="display:flex;align-items:center;gap:10px;"><img src="'+(t.image||'')+'" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;" onerror="this.style.display=\'none\'"><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div><div style="font-size:.70rem;color:#9ca3af;">'+(t.date_creation?new Date(t.date_creation).toLocaleDateString('pt-BR'):'')+'</div></div></div><div style="display:flex;gap:6px;"><button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amDeleteTec('+t.id+')"><i class="ti ti-trash"></i> Excluir</button></div>';
+        cont.appendChild(card);
+    });
+}
+function amDeleteTec(id){
+    if(!confirm('Excluir técnico #'+id+'?')) return;
+    const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+    fetch(base+'/ajax/tecnico_signature.php', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({action:'delete', id:id, _glpi_csrf_token:amCsrfToken})})
+      .then(r=>r.json()).then(j=>{ if(j.ok){ amLoadTecSelectList(); } else alert('❌ '+(j.error||'Falha')); }).catch(e=>alert('Erro: '+e.message));
 }
 function amSigNextFromNome(){
     const nome = document.getElementById('am-sig-nome').value.trim();
@@ -496,7 +643,150 @@ function amSigBackFromNome(){
     }
 }
 function amSigBackToPrevStage(){
-    if(amSigStage==='tec_nome') amSigBackFromNome();
+    if(amSigStage==='rec_nome'){
+        amSigStage='select_tec';
+        document.getElementById('am-sig-step-nome').style.display='none';
+        document.getElementById('am-sig-step-select-tec').style.display='block';
+        document.getElementById('am-sig-step1').style.display='none';
+        document.getElementById('am-sig-step-num').style.display='none';
+        document.getElementById('am-sig-step-canvas').style.display='none';
+        document.getElementById('am-sig-footer').style.display='none';
+        amSigUpdateStageUI();
+    } else if(amSigStage==='tec_nome') amSigBackFromNome();
+}
+// --- Cadastro Técnico Modal ---
+let amTecCadDocType='', amTecCadDocNumber='', amTecCadNome='', amTecCadStage='nome';
+let amTecCadCanvas=null, amTecCadCtx=null, amTecCadHasDrawn=false, amTecCadFromSelect=false;
+function amOpenTecCadastroModal(fromSelect){
+    amTecCadFromSelect=!!fromSelect;
+    amTecCadDocType=''; amTecCadDocNumber=''; amTecCadNome=''; amTecCadHasDrawn=false; amTecCadStage='nome';
+    document.getElementById('am-tec-cad-nome').value='';
+    document.getElementById('am-tec-cad-doc-value').value='';
+    document.getElementById('am-tec-cad-display').textContent='Toque no teclado';
+    document.getElementById('am-tec-cad-display').classList.add('empty');
+    document.querySelectorAll('#am-modal-tec-cadastro .am-doc-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('am-tec-cad-step-nome').style.display='block';
+    document.getElementById('am-tec-cad-step-doc').style.display='none';
+    document.getElementById('am-tec-cad-step-num').style.display='none';
+    document.getElementById('am-tec-cad-step-canvas').style.display='none';
+    document.getElementById('am-tec-cad-footer').style.display='none';
+    document.getElementById('am-modal-tec-cadastro').classList.add('open');
+    document.body.style.overflow='hidden';
+    setTimeout(()=>document.getElementById('am-tec-cad-nome').focus(), 100);
+    setTimeout(amTecCadInitCanvas, 150);
+}
+function amCloseTecCadastroModal(){
+    document.getElementById('am-modal-tec-cadastro').classList.remove('open');
+    if(!amTecCadFromSelect) document.body.style.overflow='';
+    // se veio do select_tec, mantém main modal aberto
+}
+function amTecCadNextNome(){
+    const n=document.getElementById('am-tec-cad-nome').value.trim();
+    if(n.length<2){ alert('Nome mínimo 2 letras'); return; }
+    amTecCadNome=n;
+    document.getElementById('am-tec-cad-step-nome').style.display='none';
+    document.getElementById('am-tec-cad-step-doc').style.display='block';
+}
+function amTecCadBackToNome(){
+    document.getElementById('am-tec-cad-step-doc').style.display='none';
+    document.getElementById('am-tec-cad-step-nome').style.display='block';
+}
+function amTecCadChooseDoc(type){
+    amTecCadDocType=type;
+    document.querySelectorAll('#am-modal-tec-cadastro .am-doc-btn').forEach(b=>b.classList.toggle('active', b.dataset.tecDoc===type));
+    document.getElementById('am-tec-cad-doc-badge').textContent=type;
+    document.getElementById('am-tec-cad-doc-badge').style.background=type==='CPF'?'#059669':'#4f46e5';
+    document.getElementById('am-tec-cad-doc-hint').textContent=type==='CPF'?'11 dígitos':'5 a 12 dígitos';
+    setTimeout(()=>{
+        document.getElementById('am-tec-cad-step-doc').style.display='none';
+        document.getElementById('am-tec-cad-step-num').style.display='block';
+        document.getElementById('am-tec-cad-nome-preview').textContent=amTecCadNome;
+        amTecCadDocNumber=''; document.getElementById('am-tec-cad-doc-value').value=''; amTecCadUpdateDisplay();
+    }, 200);
+}
+function amTecCadBackToDoc(){
+    document.getElementById('am-tec-cad-step-num').style.display='none';
+    document.getElementById('am-tec-cad-step-doc').style.display='block';
+}
+function amTecCadPress(k){
+    if(k==='del'){ amTecCadBackspace(); return; }
+    if(k==='ok'){ amTecCadConfirmNum(); return; }
+    if(amTecCadDocType==='CPF' && amTecCadDocNumber.length>=11) return;
+    if(amTecCadDocType==='RG' && amTecCadDocNumber.length>=12) return;
+    amTecCadDocNumber+=k; document.getElementById('am-tec-cad-doc-value').value=amTecCadDocNumber; amTecCadUpdateDisplay();
+}
+function amTecCadBackspace(){ amTecCadDocNumber=amTecCadDocNumber.slice(0,-1); document.getElementById('am-tec-cad-doc-value').value=amTecCadDocNumber; amTecCadUpdateDisplay(); }
+function amTecCadClear(){ amTecCadDocNumber=''; document.getElementById('am-tec-cad-doc-value').value=''; amTecCadUpdateDisplay(); }
+function amTecCadUpdateDisplay(){
+    const el=document.getElementById('am-tec-cad-display');
+    if(!amTecCadDocNumber){ el.textContent='Toque no teclado'; el.classList.add('empty'); return; }
+    el.classList.remove('empty');
+    el.textContent=amSigMaskDoc(amTecCadDocNumber, amTecCadDocType) || amTecCadDocNumber;
+}
+function amTecCadConfirmNum(){
+    if(amTecCadDocType==='CPF' && amTecCadDocNumber.length!==11){ alert('CPF 11 dígitos'); return; }
+    if(amTecCadDocType==='RG' && (amTecCadDocNumber.length<5 || amTecCadDocNumber.length>12)){ alert('RG 5-12 dígitos'); return; }
+    document.getElementById('am-tec-cad-step-num').style.display='none';
+    document.getElementById('am-tec-cad-step-canvas').style.display='block';
+    document.getElementById('am-tec-cad-footer').style.display='flex';
+    document.getElementById('am-tec-cad-canvas-preview').textContent=amTecCadNome;
+    document.getElementById('am-tec-cad-canvas-doc').textContent=amTecCadDocType+' '+amSigMaskDoc(amTecCadDocNumber, amTecCadDocType);
+    amTecCadClearCanvas(); setTimeout(amTecCadInitCanvas, 100);
+}
+function amTecCadBackToNum(){
+    document.getElementById('am-tec-cad-step-canvas').style.display='none';
+    document.getElementById('am-tec-cad-step-num').style.display='block';
+    document.getElementById('am-tec-cad-footer').style.display='none';
+}
+function amTecCadInitCanvas(){
+    const c=document.getElementById('am-tec-cad-canvas'); if(!c) return;
+    const rect=c.getBoundingClientRect(); const dpr=window.devicePixelRatio||1;
+    c.width=rect.width*dpr; c.height=rect.height*dpr;
+    const ctx=c.getContext('2d'); ctx.scale(dpr,dpr); ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=2.2; ctx.strokeStyle='#1e1b4b';
+    amTecCadCanvas=c; amTecCadCtx=ctx; ctx.fillStyle='#fff'; ctx.fillRect(0,0,rect.width,rect.height);
+    if(c.dataset.bound==='1') return; c.dataset.bound='1';
+    let getPos=(e)=>{ const r=c.getBoundingClientRect(); const t=e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+    let last=null;
+    const start=(e)=>{ e.preventDefault(); amTecCadHasDrawn=true; last=getPos(e); };
+    const move=(e)=>{ if(!last) return; e.preventDefault(); const p=getPos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last=p; };
+    const end=()=>{ last=null; };
+    c.addEventListener('mousedown', start); c.addEventListener('mousemove', move); c.addEventListener('mouseup', end); c.addEventListener('mouseleave', end);
+    c.addEventListener('touchstart', start, {passive:false}); c.addEventListener('touchmove', move, {passive:false}); c.addEventListener('touchend', end);
+}
+function amTecCadClearCanvas(){
+    const c=document.getElementById('am-tec-cad-canvas'); if(!c||!amTecCadCtx){ setTimeout(amTecCadClearCanvas,50); return; }
+    const rect=c.getBoundingClientRect(); amTecCadCtx.fillStyle='#fff'; amTecCadCtx.fillRect(0,0,rect.width,rect.height); amTecCadHasDrawn=false;
+}
+function amTecCadSave(){
+    if(amTecCadNome.length<2) return alert('Nome inválido');
+    if(!amTecCadDocType) return alert('Escolha RG/CPF');
+    if(amTecCadDocType==='CPF' && amTecCadDocNumber.length!==11) return alert('CPF 11 dígitos');
+    if(amTecCadDocType==='RG' && (amTecCadDocNumber.length<5||amTecCadDocNumber.length>12)) return alert('RG 5-12');
+    if(!amTecCadHasDrawn) return alert('Assine no quadro');
+    const c=document.getElementById('am-tec-cad-canvas'); const dataUrl=c.toDataURL('image/png');
+    if(!dataUrl || dataUrl.length<500) return alert('Assinatura vazia');
+    const btn=document.getElementById('am-tec-cad-save-btn'); const old=btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
+    const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+    fetch(base+'/ajax/tecnico_signature.php', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({action:'add', name:amTecCadNome, doc_type:amTecCadDocType, doc_number:amTecCadDocNumber, image:dataUrl, _glpi_csrf_token:amCsrfToken})})
+      .then(r=>r.json()).then(j=>{
+        btn.disabled=false; btn.innerHTML=old;
+        if(j.ok){
+            amCloseTecCadastroModal();
+            // recarrega listas
+            amLoadTecSelectList();
+            // se veio do select, auto-seleciona o novo
+            if(amTecCadFromSelect && j.id){
+                setTimeout(()=>{ amSigSelectedTecId=j.id; // será atualizado no próximo load
+                    // força recarregar e selecionar
+                    fetch(base+'/ajax/tecnico_signature.php?action=list', {credentials:'same-origin'}).then(r=>r.json()).then(j2=>{
+                        amSigTecCache=j2.data||[];
+                        const nt=amSigTecCache.find(x=>x.id===j.id);
+                        if(nt){ amSigSelectedTecId=nt.id; amSigSelectedTecData=nt; amLoadTecSelectList(); setTimeout(()=>amSelectTec(nt.id), 200); }
+                    });
+                }, 300);
+            }
+        } else alert('❌ '+(j.error||'Falha'));
+      }).catch(e=>{ btn.disabled=false; btn.innerHTML=old; alert('Erro: '+e.message); });
 }
 function amSigChooseDoc(type) {
     amSigDocType = type;
@@ -705,21 +995,23 @@ function amSigClearCanvas() {
 }
 async function amSigSave() {
     if (!amSigTransferId) return alert('Transferência inválida.');
-    // se ainda não está na tela final, guia
-    if(amSigStage==='rec_nome' || amSigStage==='rec_doc' || amSigStage==='rec_num') return alert('Complete primeiro o recebedor: nome → documento → número → assinatura.');
-    if(amSigStage==='rec_canvas') return amSigNextToTecnico();
-    if(amSigStage==='tec_nome' || amSigStage==='tec_doc' || amSigStage==='tec_num') return alert('Complete o técnico: nome → documento → número → assinatura.');
-    if (!amSigRecImage) return alert('Assinatura do recebedor não capturada — volte e assine.');
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return alert('CPF do técnico precisa de 11 dígitos.');
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return alert('RG do técnico precisa de 5 a 12 dígitos.');
-    if (!amSigHasDrawn) return alert('Faça a assinatura do técnico com dedo/caneta no quadro.');
+    if(amSigStage==='select_tec') return alert('Selecione um técnico antes.');
+    if(amSigStage==='rec_nome' || amSigStage==='rec_doc' || amSigStage==='rec_num') return alert('Complete o recebedor: nome → documento → número → assinatura.');
+    if(!amSigSelectedTecId || !amSigSelectedTecData) return alert('Selecione o técnico (etapa 1).');
+    if (!amSigHasDrawn) return alert('Faça a assinatura do recebedor com dedo/caneta no quadro.');
     const c = document.getElementById('am-sig-canvas');
-    const tecDataUrl = c.toDataURL('image/png');
-    if (!tecDataUrl || tecDataUrl.length < 500) return alert('Assinatura do técnico vazia — desenhe novamente.');
-    amSigTecDocType = amSigDocType;
-    amSigTecDocNumber = amSigDocNumber;
-    // nome já salvo em amSigTecNome na etapa tec_nome
-    amSigTecImage = tecDataUrl;
+    const recDataUrl = c.toDataURL('image/png');
+    if (!recDataUrl || recDataUrl.length < 500) return alert('Assinatura do recebedor vazia — desenhe novamente.');
+    // rec dados já salvos em amSigRec*; atualiza imagem
+    amSigRecImage = recDataUrl;
+    // tec vem do cadastro selecionado
+    amSigTecDocType = amSigSelectedTecData.document_type;
+    amSigTecDocNumber = amSigSelectedTecData.document;
+    amSigTecNome = amSigSelectedTecData.name;
+    amSigTecImage = amSigSelectedTecData.image;
+    // valida rec doc (já validado, mas garante)
+    if (amSigRecDocType==='CPF' && amSigRecDocNumber.length!==11) return alert('CPF do recebedor precisa de 11 dígitos.');
+    if (amSigRecDocType==='RG' && (amSigRecDocNumber.length<5 || amSigRecDocNumber.length>12)) return alert('RG do recebedor precisa de 5 a 12 dígitos.');
     const btn = document.getElementById('am-sig-save-btn');
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     const nextBtn = document.getElementById('am-sig-next-btn'); if(nextBtn) nextBtn.disabled=true;
@@ -784,8 +1076,10 @@ async function amSigSave() {
         btn.disabled=false; btn.innerHTML=old; if(nextBtn) nextBtn.disabled=false;
     }
 }
-document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') amCloseAssinaturaModal(); });
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ amCloseAssinaturaModal(); amCloseTecCadastroModal(); }});
 document.getElementById('am-modal-assinatura').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-assinatura') amCloseAssinaturaModal(); });
+document.getElementById('am-modal-tec-cadastro').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-tec-cadastro') amCloseTecCadastroModal(); });
+document.addEventListener('DOMContentLoaded', ()=>{ amLoadTecSelectList(); });
 </script>
 
 <?php Html::footer(); ?>

@@ -1925,4 +1925,72 @@ class Transfer
         $all = self::getAll();
         return array_values(array_filter($all, fn($t) => self::isAssinado($t)));
     }
+
+    // -------------------------------------------------------
+    // Catálogo de técnicos (assinaturas pré-cadastradas)
+    // -------------------------------------------------------
+    public static function getTecnicosAssinaturas(bool $onlyActive = true): array
+    {
+        global $DB;
+        // garante tabela
+        try { if (function_exists('plugin_assetmgrstatus_schema')) @plugin_assetmgrstatus_schema(); } catch (\Throwable $e) {}
+        if (!$DB->tableExists('glpi_plugin_assetmgrstatus_tecnicos')) return [];
+        $where = $onlyActive ? ['is_active' => 1] : [];
+        $rows = iterator_to_array($DB->request(['FROM' => 'glpi_plugin_assetmgrstatus_tecnicos', 'WHERE' => $where, 'ORDER' => ['name ASC', 'id ASC']]));
+        foreach ($rows as &$r) {
+            $r['doc_masked'] = self::maskDocumento($r['document_type'] ?? '', $r['document'] ?? '');
+        }
+        return $rows;
+    }
+    public static function getTecnicoAssinaturaById(int $id): ?array
+    {
+        global $DB;
+        if (!$DB->tableExists('glpi_plugin_assetmgrstatus_tecnicos')) return null;
+        $iter = $DB->request(['FROM' => 'glpi_plugin_assetmgrstatus_tecnicos', 'WHERE' => ['id' => $id], 'LIMIT' => 1]);
+        if ($iter->count()===0) return null;
+        $r = $iter->current();
+        $r['doc_masked'] = self::maskDocumento($r['document_type'] ?? '', $r['document'] ?? '');
+        return $r;
+    }
+    public static function addTecnicoAssinatura(string $name, string $doc_type, string $doc_number, string $image): int
+    {
+        global $DB;
+        self::$last_ticket_error = '';
+        $name = trim($name);
+        $doc_type = strtoupper(trim($doc_type));
+        $doc_number = preg_replace('/\D+/', '', $doc_number);
+        if ($name === '' || mb_strlen($name) < 2) { self::$last_ticket_error = 'Nome do técnico obrigatório (mín. 2 letras)'; return 0; }
+        if (!in_array($doc_type, ['RG','CPF'], true)) { self::$last_ticket_error = 'Tipo documento inválido'; return 0; }
+        if ($doc_type==='CPF' && strlen($doc_number)!==11) { self::$last_ticket_error='CPF 11 dígitos'; return 0; }
+        if ($doc_type==='RG' && (strlen($doc_number)<5 || strlen($doc_number)>12)) { self::$last_ticket_error='RG 5-12 dígitos'; return 0; }
+        if (strpos($image, 'data:image/')!==0 || strlen($image)<100) { self::$last_ticket_error='Assinatura inválida'; return 0; }
+        if (strlen($image)>500000) { self::$last_ticket_error='Assinatura muito grande'; return 0; }
+        // verifica duplicado por documento
+        $exists = $DB->request(['FROM'=>'glpi_plugin_assetmgrstatus_tecnicos','WHERE'=>['document'=>$doc_number],'LIMIT'=>1])->count() >0;
+        if ($exists) { self::$last_ticket_error='Documento já cadastrado'; return 0; }
+        try { if (function_exists('plugin_assetmgrstatus_schema')) @plugin_assetmgrstatus_schema(); } catch (\Throwable $e) {}
+        $now = date('Y-m-d H:i:s');
+        $DB->insert('glpi_plugin_assetmgrstatus_tecnicos', [
+            'name' => mb_substr($name,0,255),
+            'document_type' => $doc_type,
+            'document' => $doc_number,
+            'image' => $image,
+            'users_id' => \Session::getLoginUserID(),
+            'is_active' => 1,
+            'date_creation' => $now,
+            'date_mod' => $now,
+        ]);
+        $id = (int)$DB->insertId();
+        if (!$id) self::$last_ticket_error = $DB->error() ?: 'Falha ao salvar';
+        return $id;
+    }
+    public static function deleteTecnicoAssinatura(int $id): bool
+    {
+        global $DB;
+        self::$last_ticket_error='';
+        if (!$DB->tableExists('glpi_plugin_assetmgrstatus_tecnicos')) return false;
+        $ok = $DB->delete('glpi_plugin_assetmgrstatus_tecnicos', ['id'=>$id]);
+        if (!$ok) self::$last_ticket_error = $DB->error() ?: 'Falha ao excluir';
+        return (bool)$ok;
+    }
 }
