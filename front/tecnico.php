@@ -17,11 +17,76 @@ $filter_status = $_GET['status'] ?? '';
 $filter_tech   = (int)($_GET['tech'] ?? 0);
 $filter_date   = $_GET['date'] ?? '';
 $filter_sort   = $_GET['sort'] ?? 'recent';
+$filter_tipo   = $_GET['tipo'] ?? 'all'; // all, transfer, ticket
+$filter_cat    = (int)($_GET['cat'] ?? 0);
 $q = trim($_GET['q'] ?? '');
 $q_norm = $q !== '' ? mb_strtolower($q, 'UTF-8') : '';
 $q_ascii = '';
 if ($q_norm !== '') { $q_ascii = @iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$q_norm); if($q_ascii===false) $q_ascii=$q_norm; $q_ascii=mb_strtolower($q_ascii,'UTF-8'); }
 $transfers     = Transfer::getAll($filter_status);
+
+// TicketJAL: busca chamados para timeline unificada (sem filtro de entidade para garantir que apareça)
+$tickets = [];
+$tjCatIds = [];
+if (Plugin::isActivated('ticketjal')) {
+    try {
+        $iterCat = $DB->request(['SELECT' => ['itilcategories_id'], 'FROM' => 'glpi_plugin_ticketjal_cards', 'WHERE' => ['type' => 'ticket', 'is_active' => 1, 'itilcategories_id' => ['>', 0]]]);
+        foreach ($iterCat as $r) $tjCatIds[] = (int)$r['itilcategories_id'];
+        $tjCatIds = array_values(array_unique($tjCatIds));
+        $ticketWhere = ['glpi_tickets.is_deleted' => 0];
+        if (!empty($tjCatIds)) {
+            $ticketWhere['OR'] = [
+                ['glpi_tickets.itilcategories_id' => $tjCatIds],
+                ['glpi_tickets.content' => ['LIKE', '%Aberto via Central de Chamados%']]
+            ];
+        } else {
+            $ticketWhere['glpi_tickets.content'] = ['LIKE', '%Aberto via Central de Chamados%'];
+        }
+        $ticketIter = $DB->request([
+            'SELECT' => ['glpi_tickets.id','glpi_tickets.name','glpi_tickets.content','glpi_tickets.status','glpi_tickets.priority','glpi_tickets.date','glpi_tickets.date_mod','glpi_tickets.itilcategories_id','glpi_tickets.entities_id'],
+            'FROM' => 'glpi_tickets',
+            'WHERE' => $ticketWhere,
+            'ORDER' => ['glpi_tickets.date DESC'],
+            'LIMIT' => 100,
+        ]);
+        $ticketsRaw = iterator_to_array($ticketIter);
+        $catIdsNeeded = array_unique(array_column($ticketsRaw, 'itilcategories_id'));
+        $catNamesMap = [];
+        if ($catIdsNeeded) {
+            foreach ($DB->request(['SELECT' => ['id','completename','name'], 'FROM' => 'glpi_itilcategories', 'WHERE' => ['id' => $catIdsNeeded]]) as $c) {
+                $catNamesMap[(int)$c['id']] = $c['completename'] ?: $c['name'];
+            }
+        }
+        $entIds = array_unique(array_column($ticketsRaw, 'entities_id'));
+        $entNamesMap = [];
+        if ($entIds) {
+            foreach ($DB->request(['SELECT' => ['id','completename'], 'FROM' => 'glpi_entities', 'WHERE' => ['id' => $entIds]]) as $e) {
+                $entNamesMap[(int)$e['id']] = $e['completename'];
+            }
+        }
+        foreach ($ticketsRaw as $tk) {
+            $tickets[] = [
+                'id' => (int)$tk['id'],
+                'name' => $tk['name'],
+                'content' => $tk['content'],
+                'status' => (int)$tk['status'],
+                'priority' => (int)$tk['priority'],
+                'date_creation' => $tk['date'] ?: $tk['date_mod'],
+                'date_mod' => $tk['date_mod'],
+                'itilcategories_id' => (int)$tk['itilcategories_id'],
+                'category_name' => $catNamesMap[(int)$tk['itilcategories_id']] ?? ($tk['itilcategories_id'] ? 'Cat #' . $tk['itilcategories_id'] : 'Sem categoria'),
+                'entities_id' => (int)$tk['entities_id'],
+                'entity_name' => $entNamesMap[(int)$tk['entities_id']] ?? '',
+            ];
+        }
+    } catch (Throwable $e) { error_log('[assetmgrstatus] ticket fetch: '.$e->getMessage()); }
+}
+$tjCategoriesForFilter = [];
+if (!empty($tjCatIds)) {
+    foreach ($DB->request(['SELECT' => ['id','completename','name'], 'FROM' => 'glpi_itilcategories', 'WHERE' => ['id' => $tjCatIds]]) as $c) {
+        $tjCategoriesForFilter[(int)$c['id']] = $c['completename'] ?: $c['name'];
+    }
+}
 
 Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
 ?>
@@ -72,16 +137,39 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>STATUS</label>
             <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
+                <a href="?<?= http_build_query(['tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_status==='' ? 'active' : '' ?>">Todos</a>
                 <?php foreach (Transfer::getStatusOptions() as $key => $label): ?>
-                <a href="?<?= http_build_query(['status' => $key, 'tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
+                <a href="?<?= http_build_query(['status' => $key,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_status===$key ? 'active' : '' ?>">
                     <span style="color:<?= Transfer::getStatusColor($key) ?>;font-weight:700;"><?= htmlspecialchars($label) ?></span>
                 </a>
                 <?php endforeach; ?>
             </div>
         </div>
+    </div>
+
+    <!-- Filtro Tipo (Transferência / Chamado) + Categoria ITIL -->
+    <div class="am-filters-bar" style="margin-bottom:16px;">
+        <div class="am-filter-group">
+            <label>EXIBIR</label>
+            <div class="am-type-tabs">
+                <a href="?<?= http_build_query(['tipo'=>'all','status'=>$filter_status,'cat'=>$filter_cat?:'','tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort,'q'=>$q]) ?>" class="am-type-tab <?= $filter_tipo==='all' ? 'active' : '' ?>">Todos (<?= count($transfers)+count($tickets) ?>)</a>
+                <a href="?<?= http_build_query(['tipo'=>'transfer','status'=>$filter_status,'cat'=>$filter_cat?:'','tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort,'q'=>$q]) ?>" class="am-type-tab <?= $filter_tipo==='transfer' ? 'active' : '' ?>"><i class="ti ti-transfer"></i> Transferências (<?= count($transfers) ?>)</a>
+                <a href="?<?= http_build_query(['tipo'=>'ticket','status'=>$filter_status,'cat'=>$filter_cat?:'','tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort,'q'=>$q]) ?>" class="am-type-tab <?= $filter_tipo==='ticket' ? 'active' : '' ?>"><i class="ti ti-ticket"></i> Chamados (<?= count($tickets) ?>)</a>
+            </div>
+        </div>
+        <?php if (!empty($tjCategoriesForFilter)): ?>
+        <div class="am-filter-group">
+            <label>CATEGORIA ITIL</label>
+            <div class="am-type-tabs">
+                <a href="?<?= http_build_query(['tipo'=>$filter_tipo,'status'=>$filter_status,'cat'=>'','tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort,'q'=>$q]) ?>" class="am-type-tab <?= !$filter_cat ? 'active' : '' ?>">Todas</a>
+                <?php foreach ($tjCategoriesForFilter as $cid=>$cname): ?>
+                <a href="?<?= http_build_query(['tipo'=>$filter_tipo,'status'=>$filter_status,'cat'=>$cid,'tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort,'q'=>$q]) ?>" class="am-type-tab <?= $filter_cat===$cid ? 'active' : '' ?>"><?= htmlspecialchars($cname) ?></a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <!-- Pesquisar entidade (filtra ao digitar) -->
@@ -95,7 +183,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     <button type="button" id="am-entity-clear-tec" title="Limpar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#f3f4f6;border:none;border-radius:6px;padding:4px 6px;cursor:pointer;display:<?= $q!==''?'flex':'none' ?>;align-items:center;justify-content:center;"><i class="ti ti-x" style="font-size:.85rem;color:#6b7280;"></i></button>
                 </div>
                 <span id="am-entity-count-tec" style="font-size:.75rem;color:#9ca3af;white-space:nowrap;"></span>
-                <?php if($q!==''): ?><a href="?<?= http_build_query(['status'=>$filter_status,'tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort]) ?>" class="am-type-tab" style="padding:6px 10px;font-size:.75rem;"><i class="ti ti-x"></i> Limpar filtro “<?= htmlspecialchars(mb_strimwidth($q,0,22,'…')) ?>”</a><?php endif; ?>
+                <?php if($q!==''): ?><a href="?<?= http_build_query(['status'=>$filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort]) ?>" class="am-type-tab" style="padding:6px 10px;font-size:.75rem;"><i class="ti ti-x"></i> Limpar filtro “<?= htmlspecialchars(mb_strimwidth($q,0,22,'…')) ?>”</a><?php endif; ?>
             </div>
         </div>
     </div>
@@ -125,18 +213,45 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         }));
     }
 
-    // Ordenação: mais antigos primeiro
-    if ($filter_sort === 'old') {
-        usort($transfers, fn($a, $b) => strtotime($a['date_creation']) <=> strtotime($b['date_creation']));
+    // Filtra tickets por data, entidade, categoria
+    if ($filter_date) {
+        $tickets = array_values(array_filter($tickets, fn($tk) => date('Y-m-d', strtotime($tk['date_creation'])) === $filter_date));
+    }
+    if ($q_norm !== '') {
+        $tickets = array_values(array_filter($tickets, function($tk) use ($q_norm,$q_ascii){
+            $hay = ($tk['name'] ?? '') . ' ' . ($tk['category_name'] ?? '') . ' #' . $tk['id'] . ' ' . ($tk['content'] ?? '') . ' ' . ($tk['entity_name'] ?? '');
+            $hay_low = mb_strtolower($hay,'UTF-8');
+            if(mb_strpos($hay_low,$q_norm)!==false) return true;
+            $hay_ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$hay); if($hay_ascii===false) $hay_ascii=$hay;
+            $hay_ascii=mb_strtolower($hay_ascii,'UTF-8');
+            return mb_strpos($hay_ascii,$q_ascii)!==false;
+        }));
+    }
+    if ($filter_cat) {
+        $tickets = array_values(array_filter($tickets, fn($tk) => (int)$tk['itilcategories_id'] === $filter_cat));
     }
 
-    // Paginação
+    // Monta timeline unificada (transferências + chamados) ordenada por criação
+    $combined = [];
+    if ($filter_tipo !== 'ticket') {
+        foreach ($transfers as $t) $combined[] = ['type' => 'transfer', 'date' => $t['date_creation'], 'data' => $t];
+    }
+    if ($filter_tipo !== 'transfer') {
+        foreach ($tickets as $tk) $combined[] = ['type' => 'ticket', 'date' => $tk['date_creation'], 'data' => $tk];
+    }
+    if ($filter_sort === 'old') {
+        usort($combined, fn($a,$b) => strtotime($a['date']) <=> strtotime($b['date']));
+    } else {
+        usort($combined, fn($a,$b) => strtotime($b['date']) <=> strtotime($a['date']));
+    }
+
+    // Paginação sobre timeline unificada
     $tc_page     = max(1, (int)($_GET['page'] ?? 1));
     $tc_per_page = 12;
-    $tc_total    = count($transfers);
+    $tc_total    = count($combined);
     $tc_pages    = max(1, (int)ceil($tc_total / $tc_per_page));
     $tc_page     = min($tc_page, $tc_pages);
-    $transfers   = array_slice($transfers, ($tc_page - 1) * $tc_per_page, $tc_per_page);
+    $combined_page = array_slice($combined, ($tc_page - 1) * $tc_per_page, $tc_per_page);
 
     // Monta lista de técnicos únicos que já pegaram algum card
     $techs_in_transfers = [];
@@ -152,12 +267,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>TÉCNICO</label>
             <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['status' => $filter_status, 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= !$filter_tech ? 'active' : '' ?>">
                     Todos
                 </a>
                 <?php foreach ($techs_in_transfers as $uid => $uname): ?>
-                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid, 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_tech === $uid ? 'active' : '' ?>">
                     <i class="ti ti-user-check"></i> <?= htmlspecialchars($uname) ?>
                 </a>
@@ -173,11 +288,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             <label>DATA</label>
             <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
                 <div class="am-type-tabs">
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'recent', 'q' => $q]) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech' => $filter_tech ?: '', 'sort' => 'recent', 'q' => $q]) ?>"
                        class="am-type-tab <?= $filter_sort !== 'old' && !$filter_date ? 'active' : '' ?>">
                         Mais recente
                     </a>
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'old', 'q' => $q]) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech' => $filter_tech ?: '', 'sort' => 'old', 'q' => $q]) ?>"
                        class="am-type-tab <?= $filter_sort === 'old' && !$filter_date ? 'active' : '' ?>">
                         Mais antigo
                     </a>
@@ -188,7 +303,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                            onchange="var u=new URL(window.location.href);u.searchParams.set('date',this.value);u.searchParams.delete('sort');window.location.href=u.href;"
                            style="padding:7px 10px;margin-top:0;font-size:.82rem;width:auto;">
                     <?php if ($filter_date): ?>
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => $filter_sort, 'q' => $q]) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','tech' => $filter_tech ?: '', 'sort' => $filter_sort, 'q' => $q]) ?>"
                        class="am-type-tab active" title="Limpar filtro de data">
                         <i class="ti ti-x"></i> Limpar
                     </a>
@@ -198,11 +313,13 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         </div>
     </div>
 
-    <?php if (empty($transfers)): ?>
-    <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhuma transferência encontrada.</p></div>
+    <?php if (empty($combined_page)): ?>
+    <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhum card encontrado (transferência ou chamado) para os filtros atuais.</p></div>
     <?php else: ?>
     <div class="am-tc-grid">
-        <?php foreach ($transfers as $t):
+        <?php foreach ($combined_page as $item):
+            if ($item['type'] === 'transfer'):
+                $t = $item['data']; ?>
             $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
             // Para finalizado/cancelada congela o cronômetro na data de encerramento; demais seguem rodando
             $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
@@ -363,12 +480,47 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             </details>
             <?php endif; ?>
         </div>
-        <?php endforeach; ?>
+        <?php else:
+                $tk = $item['data'];
+                $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#3b82f6',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#9ca3af'};
+                $tkStatusLabel = function_exists('Ticket::getStatus') ? Ticket::getStatus($tk['status']) : ('Status '.$tk['status']);
+                $tkPrioLabel = function_exists('Ticket::getPriorityName') ? Ticket::getPriorityName($tk['priority']) : $tk['priority'];
+                $tkContentShort = trim(strip_tags($tk['content'] ?? ''));
+                if (mb_strlen($tkContentShort) > 120) $tkContentShort = mb_substr($tkContentShort,0,120).'…';
+                $tkCatColor = '#4f46e5';
+        ?>
+        <div class="am-tc-card" style="border-left:4px solid <?= $tkStatusColor ?>;">
+            <div class="am-tc-card-header" style="border-left:4px solid <?= $tkStatusColor ?>;background:#f8f9ff;">
+                <div>
+                    <div style="font-size:.72rem;color:#4f46e5;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                        <i class="ti ti-ticket" style="font-size:.9rem;"></i> Chamado #<?= str_pad($tk['id'], 6, '0', STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?>
+                    </div>
+                    <div style="font-weight:800;font-size:1rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;" title="<?= htmlspecialchars($tk['name']) ?>">
+                        <?= htmlspecialchars($tk['name'] ?: 'Sem título') ?>
+                    </div>
+                </div>
+                <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;"><?= htmlspecialchars($tkStatusLabel) ?></span>
+            </div>
+            <div class="am-tc-card-body">
+                <div class="am-tc-info-row"><i class="ti ti-category" style="color:#4f46e5;"></i><span style="color:#4f46e5;font-weight:700;"><?= htmlspecialchars($tk['category_name']) ?></span></div>
+                <?php if ($tk['entity_name']): ?><div class="am-tc-info-row"><i class="ti ti-building"></i><span><?= htmlspecialchars($tk['entity_name']) ?></span></div><?php endif; ?>
+                <div class="am-tc-info-row"><i class="ti ti-calendar"></i><span><?= Html::convDateTime($tk['date_mod'] ?: $tk['date_creation']) ?></span></div>
+                <div class="am-tc-info-row"><i class="ti ti-clock"></i><span><?= date('d/m/Y H:i', strtotime($tk['date_creation'])) ?></span></div>
+                <?php if ($tkContentShort): ?><div class="am-tc-reason" style="background:#f8f9ff;border-color:#e0e7ff;"><?= htmlspecialchars($tkContentShort) ?></div><?php endif; ?>
+            </div>
+            <div class="am-tc-card-footer" style="justify-content:space-between;">
+                <a href="<?= $CFG_GLPI['root_doc'] ?>/front/ticket.form.php?id=<?= (int)$tk['id'] ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;">
+                    <i class="ti ti-external-link"></i> Abrir Chamado
+                </a>
+                <span style="font-size:.72rem;color:#9ca3af;display:flex;align-items:center;gap:4px;"><i class="ti ti-flag" style="color:#f59e0b;"></i> Prioridade: <?= htmlspecialchars($tkPrioLabel) ?></span>
+            </div>
+        </div>
+        <?php endif; endforeach; ?>
     </div>
 
     <?php if ($tc_pages > 1): ?>
     <div class="am-pagination">
-        <div class="am-pagination-info"><?= $tc_total ?> transferência(s) — página <?= $tc_page ?> de <?= $tc_pages ?></div>
+        <div class="am-pagination-info"><?= $tc_total ?> card(s) — página <?= $tc_page ?> de <?= $tc_pages ?> (<?= count($transfers) ?> transf. + <?= count($tickets) ?> chamados)</div>
         <div class="am-pagination-pages">
             <?php
             $tc_qs = fn($p) => http_build_query([
@@ -377,6 +529,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 'date'   => $filter_date,
                 'sort'   => $filter_sort,
                 'q'      => $q,
+                'tipo'   => $filter_tipo,
+                'cat'    => $filter_cat ?: '',
                 'page'   => $p,
             ]);
             $tc_window = $tc_pages <= 10 ? range(1, $tc_pages) : array_values(array_unique(array_merge(
@@ -396,13 +550,6 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <?php endif; ?>
     <?php endif; ?>
 
-    <?php
-    // ---- Integração TicketJAL: exibe chamados da Central por categoria no Técnico ----
-    $tj_snippet = GLPI_ROOT . '/plugins/ticketjal/inc/tecnico_snippet.php';
-    if (file_exists($tj_snippet)) {
-        include $tj_snippet;
-    }
-    ?>
 </div>
 
 <!-- Modal Pegar -->
