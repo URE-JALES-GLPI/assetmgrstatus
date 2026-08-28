@@ -412,6 +412,7 @@ let amSigDocType = '';
 let amSigDocNumber = '';
 let amSigStage = 'select_tec'; // select_tec | rec_nome | rec_doc | rec_num | rec_canvas
 let amSigRecDocType = '', amSigRecDocNumber = '', amSigRecNome = '', amSigRecImage = '';
+let amSigTecDocType = '', amSigTecDocNumber = '', amSigTecNome = '', amSigTecImage = '';
 let amSigSelectedTecId = 0, amSigSelectedTecData = null;
 let amSigTecCache = [];
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
@@ -420,6 +421,7 @@ function amOpenAssinaturaModal(transferId) {
     amSigTransferId = transferId;
     amSigDocType = ''; amSigDocNumber = ''; amSigHasDrawn = false;
     amSigRecDocType=''; amSigRecDocNumber=''; amSigRecNome=''; amSigRecImage='';
+    amSigTecDocType=''; amSigTecDocNumber=''; amSigTecNome=''; amSigTecImage='';
     amSigSelectedTecId=0; amSigSelectedTecData=null;
     amSigStage='select_tec';
     document.getElementById('am-sig-step-select-tec').style.display = 'block';
