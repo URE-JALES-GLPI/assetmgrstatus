@@ -118,8 +118,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 
 <style>
 @keyframes amSpin{to{transform:rotate(360deg)}}
-.am-kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;width:100%;}
-.am-kanban-column{flex:0 0 340px;min-width:340px;max-width:340px;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:14px;display:flex;flex-direction:column;max-height:82vh;scroll-snap-align:start;}
+.am-kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;overflow:visible;padding-bottom:0;width:100%;}
+.am-kanban-column{min-width:0;max-width:none;width:auto;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:14px;display:flex;flex-direction:column;max-height:82vh;}
 .am-kanban-header{padding:14px 16px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
 .am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
 .am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
@@ -130,7 +130,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 #am-max-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr)) !important;gap:16px !important;}
 .am-kanban-empty{text-align:center;color:#9ca3af;padding:24px 12px;font-size:.85rem;border:1.5px dashed #e8eaf0;border-radius:10px;background:#fff;}
 .am-kanban .am-tc-card{margin:0;flex-shrink:0;}
-@media(max-width:768px){.am-kanban{gap:12px;padding-bottom:12px;}.am-kanban-column{flex:0 0 300px;min-width:300px;max-width:300px;}}
+@media(max-width:1280px){.am-kanban{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:768px){.am-kanban{display:flex;gap:12px;padding-bottom:12px;overflow-x:auto;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;grid-template-columns:none;}.am-kanban-column{flex:0 0 300px;min-width:300px;max-width:300px;scroll-snap-align:start;}}
 </style>
 <div class="container-fluid am-page">
 
