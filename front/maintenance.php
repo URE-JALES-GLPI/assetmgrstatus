@@ -240,15 +240,42 @@ if ($can_admin_entity) {
             </div>
         </div>
 
-        <?php if ($can_admin_entity): ?>
+        <?php if ($can_admin_entity):
+            // Mapa id => nome curto para label do botão — igual ao usado na lista
+            $am_entity_name_map = [];
+            foreach ($entities_for_filter as $ent_map) {
+                $tmpName = trim($ent_map['name'] ?? '');
+                if ($tmpName === '') {
+                    $parts = explode('>', $ent_map['completename'] ?? '');
+                    $tmpName = trim(end($parts));
+                }
+                if ($tmpName === '') $tmpName = 'Entidade #' . (int)$ent_map['id'];
+                $am_entity_name_map[(int)$ent_map['id']] = $tmpName;
+            }
+            $am_entity_btn_label = 'Filtrar por entidade';
+            $am_entity_btn_title = '';
+            if (!empty($filter_entity)) {
+                if (count($filter_entity) === 1) {
+                    $fid = (int)$filter_entity[0];
+                    $am_entity_btn_label = $am_entity_name_map[$fid] ?? ('Entidade #' . $fid);
+                    $am_entity_btn_title = $am_entity_btn_label;
+                } elseif (count($filter_entity) > 1) {
+                    $firstName = null; $firstId = (int)$filter_entity[0];
+                    foreach ($filter_entity as $fid) { $fid=(int)$fid; if (isset($am_entity_name_map[$fid])) { $firstName=$am_entity_name_map[$fid]; $firstId=$fid; break; } }
+                    $firstName = $firstName ?? ('Entidade #' . $firstId);
+                    $remaining = count($filter_entity) - 1;
+                    $am_entity_btn_label = $firstName . ' +' . $remaining;
+                    $allNames = [];
+                    foreach ($filter_entity as $fid) { $fid=(int)$fid; $allNames[] = $am_entity_name_map[$fid] ?? ('#' . $fid); }
+                    $am_entity_btn_title = implode(', ', $allNames);
+                }
+            }
+        ?>
         <div class="am-filter-group">
             <label>Entidade <span style="font-size:.65rem;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:4px;">ADMIN</span></label>
             <div style="position:relative;">
-                <button type="button" class="am-comp-filter-btn" onclick="amToggleEntityPanel()">
-                    <i class="ti ti-building"></i> Filtrar por entidade
-                    <?php if (!empty($filter_entity)): ?>
-                    <span class="am-comp-filter-count"><?= count($filter_entity) ?></span>
-                    <?php endif; ?>
+                <button type="button" class="am-comp-filter-btn" onclick="amToggleEntityPanel()" title="<?= htmlspecialchars($am_entity_btn_title) ?>" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    <i class="ti ti-building" style="flex-shrink:0;"></i> <span id="am-entity-btn-label" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= htmlspecialchars($am_entity_btn_label) ?></span>
                 </button>
                 <div id="am-entity-panel" class="am-comp-panel">
                     <form method="GET" action="" id="am-entity-filter-form">

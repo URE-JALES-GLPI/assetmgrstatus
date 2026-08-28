@@ -50,12 +50,43 @@
         if (panel) panel.classList.toggle('open');
     };
 
+    window.amUpdateEntityBtnLabel = function () {
+        var labelEl = document.getElementById('am-entity-btn-label');
+        if (!labelEl) return;
+        var btn = labelEl.closest('button');
+        var cbs = document.querySelectorAll('#am-entity-panel input[type="checkbox"]:checked');
+        if (cbs.length === 0) {
+            labelEl.textContent = 'Filtrar por entidade';
+            if (btn) btn.title = '';
+            return;
+        }
+        if (cbs.length === 1) {
+            var row = cbs[0].closest('.am-entity-row');
+            var name = row ? row.querySelector('.am-comp-panel-label').textContent.trim() : ('Entidade #' + cbs[0].value);
+            labelEl.textContent = name;
+            if (btn) btn.title = name;
+        } else {
+            var firstRow = cbs[0].closest('.am-entity-row');
+            var firstName = firstRow ? firstRow.querySelector('.am-comp-panel-label').textContent.trim() : ('Entidade #' + cbs[0].value);
+            labelEl.textContent = firstName + ' +' + (cbs.length - 1);
+            var all = [];
+            cbs.forEach(function(cb){
+                var r = cb.closest('.am-entity-row');
+                var n = r ? r.querySelector('.am-comp-panel-label').textContent.trim() : ('#' + cb.value);
+                all.push(n);
+            });
+            if (btn) btn.title = all.join(', ');
+        }
+    };
+
     window.amClearEntityFilters = function () {
         document.querySelectorAll('#am-entity-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
+        window.amUpdateEntityBtnLabel();
     };
 
     window.amSelectAllEntityFilters = function () {
         document.querySelectorAll('#am-entity-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = true; });
+        window.amUpdateEntityBtnLabel();
     };
 
     window.amFilterEntityList = function (term) {
@@ -86,6 +117,12 @@
     window.amClearFabFilters = function () {
         document.querySelectorAll('#am-fab-panel input[type="checkbox"]').forEach(function(cb){ cb.checked = false; });
     };
+
+    document.addEventListener('change', function (e) {
+        if (e.target.closest && e.target.closest('#am-entity-panel') && e.target.type === 'checkbox') {
+            window.amUpdateEntityBtnLabel();
+        }
+    });
 
     document.addEventListener('click', function (e) {
         // Alterna estado do botão 3-state
@@ -118,6 +155,10 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         amDetectAjaxBase();
+        // Sincroniza label do filtro de entidade (ADMIN) com checkboxes marcados
+        if (document.getElementById('am-entity-btn-label')) {
+            try { window.amUpdateEntityBtnLabel(); } catch(e){}
+        }
 
         // ---- Skeleton loader: remove classe ao carregar ----
         document.querySelectorAll('.am-skeleton').forEach(function(el) {
