@@ -1940,7 +1940,9 @@ class Transfer
         foreach ($rows as &$r) {
             $r['doc_masked'] = self::maskDocumento($r['document_type'] ?? '', $r['document'] ?? '');
         }
-        return $rows;
+        // Garante array indexado 0..n para json_encode entregar [] e não {} (evita sumiço após F5)
+        // iterator_to_array preserva chaves do iterator que em algumas instalações vem como id do registro
+        return array_values($rows);
     }
     public static function getTecnicoAssinaturaById(int $id): ?array
     {

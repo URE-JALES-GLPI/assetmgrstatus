@@ -14,7 +14,8 @@ try {
     // Lista
     if($method==='GET' && (!isset($_POST['action']) && !isset($_GET['action']) || ($_GET['action']??'')==='list')){
         $list = Transfer::getTecnicosAssinaturas(true);
-        // não retorna image completa na lista se muito grande? mas precisa para preview thumb, retorna sim
+        // força array_values para nunca virar objeto JSON (evita bug F5 some)
+        $list = array_values($list);
         echo json_encode(['ok'=>true,'data'=>$list]);
         exit;
     }
@@ -24,7 +25,9 @@ try {
     if(isset($data['payload']) && is_string($data['payload'])){ $tmp=json_decode($data['payload'],true); if(is_array($tmp)) $data=$tmp; }
     $action = trim($data['action'] ?? $_GET['action'] ?? $_POST['action'] ?? '');
     if($action==='list'){
-        echo json_encode(['ok'=>true,'data'=>Transfer::getTecnicosAssinaturas(true)]);
+        $list = Transfer::getTecnicosAssinaturas(true);
+        $list = array_values($list);
+        echo json_encode(['ok'=>true,'data'=>$list]);
         exit;
     }
     if($action==='delete' || $action==='remove'){

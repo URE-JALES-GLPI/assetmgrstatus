@@ -433,7 +433,9 @@ let amSigRecDocType = '', amSigRecDocNumber = '', amSigRecNome = '', amSigRecIma
 let amSigTecDocType = '', amSigTecDocNumber = '', amSigTecNome = '', amSigTecImage = '';
 let amSigSelectedTecId = 0, amSigSelectedTecData = null;
 let amSigTecCache = [];
-if(typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache)) amSigTecCache = amInitialTecCache.slice();
+// Normaliza: backend antigo podia mandar objeto {"1":{...}} em vez de [] -> converte para array
+function amNormalizeTecData(d){ if(Array.isArray(d)) return d; if(d && typeof d==='object') return Object.values(d); return []; }
+if(typeof amInitialTecCache!=='undefined'){ try{ let _normInit = amNormalizeTecData(amInitialTecCache); if(_normInit.length) amSigTecCache = _normInit.slice(); }catch(e){} }
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
 function amOpenAssinaturaModal(transferId) {
@@ -574,35 +576,45 @@ function amLoadTecSelectList(){
     const loading=document.getElementById('am-sig-tec-select-loading');
     if(loading) loading.style.display='block';
     const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
-    // render imediato do cache inicial para não ficar vazio
-    if(typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache) && amInitialTecCache.length){
-        amSigTecCache = amInitialTecCache.slice();
-        amRenderTecSelectList(amSigTecCache);
-        if(loading) loading.style.display='none';
-        // atualiza gestão também
-        amRenderTecList(amSigTecCache);
-    }
+    // render imediato do cache inicial (normalizado) para não ficar vazio no F5
+    try{
+        if(typeof amInitialTecCache!=='undefined'){
+            let _normInit = amNormalizeTecData(amInitialTecCache);
+            if(_normInit.length){
+                amSigTecCache = _normInit.slice();
+                amRenderTecSelectList(amSigTecCache);
+                if(loading) loading.style.display='none';
+                amRenderTecList(amSigTecCache);
+            }
+        }
+    }catch(e){}
     fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}})
       .then(r=>r.json()).then(j=>{
         if(loading) loading.style.display='none';
+        let normData = amNormalizeTecData(j.data);
         if(!j.ok){
             console.warn('tecnico list fail', j);
-            if(!amSigTecCache.length && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length){
-                amSigTecCache = amInitialTecCache.slice();
-                amRenderTecSelectList(amSigTecCache);
-                amRenderTecList(amSigTecCache);
+            if(!amSigTecCache.length){
+                try{ let _normInit2 = amNormalizeTecData(typeof amInitialTecCache!=='undefined'?amInitialTecCache:[]); if(_normInit2.length){ amSigTecCache=_normInit2.slice(); amRenderTecSelectList(amSigTecCache); amRenderTecList(amSigTecCache); }}catch(e){}
             }
             return;
         }
-        // se fetch retornou vazio mas cache inicial tem dados, mantém cache (evita piscar some)
-        if((!j.data || !j.data.length) && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length && amInitialTecCache.length>0){
-            console.warn('fetch vazio mas inicial tem dados, mantém inicial');
-            // mantém amSigTecCache já com inicial, apenas garante render
+        // se fetch retornou vazio mas cache inicial tem dados, mantém cache (evita piscar some após F5)
+        if(!normData.length){
+            try{ let _normInit3 = amNormalizeTecData(typeof amInitialTecCache!=='undefined'?amInitialTecCache:[]); if(_normInit3.length>0){
+                console.warn('fetch vazio mas inicial tem dados, mantém inicial');
+                if(!amSigTecCache.length) amSigTecCache=_normInit3.slice();
+                amRenderTecSelectList(amSigTecCache);
+                amRenderTecList(amSigTecCache);
+                return;
+            }}catch(e){}
+            // realmente vazio (nenhum técnico cadastrado) -> mostra empty
+            amSigTecCache=[];
             amRenderTecSelectList(amSigTecCache);
             amRenderTecList(amSigTecCache);
             return;
         }
-        amSigTecCache=j.data||[];
+        amSigTecCache=normData;
         amRenderTecSelectList(amSigTecCache);
         amRenderTecList(amSigTecCache);
         // se já tinha selecionado, mantém seleção visual
@@ -619,9 +631,8 @@ function amLoadTecSelectList(){
             }
         }
       }).catch(e=>{ if(loading) loading.style.display='none'; console.error('tecnico list fetch err', e);
-        if(!amSigTecCache.length && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length){
-            amSigTecCache = amInitialTecCache.slice();
-            amRenderTecSelectList(amSigTecCache);
+        if(!amSigTecCache.length){
+            try{ let _normInit4 = amNormalizeTecData(typeof amInitialTecCache!=='undefined'?amInitialTecCache:[]); if(_normInit4.length){ amSigTecCache=_normInit4.slice(); amRenderTecSelectList(amSigTecCache); amRenderTecList(amSigTecCache); }}catch(e2){}
         }
       });
 }
@@ -842,9 +853,9 @@ function amTecCadSave(){
             // se veio do select, auto-seleciona o novo
             if(amTecCadFromSelect && j.id){
                 setTimeout(()=>{ amSigSelectedTecId=j.id; // será atualizado no próximo load
-                    // força recarregar e selecionar
-                    fetch(base+'/ajax/tecnico_signature.php?action=list', {credentials:'same-origin'}).then(r=>r.json()).then(j2=>{
-                        amSigTecCache=j2.data||[];
+                    // força recarregar e selecionar (normaliza objeto vs array)
+                    fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}}).then(r=>r.json()).then(j2=>{
+                        amSigTecCache=amNormalizeTecData(j2.data);
                         const nt=amSigTecCache.find(x=>x.id===j.id);
                         if(nt){ amSigSelectedTecId=nt.id; amSigSelectedTecData=nt; amLoadTecSelectList(); setTimeout(()=>amSelectTec(nt.id), 200); }
                     });
