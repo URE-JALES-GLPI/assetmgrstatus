@@ -12,6 +12,40 @@ global $CFG_GLPI;
 
 $action      = $_POST['action']      ?? '';
 $transfer_id = (int)($_POST['transfer_id'] ?? 0);
+$tickets_id  = (int)($_POST['tickets_id'] ?? 0);
+
+// Rota pegar_ticket usa tickets_id em vez de transfer_id
+if ($action === 'pegar_ticket') {
+    if (!$tickets_id) {
+        Session::addMessageAfterRedirect('Chamado inválido.', false, ERROR);
+        Html::back();
+        exit;
+    }
+    $uid = Session::getLoginUserID();
+    Transfer::assignTicket($tickets_id, $uid);
+    $err = Transfer::$last_ticket_error;
+    if ($err === '') {
+        // Tenta também mover status para Em Andamento se ainda Novo
+        $tk = new Ticket();
+        if ($tk->getFromDB($tickets_id) && (int)$tk->fields['status'] === 1) {
+            Transfer::setTicketStatus($tickets_id, defined('Ticket::ASSIGNED') ? Ticket::ASSIGNED : 2);
+            if (Transfer::$last_ticket_error !== '') $err = Transfer::$last_ticket_error;
+            else Transfer::addTicketFollowup($tickets_id, "🔧 Chamado #".str_pad($tickets_id,6,'0',STR_PAD_LEFT)." assumido pelo técnico ".Transfer::getUserName($uid)." em ".date('d/m/Y H:i').".");
+        } else if ($tk->getFromDB($tickets_id)) {
+            Transfer::addTicketFollowup($tickets_id, "🔧 Chamado #".str_pad($tickets_id,6,'0',STR_PAD_LEFT)." assumido pelo técnico ".Transfer::getUserName($uid)." em ".date('d/m/Y H:i').".");
+        }
+    }
+    if ($err === '' && Transfer::$last_ticket_error === '') {
+        Session::addMessageAfterRedirect('Você assumiu o chamado #' . $tickets_id . '! Atribuído atualizado.', false, INFO);
+    } else {
+        Session::addMessageAfterRedirect($err ?: Transfer::$last_ticket_error ?: 'Falha ao assumir chamado.', false, ERROR);
+        if (Transfer::$last_ticket_error && $err !== Transfer::$last_ticket_error) {
+            Session::addMessageAfterRedirect(Transfer::$last_ticket_error, false, WARNING);
+        }
+    }
+    Html::redirect($CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/tecnico.php');
+    exit;
+}
 
 if (!$action || !$transfer_id) {
     Session::addMessageAfterRedirect('Dados inválidos.', false, ERROR);
