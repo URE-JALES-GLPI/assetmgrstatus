@@ -668,30 +668,126 @@ class Transfer
     // Gera o PDF do termo no servidor (mPDF do GLPI) e devolve o caminho do arquivo temporário
     public static function generateDocPdf(int $transfer_id, string $stage): ?string
     {
+        $html = self::renderDocHtml($transfer_id, $stage);
+        if ($html === '') {
+            self::$last_ticket_error = 'HTML do termo vazio.';
+            return null;
+        }
+        // Tenta mPDF com múltiplos caminhos (GLPI 10/11, composer plugin, vendor local)
         $mpdf = null;
+        $mpdfError = '';
+        $tryPaths = [
+            'class_exists' => class_exists('Mpdf\Mpdf'),
+            GLPI_ROOT . '/vendor/mpdf/mpdf/src/Mpdf.php',
+            GLPI_ROOT . '/vendor/mpdf/mpdf/autoload.php',
+            GLPI_ROOT . '/vendor/autoload.php',
+            GLPI_ROOT . '/lib/mpdf/autoload.php',
+            GLPI_ROOT . '/lib/mpdf/src/Mpdf.php',
+            __DIR__ . '/../vendor/mpdf/mpdf/src/Mpdf.php',
+            __DIR__ . '/../vendor/mpdf/mpdf/autoload.php',
+            __DIR__ . '/../vendor/autoload.php',
+        ];
         if (class_exists('Mpdf\Mpdf')) {
-            $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
-        } elseif (file_exists(GLPI_ROOT . '/lib/mpdf/autoload.php')) {
-            require_once GLPI_ROOT . '/lib/mpdf/autoload.php';
-            if (class_exists('Mpdf\Mpdf')) $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
+            try {
+                $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
+            } catch (\Throwable $e) { $mpdfError = $e->getMessage(); $mpdf = null; }
         }
         if (!$mpdf) {
-            self::$last_ticket_error = 'mPDF indisponível — anexo não gerado.';
-            return null;
+            foreach ($tryPaths as $key => $p) {
+                if ($key === 'class_exists') continue;
+                if (!is_string($p) || !file_exists($p)) continue;
+                try {
+                    // Para autoload.php, apenas require; para Mpdf.php, require e tenta classe
+                    if (str_ends_with($p, 'autoload.php')) {
+                        @require_once $p;
+                    } else {
+                        @require_once $p;
+                    }
+                    if (class_exists('Mpdf\Mpdf')) {
+                        $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 14, 'margin_right' => 14, 'margin_top' => 14, 'margin_bottom' => 16, 'tempDir' => sys_get_temp_dir()]);
+                        break;
+                    }
+                } catch (\Throwable $e) { $mpdfError = $e->getMessage(); continue; }
+            }
         }
-
-        $html = self::renderDocHtml($transfer_id, $stage);
-        if ($html === '') return null;
-
-        $path = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
-        try {
-            $mpdf->WriteHTML($html);
-            $mpdf->Output($path, \Mpdf\Output\Destination::FILE);
-        } catch (\Throwable $e) {
-            self::$last_ticket_error = 'Falha ao gerar PDF: ' . $e->getMessage();
-            return null;
+        if ($mpdf) {
+            $path = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+            try {
+                $mpdf->WriteHTML($html);
+                $mpdf->Output($path, \Mpdf\Output\Destination::FILE);
+                if (file_exists($path) && filesize($path) > 500) return $path;
+                $mpdfError = 'mPDF gerou arquivo vazio.';
+            } catch (\Throwable $e) {
+                $mpdfError = 'Falha mPDF: ' . $e->getMessage();
+            }
+            // se falhou, tenta fallback wkhtmltopdf/dompdf antes de desistir
         }
-        return file_exists($path) ? $path : null;
+        // Fallback 1: Dompdf (se disponível no GLPI/vendor)
+        if (class_exists('Dompdf\Dompdf') || class_exists('Dompdf\Options')) {
+            try {
+                if (!class_exists('Dompdf\Dompdf') && file_exists(GLPI_ROOT . '/vendor/dompdf/dompdf/src/Dompdf.php')) {
+                    @require_once GLPI_ROOT . '/vendor/autoload.php';
+                }
+                if (class_exists('Dompdf\Dompdf')) {
+                    $opts = class_exists('Dompdf\Options') ? new \Dompdf\Options() : null;
+                    if ($opts) {
+                        $opts->set('isRemoteEnabled', true);
+                        $opts->set('isHtml5ParserEnabled', true);
+                        $dompdf = new \Dompdf\Dompdf($opts);
+                    } else {
+                        $dompdf = new \Dompdf\Dompdf();
+                    }
+                    $dompdf->loadHtml($html);
+                    $dompdf->setPaper('A4');
+                    $dompdf->render();
+                    $out = $dompdf->output();
+                    $path = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+                    file_put_contents($path, $out);
+                    if (file_exists($path) && filesize($path) > 500) return $path;
+                }
+            } catch (\Throwable $e) { $mpdfError .= ' | Dompdf: ' . $e->getMessage(); }
+        }
+        // Fallback 2: wkhtmltopdf (Ubuntu: sudo apt install wkhtmltopdf)
+        $wk = trim((string)@shell_exec('which wkhtmltopdf 2>&1'));
+        if ($wk && !str_contains($wk, 'not found') && file_exists(trim($wk))) {
+            try {
+                $htmlPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.html';
+                $pdfPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+                file_put_contents($htmlPath, $html);
+                $cmd = escapeshellarg(trim($wk)) . ' --enable-local-file-access --encoding utf-8 --page-size A4 --margin-top 10mm --margin-bottom 10mm --margin-left 10mm --margin-right 10mm ' . escapeshellarg($htmlPath) . ' ' . escapeshellarg($pdfPath) . ' 2>&1';
+                $out = [];
+                $ret = 0;
+                @exec($cmd, $out, $ret);
+                @unlink($htmlPath);
+                if ($ret === 0 && file_exists($pdfPath) && filesize($pdfPath) > 500) return $pdfPath;
+                $mpdfError .= ' | wkhtmltopdf: ' . implode(' ', $out);
+                @unlink($pdfPath);
+            } catch (\Throwable $e) { $mpdfError .= ' | wkhtmltopdf exc: ' . $e->getMessage(); }
+        }
+        // Fallback 3: chromium --headless (se disponível)
+        $chrome = trim((string)@shell_exec('which chromium-browser 2>&1'));
+        if (!$chrome || str_contains($chrome, 'not found')) $chrome = trim((string)@shell_exec('which google-chrome 2>&1'));
+        if (!$chrome || str_contains($chrome, 'not found')) $chrome = trim((string)@shell_exec('which chromium 2>&1'));
+        if ($chrome && !str_contains($chrome, 'not found') && file_exists(trim(explode("\n", $chrome)[0]))) {
+            try {
+                $chromeBin = trim(explode("\n", $chrome)[0]);
+                $htmlPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.html';
+                $pdfPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+                file_put_contents($htmlPath, $html);
+                $cmd = escapeshellarg($chromeBin) . ' --headless --disable-gpu --no-sandbox --print-to-pdf=' . escapeshellarg($pdfPath) . ' ' . escapeshellarg('file://' . $htmlPath) . ' 2>&1';
+                $out = [];
+                $ret = 0;
+                @exec($cmd, $out, $ret);
+                @unlink($htmlPath);
+                if (file_exists($pdfPath) && filesize($pdfPath) > 500) return $pdfPath;
+                $mpdfError .= ' | chromium: ' . implode(' ', $out);
+                @unlink($pdfPath);
+            } catch (\Throwable $e) { $mpdfError .= ' | chromium exc: ' . $e->getMessage(); }
+        }
+        // Se tudo falhou, retorna erro detalhado para diagnóstico
+        $checked = implode(', ', array_filter($tryPaths, 'is_string'));
+        self::$last_ticket_error = 'mPDF indisponível — anexo não gerado. Detalhe: ' . ($mpdfError ?: 'mPDF não encontrado em: ' . $checked . '. Tente no servidor: sudo -u www-data composer -d ' . GLPI_ROOT . '/plugins/assetmgrstatus install  ou  cd ' . GLPI_ROOT . '/plugins/assetmgrstatus && composer require mpdf/mpdf  ou  sudo apt install wkhtmltopdf && sudo systemctl restart apache2');
+        return null;
     }
 
     // -------------------------------------------------------
@@ -816,9 +912,24 @@ class Transfer
 
         // Gera PDF temporário (usa mPDF — mesmo que vai para o chamado)
         $pdf_path = self::generateDocPdf($transfer_id, $stage);
+        $isHtmlFallback = false;
         if (!$pdf_path || !file_exists($pdf_path)) {
             $err = self::$last_ticket_error ?: 'Falha ao gerar PDF para impressão (mPDF indisponível ou erro interno)';
-            return ['ok' => false, 'error' => $err];
+            // Fallback: tenta imprimir HTML direto (CUPS pode converter via texttopdf/h5topdf)
+            $htmlFallback = self::renderDocHtml($transfer_id, $stage);
+            if ($htmlFallback !== '') {
+                $htmlPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.html';
+                @file_put_contents($htmlPath, $htmlFallback);
+                if (file_exists($htmlPath) && filesize($htmlPath) > 200) {
+                    $pdf_path = $htmlPath;
+                    $isHtmlFallback = true;
+                    // não retorna erro, tenta imprimir HTML
+                } else {
+                    return ['ok' => false, 'error' => $err];
+                }
+            } else {
+                return ['ok' => false, 'error' => $err];
+            }
         }
 
         // Escolhe impressora
