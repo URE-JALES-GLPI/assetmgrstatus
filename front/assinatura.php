@@ -437,35 +437,36 @@ if(typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache)) a
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
 function amOpenAssinaturaModal(transferId) {
+    try{
     amSigTransferId = transferId;
     amSigDocType = ''; amSigDocNumber = ''; amSigHasDrawn = false;
     amSigRecDocType=''; amSigRecDocNumber=''; amSigRecNome=''; amSigRecImage='';
     amSigTecDocType=''; amSigTecDocNumber=''; amSigTecNome=''; amSigTecImage='';
     amSigSelectedTecId=0; amSigSelectedTecData=null;
     amSigStage='select_tec';
-    document.getElementById('am-sig-step-select-tec').style.display = 'block';
-    document.getElementById('am-sig-step-nome').style.display = 'none';
-    document.getElementById('am-sig-step1').style.display = 'none';
-    document.getElementById('am-sig-step-num').style.display = 'none';
-    document.getElementById('am-sig-step-canvas').style.display = 'none';
-    document.getElementById('am-sig-footer').style.display = 'none';
-    document.getElementById('am-sig-next-btn').style.display='none';
-    document.getElementById('am-sig-save-btn').style.display='none';
+    const elSel=document.getElementById('am-sig-step-select-tec'); if(elSel) elSel.style.display='block';
+    const elNome=document.getElementById('am-sig-step-nome'); if(elNome) elNome.style.display='none';
+    const el1=document.getElementById('am-sig-step1'); if(el1) el1.style.display='none';
+    const elNum=document.getElementById('am-sig-step-num'); if(elNum) elNum.style.display='none';
+    const elCan=document.getElementById('am-sig-step-canvas'); if(elCan) elCan.style.display='none';
+    const foot=document.getElementById('am-sig-footer'); if(foot) foot.style.display='none';
+    const nb=document.getElementById('am-sig-next-btn'); if(nb) nb.style.display='none';
+    const sb=document.getElementById('am-sig-save-btn'); if(sb) sb.style.display='none';
     const extraNext = document.getElementById('am-sig-next-num-btn'); if(extraNext) extraNext.style.display='none';
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-    document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0');
-    document.getElementById('am-sig-doc-value').value = '';
-    document.getElementById('am-sig-nome').value = '';
-    // reseta seleção visual
+    const ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Assinatura — Transferência #' + String(transferId).padStart(4,'0');
+    const dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
+    const nv=document.getElementById('am-sig-nome'); if(nv) nv.value='';
     const selPrev=document.getElementById('am-sig-tec-selected-preview'); if(selPrev) selPrev.style.display='none';
     const nextTec=document.getElementById('am-sig-tec-next-btn'); if(nextTec) nextTec.style.display='none';
     amSigUpdateStageUI();
     amSigUpdateDisplay();
     setTimeout(()=>amSigClearCanvas(), 80);
-    document.getElementById('am-modal-assinatura').classList.add('open');
-    document.body.style.overflow = 'hidden';
-    amLoadTecSelectList();
+    const overlay=document.getElementById('am-modal-assinatura'); if(overlay) overlay.classList.add('open');
+    document.body.style.overflow='hidden';
+    try{ amLoadTecSelectList(); }catch(e){ console.error('loadTecList',e); }
     setTimeout(amSigInitCanvas, 120);
+    }catch(e){ console.error('amOpenAssinaturaModal',e); alert('Erro ao abrir assinatura: '+e.message); }
 }
 function amToggleAssets(id){
     const el=document.getElementById('am-sig-assets-'+id);
@@ -548,45 +549,80 @@ function amSigUpdateStageUI(){
     }
 }
 // --- Técnico seleção ---
-function amLoadTecSelectList(){
+function amRenderTecSelectList(cache){
     const list=document.getElementById('am-sig-tec-select-list');
     const empty=document.getElementById('am-sig-tec-select-empty');
-    const loading=document.getElementById('am-sig-tec-select-loading');
     if(!list) return;
-    if(loading) loading.style.display='block';
+    if(!cache || !cache.length){
+        if(empty) empty.style.display='block';
+        list.innerHTML='';
+        return;
+    }
     if(empty) empty.style.display='none';
+    list.innerHTML='';
+    cache.forEach(t=>{
+        const sel = amSigSelectedTecId===t.id ? 'border-color:#4f46e5;background:#eef2ff;' : 'border-color:#e8eaf0;';
+        const row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #e8eaf0;border-radius:10px;cursor:pointer;'+sel;
+        row.onclick=()=>amSelectTec(t.id);
+        const img = t.image ? '<img src="'+t.image+'" style="width:48px;height:32px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;">' : '<span style="width:48px;height:32px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span>';
+        row.innerHTML=img+'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div></div>'+(amSigSelectedTecId===t.id?'<i class="ti ti-circle-check" style="color:#4f46e5;font-size:1.2rem;"></i>':'<i class="ti ti-circle" style="color:#9ca3af;"></i>');
+        list.appendChild(row);
+    });
+}
+function amLoadTecSelectList(){
+    const loading=document.getElementById('am-sig-tec-select-loading');
+    if(loading) loading.style.display='block';
     const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
-    fetch(base+'/ajax/tecnico_signature.php?action=list', {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    // render imediato do cache inicial para não ficar vazio
+    if(typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache) && amInitialTecCache.length){
+        amSigTecCache = amInitialTecCache.slice();
+        amRenderTecSelectList(amSigTecCache);
+        if(loading) loading.style.display='none';
+        // atualiza gestão também
+        amRenderTecList(amSigTecCache);
+    }
+    fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.json()).then(j=>{
         if(loading) loading.style.display='none';
-        if(!j.ok){ list.innerHTML='<div style="color:#dc2626;padding:8px;">'+(j.error||'Erro')+'</div>'; return; }
-        amSigTecCache=j.data||[];
-        // também atualiza lista de gerenciamento
-        amRenderTecList(amSigTecCache);
-        if(!amSigTecCache.length){
-            if(empty) empty.style.display='block';
-            list.innerHTML='';
+        if(!j.ok){
+            console.warn('tecnico list fail', j);
+            // mantém cache inicial se fetch falhar
+            if(!amSigTecCache.length && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length){
+                amSigTecCache = amInitialTecCache.slice();
+                amRenderTecSelectList(amSigTecCache);
+            }
             return;
         }
-        list.innerHTML='';
-        amSigTecCache.forEach(t=>{
-            const sel = amSigSelectedTecId===t.id ? 'border-color:#4f46e5;background:#eef2ff;' : 'border-color:#e8eaf0;';
-            const row=document.createElement('div');
-            row.style.cssText='display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid #e8eaf0;border-radius:10px;cursor:pointer;'+sel;
-            row.onclick=()=>amSelectTec(t.id);
-            const img = t.image ? '<img src="'+t.image+'" style="width:48px;height:32px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;">' : '<span style="width:48px;height:32px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span>';
-            row.innerHTML=img+'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div></div>'+(amSigSelectedTecId===t.id?'<i class="ti ti-circle-check" style="color:#4f46e5;font-size:1.2rem;"></i>':'<i class="ti ti-circle" style="color:#9ca3af;"></i>');
-            list.appendChild(row);
-        });
-      }).catch(e=>{ if(loading) loading.style.display='none'; list.innerHTML='<div style="color:#dc2626;">Erro rede</div>'; console.error(e); });
+        amSigTecCache=j.data||[];
+        amRenderTecSelectList(amSigTecCache);
+        amRenderTecList(amSigTecCache);
+        // se já tinha selecionado, mantém seleção visual
+        if(amSigSelectedTecId){
+            const t=amSigTecCache.find(x=>x.id===amSigSelectedTecId);
+            if(t){
+                const prev=document.getElementById('am-sig-tec-selected-preview');
+                const nameEl=document.getElementById('am-sig-tec-selected-name');
+                const docEl=document.getElementById('am-sig-tec-selected-doc');
+                const nextBtn=document.getElementById('am-sig-tec-next-btn');
+                if(prev){ prev.style.display='block'; if(nameEl) nameEl.textContent=t.name; if(docEl) docEl.textContent=t.document_type+' '+t.doc_masked; }
+                if(nextBtn) nextBtn.style.display='flex';
+                amRenderTecSelectList(amSigTecCache);
+            }
+        }
+      }).catch(e=>{ if(loading) loading.style.display='none'; console.error('tecnico list fetch err', e);
+        if(!amSigTecCache.length && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length){
+            amSigTecCache = amInitialTecCache.slice();
+            amRenderTecSelectList(amSigTecCache);
+        }
+      });
 }
 function amSelectTec(id){
     const t=amSigTecCache.find(x=>x.id===id);
     if(!t) return;
     amSigSelectedTecId=id; amSigSelectedTecData=t;
-    document.querySelectorAll('#am-sig-tec-select-list > div').forEach(el=>el.style.borderColor='#e8eaf0');
-    // re-render to show check
-    amLoadTecSelectList();
+    // atualiza visual sem refetch (evita flicker e perda de seleção)
+    amRenderTecSelectList(amSigTecCache);
     const prev=document.getElementById('am-sig-tec-selected-preview');
     const nameEl=document.getElementById('am-sig-tec-selected-name');
     const docEl=document.getElementById('am-sig-tec-selected-doc');
