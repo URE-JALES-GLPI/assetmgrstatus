@@ -319,13 +319,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <div class="am-tc-grid">
         <?php foreach ($combined_page as $item):
             if ($item['type'] === 'transfer'):
-                $t = $item['data']; ?>
-            $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
-            // Para finalizado/cancelada congela o cronômetro na data de encerramento; demais seguem rodando
-            $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
-            $elapsed      = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
-            $status_color = Transfer::getStatusColor($t['status']);
-            $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
+                $t = $item['data'];
+                $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
+                $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
+                $elapsed      = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
+                $status_color = Transfer::getStatusColor($t['status']);
+                $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
         ?>
         <div class="am-tc-card">
             <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;">
