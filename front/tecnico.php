@@ -11,7 +11,7 @@ Session::checkRight('plugin_assetmgrstatus_tecnico', READ);
 // Limpeza automática de PDFs após 7 dias (1x/dia, mantém dados para regenerar)
 try { Transfer::maybeRunCleanup(); } catch (\Throwable $e) {}
 
-global $CFG_GLPI;
+global $CFG_GLPI, $DB;
 
 $filter_status = $_GET['status'] ?? '';
 $filter_tech   = (int)($_GET['tech'] ?? 0);
@@ -483,8 +483,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <?php else:
                 $tk = $item['data'];
                 $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#3b82f6',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#9ca3af'};
-                $tkStatusLabel = function_exists('Ticket::getStatus') ? Ticket::getStatus($tk['status']) : ('Status '.$tk['status']);
-                $tkPrioLabel = function_exists('Ticket::getPriorityName') ? Ticket::getPriorityName($tk['priority']) : $tk['priority'];
+                $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : ('Status '.$tk['status']);
+                $tkPrioLabel = (class_exists('Ticket') && method_exists('Ticket','getPriorityName')) ? Ticket::getPriorityName($tk['priority']) : $tk['priority'];
                 $tkContentShort = trim(strip_tags($tk['content'] ?? ''));
                 if (mb_strlen($tkContentShort) > 120) $tkContentShort = mb_substr($tkContentShort,0,120).'…';
                 $tkCatColor = '#4f46e5';
