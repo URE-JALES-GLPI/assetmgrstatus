@@ -516,12 +516,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-kanban">
             <?php
                 $currentUserId = (int)Session::getLoginUserID();
-                // Kanban unificado: 4 etapas com Transferências (laranja) + Chamados (vermelho) juntos, ordenados por data
+                // Kanban 4 etapas Trello: PENDENTE (cinza) -> Em Andamento (laranja) -> RETIRADA (verde) -> CONCLUIDO (azul)
                 $kanbanStages = [
-                    'pendente'   => ['label'=>'PENDENTE', 'color'=>'#f59e0b', 'desc'=>'Novos'],
-                    'pego'       => ['label'=>'PEGO', 'color'=>'#f59e0b', 'desc'=>'Só seus'],
-                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'desc'=>'Finalizar no GLPI'],
-                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>'#10b981', 'desc'=>'Assinado'],
+                    'pendente'   => ['label'=>'PENDENTE', 'color'=>'#6b7280', 'desc'=>'Novos'],
+                    'emandamento'=> ['label'=>'Em Andamento', 'color'=>'#f59e0b', 'desc'=>'Só seus'],
+                    'retirada'   => ['label'=>'RETIRADA', 'color'=>'#10b981', 'desc'=>'Aguardando pegar'],
+                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>'#3b82f6', 'desc'=>'Assinado'],
                 ];
                 foreach ($kanbanStages as $stageKey=>$stage):
                     $sLabel = $stage['label'];
@@ -529,23 +529,22 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $currentUserId){
                         if ($stageKey==='pendente') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PENDENTE) return true;
-                            if ($it['type']==='ticket' && (int)$it['data']['status']===1) return true; // Novo = Pendente
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===1) return true;
                             return false;
                         }
-                        if ($stageKey==='pego') {
+                        if ($stageKey==='emandamento') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO && (int)($it['data']['users_id_tech'] ?? 0)===$currentUserId) return true;
-                            if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true; // Em andamento = Pego
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true;
                             return false;
                         }
-                        if ($stageKey==='aguardando') {
-                            // Só Transferência fica em Aguardando (pronto para finalizar no GLPI)
+                        if ($stageKey==='retirada') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PRONTO) return true;
+                            // Chamados NÃO vão para Retirada (só Transferências)
                             return false;
                         }
                         if ($stageKey==='concluido') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_FINALIZADO) return true;
-                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [5,6])) return true; // Solucionado/Fechado = Concluído
-                            // Pendente (4) e Planejado (3) de ticket também vão para Concluído se já foi atendido
+                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [5,6])) return true;
                             if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [3,4])) return true;
                             return false;
                         }
@@ -564,25 +563,39 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     <span><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?></span>
                     <div style="display:flex;align-items:center;gap:6px;">
                         <span class="am-kanban-count"><?= count($colCards) ?></span>
-                        <?php if ($stageKey==='pego'):
+                        <?php if ($stageKey==='emandamento'):
                             $allPegoCount = count(array_values(array_filter($combined, fn($it)=>$it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO)));
                             if ($allPegoCount > count($colCards)): ?>
                         <button onclick="amTogglePegoTodos(this)" data-show="0" style="font-size:.65rem;padding:3px 8px;border-radius:20px;border:1px solid #e8eaf0;background:#fff;color:#4f46e5;cursor:pointer;white-space:nowrap;">Mostrar todos (<?= $allPegoCount ?>)</button>
                         <?php endif; endif; ?>
                     </div>
                 </div>
-                <div class="am-kanban-body" id="am-kanban-body-<?= $stageKey ?>">
+                <div class="am-kanban-body" id="am-kanban-body-<?= $stageKey ?>" data-stage="<?= $stageKey ?>" ondrop="amKanbanDrop(event)" ondragover="amKanbanDragOver(event)" ondragleave="amKanbanDragLeave(event)">
                     <?php
                         $colCardsToRender = $colCards;
-                        if ($stageKey==='pego') {
-                            // PEGO: mostra todos mas esconde os que não são do usuário
-                            $colCardsToRender = array_values(array_filter($combined, function($it) use ($stageKey){
-                                if ($stageKey==='pego' && $it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO) return true;
-                                if ($stageKey==='pego' && $it['type']==='ticket' && in_array((int)$it['data']['status'], [2,3])) return true;
+                        if ($stageKey==='emandamento') {
+                            $colCardsToRender = array_values(array_filter($combined, function($it){
+                                if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO) return true;
+                                if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true;
                                 return false;
                             }));
-                            // Recalcula colCards para o header mas mantém ToRender com todos
-                            $colCards = array_values(array_filter($colCardsToRender, fn($it)=> (int)($it['data']['users_id_tech'] ?? $currentUserId) === $currentUserId || $it['type']==='ticket'));
+                            $colCards = array_values(array_filter($colCardsToRender, fn($it)=> $it['type']==='ticket' || (int)($it['data']['users_id_tech'] ?? $currentUserId) === $currentUserId));
+                        }
+                        foreach ($colCardsToRender as $item):
+                            $isHiddenPego = ($stageKey==='emandamento' && $item['type']==='transfer' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
+                            $isTicket = $item['type']==='ticket';
+                            $canDrag = !($isTicket && $stageKey==='retirada');
+                            if ($item['type']==='transfer') {
+                                $t = $item['data'];
+                                $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
+                                $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
+                                $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
+                                $borderColor = '#f59e0b';
+                            } else {
+                                $tk = $item['data'];
+                                $borderColor = '#ef4444';
+                            }
+                    ?>
                         }
                         foreach ($colCardsToRender as $item):
                             $isHiddenPego = ($stageKey==='pego' && $item['type']==='transfer' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
@@ -612,7 +625,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                         </div>
                         <div class="am-tc-card-footer" style="padding:8px 12px;">
                             <?php if ($t['status']===Transfer::STATUS_PENDENTE): ?>
-                            <button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenPegarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>',<?= $t['items_count'] ?>)"><i class="ti ti-hand-grab"></i> Pegar</button>
+                            <div style="font-size:.7rem;color:#9ca3af;display:flex;align-items:center;gap:6px;justify-content:center;flex:1;"><i class="ti ti-arrows-move" style="color:#6b7280;"></i> Arraste para Em Andamento</div>
                             <?php elseif ($t['status']===Transfer::STATUS_MANUTENCAO): ?>
                             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_diario.php?id=<?= $t['id'] ?>" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;">Diário</a>
                             <?php elseif ($t['status']===Transfer::STATUS_PRONTO): ?>
@@ -1135,6 +1148,62 @@ function amTogglePegoTodos(btn){
     }
   }catch(e){}
 }
+function amKanbanDragStart(e){
+  var card = e.currentTarget;
+  e.dataTransfer.setData('text/plain', JSON.stringify({type: card.dataset.type, id: card.dataset.id}));
+  e.dataTransfer.effectAllowed = 'move';
+  card.style.opacity = '0.5';
+}
+function amKanbanDragEnd(e){ e.currentTarget.style.opacity = '1'; }
+function amKanbanDragOver(e){
+  e.preventDefault();
+  var col = e.currentTarget;
+  // Não permite soltar chamados em Retirada
+  var data = e.dataTransfer.getData('text/plain');
+  try{ var obj=JSON.parse(data); if(obj.type==='ticket' && col.dataset.stage==='retirada'){ col.style.background='#fef2f2'; col.style.borderColor='#fecaca'; return; } }catch(err){}
+  col.style.background='#eef2ff';
+  col.style.borderColor='#c7d2fe';
+  e.dataTransfer.dropEffect='move';
+}
+function amKanbanDragLeave(e){
+  var col=e.currentTarget;
+  col.style.background='#f8f9fb';
+  col.style.borderColor='#e8eaf0';
+}
+function amKanbanDrop(e){
+  e.preventDefault();
+  var col=e.currentTarget;
+  col.style.background='#f8f9fb';
+  col.style.borderColor='#e8eaf0';
+  var raw=e.dataTransfer.getData('text/plain');
+  var obj; try{ obj=JSON.parse(raw); }catch(err){ return; }
+  if(obj.type==='ticket' && col.dataset.stage==='retirada'){
+    alert('Chamados não podem ir para RETIRADA (apenas Transferências)');
+    return;
+  }
+  var to = col.dataset.stage;
+  if(!to || !obj.type || !obj.id) return;
+  if(!confirm('Mover #' + obj.id + ' para ' + to.toUpperCase() + '?')) return;
+  var fd=new FormData();
+  fd.append('type', obj.type);
+  fd.append('id', obj.id);
+  fd.append('to', to);
+  fd.append('_glpi_csrf_token', (document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value || '');
+  fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin'})
+    .then(r=>r.json().then(j=>({ok:r.ok, j:j})))
+    .then(res=>{
+      if(res.ok && res.j.success){ location.reload(); }
+      else { alert(res.j.message||'Falha ao mover'); }
+    }).catch(err=>alert('Erro: '+err.message));
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.am-kanban-column .am-tc-card').forEach(function(card){
+    // Pendente não tem botão Pegar, mas pode arrastar
+    card.setAttribute('draggable','true');
+    card.addEventListener('dragstart', amKanbanDragStart);
+    card.addEventListener('dragend', amKanbanDragEnd);
+  });
+});
 </script>
 
 <script>
