@@ -529,22 +529,24 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $currentUserId){
                         if ($stageKey==='pendente') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PENDENTE) return true;
-                            if ($it['type']==='ticket' && (int)$it['data']['status']===1) return true; // Novo
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===1) return true; // Novo = Pendente
                             return false;
                         }
                         if ($stageKey==='pego') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO && (int)($it['data']['users_id_tech'] ?? 0)===$currentUserId) return true;
-                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [2,3])) return true; // Em andamento / Planejado
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true; // Em andamento = Pego
                             return false;
                         }
                         if ($stageKey==='aguardando') {
+                            // Só Transferência fica em Aguardando (pronto para finalizar no GLPI)
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PRONTO) return true;
-                            if ($it['type']==='ticket' && (int)$it['data']['status']===4) return true; // Pendente
                             return false;
                         }
                         if ($stageKey==='concluido') {
                             if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_FINALIZADO) return true;
-                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [5,6])) return true; // Solucionado / Fechado
+                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [5,6])) return true; // Solucionado/Fechado = Concluído
+                            // Pendente (4) e Planejado (3) de ticket também vão para Concluído se já foi atendido
+                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [3,4])) return true;
                             return false;
                         }
                         return false;
