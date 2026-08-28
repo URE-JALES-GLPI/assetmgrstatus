@@ -17,6 +17,10 @@ $filter_status = $_GET['status'] ?? '';
 $filter_tech   = (int)($_GET['tech'] ?? 0);
 $filter_date   = $_GET['date'] ?? '';
 $filter_sort   = $_GET['sort'] ?? 'recent';
+$q = trim($_GET['q'] ?? '');
+$q_norm = $q !== '' ? mb_strtolower($q, 'UTF-8') : '';
+$q_ascii = '';
+if ($q_norm !== '') { $q_ascii = @iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$q_norm); if($q_ascii===false) $q_ascii=$q_norm; $q_ascii=mb_strtolower($q_ascii,'UTF-8'); }
 $transfers     = Transfer::getAll($filter_status);
 
 Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
@@ -68,14 +72,30 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>STATUS</label>
             <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                <a href="?<?= http_build_query(['tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_status==='' ? 'active' : '' ?>">Todos</a>
                 <?php foreach (Transfer::getStatusOptions() as $key => $label): ?>
-                <a href="?<?= http_build_query(['status' => $key, 'tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                <a href="?<?= http_build_query(['status' => $key, 'tech' => $filter_tech ?: '', 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_status===$key ? 'active' : '' ?>">
                     <span style="color:<?= Transfer::getStatusColor($key) ?>;font-weight:700;"><?= htmlspecialchars($label) ?></span>
                 </a>
                 <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pesquisar entidade (filtra ao digitar) -->
+    <div class="am-filters-bar" style="margin-bottom:16px;">
+        <div class="am-filter-group" style="flex:1;min-width:260px;">
+            <label>PESQUISAR ENTIDADE</label>
+            <div style="position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="position:relative;flex:1;max-width:380px;min-width:220px;">
+                    <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.95rem;pointer-events:none;"></i>
+                    <input type="text" id="am-entity-search-tec" value="<?= htmlspecialchars($q) ?>" placeholder="Digite escola, URE, nº..." style="width:100%;padding:8px 34px 8px 32px;border:1.5px solid #e8eaf0;border-radius:10px;font-size:.85rem;background:#fff;" autocomplete="off">
+                    <button type="button" id="am-entity-clear-tec" title="Limpar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#f3f4f6;border:none;border-radius:6px;padding:4px 6px;cursor:pointer;display:<?= $q!==''?'flex':'none' ?>;align-items:center;justify-content:center;"><i class="ti ti-x" style="font-size:.85rem;color:#6b7280;"></i></button>
+                </div>
+                <span id="am-entity-count-tec" style="font-size:.75rem;color:#9ca3af;white-space:nowrap;"></span>
+                <?php if($q!==''): ?><a href="?<?= http_build_query(['status'=>$filter_status,'tech'=>$filter_tech?:'','date'=>$filter_date,'sort'=>$filter_sort]) ?>" class="am-type-tab" style="padding:6px 10px;font-size:.75rem;"><i class="ti ti-x"></i> Limpar filtro “<?= htmlspecialchars(mb_strimwidth($q,0,22,'…')) ?>”</a><?php endif; ?>
             </div>
         </div>
     </div>
@@ -91,6 +111,18 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     if ($filter_date) {
         $transfers = array_filter($transfers, fn($t) => date('Y-m-d', strtotime($t['date_creation'])) === $filter_date);
         $transfers = array_values($transfers);
+    }
+
+    // Filtra por entidade (busca em origem/destino/id/motivo)
+    if ($q_norm !== '') {
+        $transfers = array_values(array_filter($transfers, function($t) use ($q_norm,$q_ascii){
+            $hay = ($t['origin_entity_name'] ?? '') . ' ' . ($t['entity_dest_name'] ?? '') . ' #' . $t['id'] . ' ' . ($t['reason'] ?? '');
+            $hay_low = mb_strtolower($hay,'UTF-8');
+            if(mb_strpos($hay_low,$q_norm)!==false) return true;
+            $hay_ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$hay); if($hay_ascii===false) $hay_ascii=$hay;
+            $hay_ascii=mb_strtolower($hay_ascii,'UTF-8');
+            return mb_strpos($hay_ascii,$q_ascii)!==false;
+        }));
     }
 
     // Ordenação: mais antigos primeiro
@@ -120,12 +152,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-filter-group">
             <label>TÉCNICO</label>
             <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['status' => $filter_status, 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status, 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= !$filter_tech ? 'active' : '' ?>">
                     Todos
                 </a>
                 <?php foreach ($techs_in_transfers as $uid => $uname): ?>
-                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid, 'date' => $filter_date, 'sort' => $filter_sort]) ?>"
+                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid, 'date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
                    class="am-type-tab <?= $filter_tech === $uid ? 'active' : '' ?>">
                     <i class="ti ti-user-check"></i> <?= htmlspecialchars($uname) ?>
                 </a>
@@ -141,11 +173,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             <label>DATA</label>
             <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
                 <div class="am-type-tabs">
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'recent']) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'recent', 'q' => $q]) ?>"
                        class="am-type-tab <?= $filter_sort !== 'old' && !$filter_date ? 'active' : '' ?>">
                         Mais recente
                     </a>
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'old']) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => 'old', 'q' => $q]) ?>"
                        class="am-type-tab <?= $filter_sort === 'old' && !$filter_date ? 'active' : '' ?>">
                         Mais antigo
                     </a>
@@ -156,7 +188,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                            onchange="var u=new URL(window.location.href);u.searchParams.set('date',this.value);u.searchParams.delete('sort');window.location.href=u.href;"
                            style="padding:7px 10px;margin-top:0;font-size:.82rem;width:auto;">
                     <?php if ($filter_date): ?>
-                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => $filter_sort]) ?>"
+                    <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $filter_tech ?: '', 'sort' => $filter_sort, 'q' => $q]) ?>"
                        class="am-type-tab active" title="Limpar filtro de data">
                         <i class="ti ti-x"></i> Limpar
                     </a>
@@ -344,6 +376,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 'tech'   => $filter_tech ?: '',
                 'date'   => $filter_date,
                 'sort'   => $filter_sort,
+                'q'      => $q,
                 'page'   => $p,
             ]);
             $tc_window = $tc_pages <= 10 ? range(1, $tc_pages) : array_values(array_unique(array_merge(
@@ -667,6 +700,61 @@ function amManualRefresh(btn){
 }
 setInterval(amCheckForUpdates, 10000);
 amUpdateRefreshTime();
+
+// --- Pesquisar entidade (filtra ao digitar, sem F5) ---
+function amNormStrTec(s){ try{ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }catch(e){ return (s||'').toLowerCase(); } }
+function amFilterTecEntity(){
+    var qEl=document.getElementById('am-entity-search-tec');
+    var cntEl=document.getElementById('am-entity-count-tec');
+    var clearBtn=document.getElementById('am-entity-clear-tec');
+    if(!qEl) return;
+    var q=amNormStrTec(qEl.value.trim());
+    var cards=document.querySelectorAll('.am-tc-card');
+    var visible=0;
+    cards.forEach(function(c){
+        var txt=amNormStrTec(c.textContent);
+        var show=!q || txt.indexOf(q)!==-1;
+        c.style.display = show ? '' : 'none';
+        if(show) visible++;
+    });
+    var grid=document.querySelector('.am-tc-grid');
+    var noRes=document.getElementById('am-entity-nores-tec');
+    if(q && visible===0 && grid){
+        if(!noRes){
+            noRes=document.createElement('div');
+            noRes.id='am-entity-nores-tec';
+            noRes.style.cssText='grid-column:1/-1;text-align:center;color:#9ca3af;padding:18px;font-size:.85rem;background:#fff;border:1.5px dashed #e8eaf0;border-radius:12px;';
+            noRes.innerHTML='<i class="ti ti-search-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhuma entidade encontrada para “'+ qEl.value.replace(/[&<>"\']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]}) +'”';
+            grid.appendChild(noRes);
+        } else { noRes.style.display='block'; }
+    } else if(noRes) noRes.style.display='none';
+    if(cntEl) cntEl.textContent = q ? visible + ' de ' + cards.length + ' exibido(s)' : '';
+    if(clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+    try{
+        var url=new URL(window.location.href);
+        if(q) url.searchParams.set('q', qEl.value.trim());
+        else url.searchParams.delete('q');
+        url.searchParams.delete('page');
+        history.replaceState(null,'',url.toString());
+    }catch(e){}
+}
+function amInitTecEntitySearch(){
+    var sEl=document.getElementById('am-entity-search-tec');
+    if(!sEl) return;
+    sEl.addEventListener('input', function(){ clearTimeout(window._amTecEntT); window._amTecEntT=setTimeout(amFilterTecEntity, 150); });
+    sEl.addEventListener('keydown', function(e){ if(e.key==='Escape'){ sEl.value=''; amFilterTecEntity(); }});
+    var cBtn=document.getElementById('am-entity-clear-tec');
+    if(cBtn) cBtn.addEventListener('click', function(){ sEl.value=''; amFilterTecEntity(); sEl.focus(); });
+    if(sEl.value.trim()!=='') setTimeout(amFilterTecEntity, 60);
+}
+// re-aplica filtro após soft refresh
+var _amOrigSoftRefresh = amSoftRefresh;
+amSoftRefresh = function(){
+    var r=_amOrigSoftRefresh.apply(this, arguments);
+    setTimeout(function(){ try{ var se=document.getElementById('am-entity-search-tec'); if(se && se.value.trim()!=='') amFilterTecEntity(); }catch(e){} }, 350);
+    return r;
+};
+document.addEventListener('DOMContentLoaded', function(){ try{ amInitTecEntitySearch(); }catch(e){} });
 </script>
 
 <script>

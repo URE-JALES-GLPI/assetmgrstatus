@@ -12,6 +12,8 @@ global $CFG_GLPI, $DB;
 
 $filter = $_GET['f'] ?? 'pendente'; // pendente | assinado | todos
 if (!in_array($filter, ['pendente','assinado','todos'], true)) $filter = 'pendente';
+$q = trim($_GET['q'] ?? '');
+$q_norm = $q !== '' ? mb_strtolower($q, 'UTF-8') : '';
 
 $all = Transfer::getAll();
 $pendentes = array_values(array_filter($all, fn($t) => Transfer::precisaAssinatura($t)));
@@ -20,6 +22,22 @@ $assinados = array_values(array_filter($all, fn($t) => Transfer::isAssinado($t))
 if ($filter === 'pendente') $transfers = $pendentes;
 elseif ($filter === 'assinado') $transfers = $assinados;
 else $transfers = $all;
+
+// Filtra por entidade (q) — busca em origem/destino/id/motivo
+if ($q_norm !== '') {
+    $q_ascii = @iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$q_norm);
+    if ($q_ascii === false) $q_ascii = $q_norm;
+    $q_ascii = mb_strtolower($q_ascii, 'UTF-8');
+    $transfers = array_values(array_filter($transfers, function($t) use ($q_norm, $q_ascii) {
+        $hay = ($t['origin_entity_name'] ?? '') . ' ' . ($t['entity_dest_name'] ?? '') . ' #' . $t['id'] . ' ' . ($t['reason'] ?? '');
+        $hay_low = mb_strtolower($hay, 'UTF-8');
+        if (mb_strpos($hay_low, $q_norm) !== false) return true;
+        $hay_ascii = @iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$hay);
+        if ($hay_ascii === false) $hay_ascii = $hay;
+        $hay_ascii = mb_strtolower($hay_ascii, 'UTF-8');
+        return mb_strpos($hay_ascii, $q_ascii) !== false;
+    }));
+}
 
 // Ordena pendentes por data criação mais antigos primeiro (fila)
 if ($filter === 'pendente') {
@@ -141,9 +159,25 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
         <div class="am-filter-group">
             <label>FILTRO</label>
             <div class="am-type-tabs">
-                <a href="?f=pendente" class="am-type-tab <?= $filter==='pendente'?'active':'' ?>">⏳ Pendentes <span class="am-type-count"><?= count($pendentes) ?></span></a>
-                <a href="?f=assinado" class="am-type-tab <?= $filter==='assinado'?'active':'' ?>">✅ Assinados <span class="am-type-count"><?= count($assinados) ?></span></a>
-                <a href="?f=todos" class="am-type-tab <?= $filter==='todos'?'active':'' ?>">Todos <span class="am-type-count"><?= count($all) ?></span></a>
+                <a href="?f=pendente<?= $q!=='' ? '&q='.urlencode($q) : '' ?>" class="am-type-tab <?= $filter==='pendente'?'active':'' ?>">⏳ Pendentes <span class="am-type-count"><?= count($pendentes) ?></span></a>
+                <a href="?f=assinado<?= $q!=='' ? '&q='.urlencode($q) : '' ?>" class="am-type-tab <?= $filter==='assinado'?'active':'' ?>">✅ Assinados <span class="am-type-count"><?= count($assinados) ?></span></a>
+                <a href="?f=todos<?= $q!=='' ? '&q='.urlencode($q) : '' ?>" class="am-type-tab <?= $filter==='todos'?'active':'' ?>">Todos <span class="am-type-count"><?= count($all) ?></span></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pesquisar entidade (filtra ao digitar) -->
+    <div class="am-filters-bar" style="margin-bottom:16px;">
+        <div class="am-filter-group" style="flex:1;min-width:260px;">
+            <label>PESQUISAR ENTIDADE</label>
+            <div style="position:relative;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="position:relative;flex:1;max-width:380px;min-width:220px;">
+                    <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.95rem;pointer-events:none;"></i>
+                    <input type="text" id="am-entity-search" value="<?= htmlspecialchars($q) ?>" placeholder="Digite escola, URE, nº..." style="width:100%;padding:8px 34px 8px 32px;border:1.5px solid #e8eaf0;border-radius:10px;font-size:.85rem;background:#fff;" autocomplete="off">
+                    <button type="button" id="am-entity-clear" title="Limpar" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:#f3f4f6;border:none;border-radius:6px;padding:4px 6px;cursor:pointer;display:<?= $q!==''?'flex':'none' ?>;align-items:center;justify-content:center;"><i class="ti ti-x" style="font-size:.85rem;color:#6b7280;"></i></button>
+                </div>
+                <span id="am-entity-count" style="font-size:.75rem;color:#9ca3af;white-space:nowrap;"></span>
+                <?php if($q!==''): ?><a href="?f=<?= urlencode($filter) ?>" class="am-type-tab" style="padding:6px 10px;font-size:.75rem;"><i class="ti ti-x"></i> Limpar filtro “<?= htmlspecialchars(mb_strimwidth($q,0,22,'…')) ?>”</a><?php endif; ?>
             </div>
         </div>
     </div>
@@ -702,6 +736,52 @@ function amDeleteTec(id){
     fetch(base+'/ajax/tecnico_signature.php', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({action:'delete', id:id, _glpi_csrf_token:amCsrfToken})})
       .then(r=>r.json()).then(j=>{ if(j.ok){ amLoadTecSelectList(); } else alert('❌ '+(j.error||'Falha')); }).catch(e=>alert('Erro: '+e.message));
 }
+// --- Pesquisar entidade (filtra ao digitar, sem F5) ---
+function amNormStr(s){ try{ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }catch(e){ return (s||'').toLowerCase(); } }
+function amFilterEntityCards(){
+    var qEl=document.getElementById('am-entity-search');
+    var cntEl=document.getElementById('am-entity-count');
+    var clearBtn=document.getElementById('am-entity-clear');
+    if(!qEl) return;
+    var q=amNormStr(qEl.value.trim());
+    var cards=document.querySelectorAll('.am-sig-card');
+    var visible=0;
+    cards.forEach(function(c){
+        var txt=amNormStr(c.textContent);
+        var show=!q || txt.indexOf(q)!==-1;
+        c.style.display = show ? '' : 'none';
+        if(show) visible++;
+    });
+    var grid=document.querySelector('.am-sig-grid');
+    var noRes=document.getElementById('am-entity-nores');
+    if(q && visible===0 && grid){
+        if(!noRes){
+            noRes=document.createElement('div');
+            noRes.id='am-entity-nores';
+            noRes.style.cssText='grid-column:1/-1;text-align:center;color:#9ca3af;padding:18px;font-size:.85rem;background:#fff;border:1.5px dashed #e8eaf0;border-radius:12px;';
+            noRes.innerHTML='<i class="ti ti-search-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhuma entidade encontrada para “'+ qEl.value.replace(/[&<>"\']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]}) +'”';
+            grid.appendChild(noRes);
+        } else { noRes.style.display='block'; noRes.innerHTML='<i class="ti ti-search-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhuma entidade encontrada para “'+ qEl.value.replace(/[&<>"\']/g,function(m){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]}) +'”'; }
+    } else if(noRes) noRes.style.display='none';
+    if(cntEl) cntEl.textContent = q ? visible + ' de ' + cards.length + ' exibido(s)' : '';
+    if(clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+    try{
+        var url=new URL(window.location.href);
+        if(q) url.searchParams.set('q', qEl.value.trim());
+        else url.searchParams.delete('q');
+        history.replaceState(null,'',url.toString());
+        // mantém f na URL
+    }catch(e){}
+}
+function amInitEntitySearch(){
+    var sEl=document.getElementById('am-entity-search');
+    if(!sEl) return;
+    sEl.addEventListener('input', function(){ clearTimeout(window._amEntT); window._amEntT=setTimeout(amFilterEntityCards, 150); });
+    sEl.addEventListener('keydown', function(e){ if(e.key==='Escape'){ sEl.value=''; amFilterEntityCards(); }});
+    var cBtn=document.getElementById('am-entity-clear');
+    if(cBtn) cBtn.addEventListener('click', function(){ sEl.value=''; amFilterEntityCards(); sEl.focus(); });
+    if(sEl.value.trim()!=='') setTimeout(amFilterEntityCards, 60);
+}
 function amSigNextFromNome(){
     const nome = document.getElementById('am-sig-nome').value.trim();
     if(nome.length < 2){ alert('Digite o nome completo (mín. 2 letras).'); document.getElementById('am-sig-nome').focus(); return; }
@@ -1179,6 +1259,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     var c = localStorage.getItem('am_tec_collapsed');
     if(c==='0') amToggleTecSection(true); else amToggleTecSection(false);
   }catch(e){ amToggleTecSection(false); }
+  try{ amInitEntitySearch(); }catch(e){}
 });
 
 // ---- Auto-refresh assinatura (pendente/assinado) + tecnicos sem F5 ----
@@ -1186,7 +1267,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 var _amAssCheckBase = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/assinatura_check.php';
 var _amAssFilter = '<?= $filter ?>';
 var _amAssLastHash = null, _amAssLastCount = null, _amAssLastTecCount = null;
-function _amAssBuildUrl(){ return _amAssCheckBase + '?f=' + encodeURIComponent(_amAssFilter) + '&_t=' + Date.now(); }
+function _amAssGetQ(){ var el=document.getElementById('am-entity-search'); return el ? el.value.trim() : '<?= addslashes($q) ?>'; }
+function _amAssBuildUrl(){ var q=_amAssGetQ(); return _amAssCheckBase + '?f=' + encodeURIComponent(_amAssFilter) + (q ? '&q=' + encodeURIComponent(q) : '') + '&_t=' + Date.now(); }
 // init hash
 fetch(_amAssBuildUrl(), {headers:{'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){ _amAssLastHash=d.hash; _amAssLastCount=d.count; _amAssLastTecCount=d.tec_count; }).catch(function(){});
 function amAssShowToast(msg){
@@ -1219,7 +1301,7 @@ function amAssSoftRefresh(){
             setTimeout(function(){
                 curContainer.parentNode.replaceChild(newContent, curContainer);
                 newContent.style.opacity='0.35'; newContent.style.transition='opacity .25s';
-                requestAnimationFrame(function(){newContent.style.opacity='1';});
+                requestAnimationFrame(function(){newContent.style.opacity='1'; try{ if(typeof amFilterEntityCards==='function'){ var se=document.getElementById('am-entity-search'); if(se && se.value.trim()!=='') amFilterEntityCards(); } }catch(e){} });
                 if(newCount!==oldCount){
                     if(newCount>oldCount) amAssShowToast('🔔 Nova transferência com assinatura pendente!');
                     else if(document.querySelector('[href="?f=pendente"]')) amAssShowToast('✅ Lista de pendentes atualizada');

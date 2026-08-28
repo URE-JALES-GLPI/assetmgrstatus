@@ -13,6 +13,10 @@ header('Content-Type: application/json; charset=UTF-8');
 
 $filter = $_GET['f'] ?? 'pendente';
 if (!in_array($filter, ['pendente','assinado','todos'], true)) $filter = 'pendente';
+$q = trim($_GET['q'] ?? '');
+$q_norm = $q !== '' ? mb_strtolower($q, 'UTF-8') : '';
+$q_ascii = '';
+if ($q_norm !== '') { $q_ascii = @iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$q_norm); if($q_ascii===false) $q_ascii=$q_norm; $q_ascii=mb_strtolower($q_ascii,'UTF-8'); }
 
 $all = Transfer::getAll();
 $pendentes = array_values(array_filter($all, fn($t) => Transfer::precisaAssinatura($t)));
@@ -21,6 +25,17 @@ $assinados = array_values(array_filter($all, fn($t) => Transfer::isAssinado($t))
 if ($filter === 'pendente') $transfers = $pendentes;
 elseif ($filter === 'assinado') $transfers = $assinados;
 else $transfers = $all;
+
+if ($q_norm !== '') {
+    $transfers = array_values(array_filter($transfers, function($t) use ($q_norm,$q_ascii){
+        $hay = ($t['origin_entity_name'] ?? '') . ' ' . ($t['entity_dest_name'] ?? '') . ' #' . $t['id'] . ' ' . ($t['reason'] ?? '');
+        $hay_low = mb_strtolower($hay,'UTF-8');
+        if(mb_strpos($hay_low,$q_norm)!==false) return true;
+        $hay_ascii=@iconv('UTF-8','ASCII//TRANSLIT//IGNORE',$hay); if($hay_ascii===false) $hay_ascii=$hay;
+        $hay_ascii=mb_strtolower($hay_ascii,'UTF-8');
+        return mb_strpos($hay_ascii,$q_ascii)!==false;
+    }));
+}
 
 if ($filter === 'pendente') {
     usort($transfers, fn($a,$b) => strtotime($a['date_creation']) <=> strtotime($b['date_creation']));
