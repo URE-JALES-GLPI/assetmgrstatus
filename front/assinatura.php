@@ -223,24 +223,22 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
             </div>
         </div>
 
-        <!-- Step 2: Teclado numérico + Assinatura (juntos) -->
-        <div id="am-sig-step2" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
+        <!-- Step Num: Teclado numérico (separado) -->
+        <div id="am-sig-step-num" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">
                 <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button>
                 <div style="display:flex;gap:6px;align-items:center;">
-                    <span id="am-sig-stage-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">RECEBEDOR</span>
+                    <span id="am-sig-stage-badge-num" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">RECEBEDOR</span>
                     <span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
                 </div>
             </div>
             <div style="background:#f8f9fb;border:1px solid #e8eaf0;border-radius:10px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
                 <i class="ti ti-user" style="color:#4f46e5;"></i>
-                <span style="font-size:.85rem;font-weight:700;color:#1e1b4b;" id="am-sig-step2-nome-preview">—</span>
+                <span style="font-size:.85rem;font-weight:700;color:#1e1b4b;" id="am-sig-step-num-nome-preview">—</span>
             </div>
-
             <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small> — <span id="am-sig-doc-owner" style="color:#4f46e5;">recebedor</span></label>
             <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
             <input type="hidden" id="am-sig-doc-value">
-
             <div class="am-numpad">
                 <button type="button" onclick="amSigPress('1')">1</button>
                 <button type="button" onclick="amSigPress('2')">2</button>
@@ -253,26 +251,41 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                 <button type="button" onclick="amSigPress('9')">9</button>
                 <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button>
                 <button type="button" onclick="amSigPress('0')">0</button>
-                <button type="button" class="am-numpad-action" onclick="amSigPress('ok')"><i class="ti ti-check"></i></button>
+                <button type="button" class="am-numpad-action" onclick="amSigConfirmNum()"><i class="ti ti-check"></i></button>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:14px;">
+            <div style="display:flex;gap:8px;margin-top:12px;">
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button>
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button>
             </div>
+        </div>
 
-            <label class="am-form-label">Assinatura <span id="am-sig-canvas-label">do recebedor</span> <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use dedo/caneta — já com número acima</small></label>
-            <div class="am-sig-canvas-wrap">
-                <canvas id="am-sig-canvas" class="am-sig-canvas"></canvas>
+        <!-- Step Canvas: Assinatura (separada, sem scroll) -->
+        <div id="am-sig-step-canvas" class="am-modal-body" style="display:none;flex:1;overflow:hidden;display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;">
+                <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToNum()"><i class="ti ti-arrow-left"></i> Voltar</button>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <span id="am-sig-stage-badge-canvas" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">RECEBEDOR</span>
+                    <span id="am-sig-doc-badge-canvas" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
+                </div>
             </div>
-            <div class="am-sig-hint">Desenhe acima com o dedo/caneta. Use Limpar para refazer.</div>
+            <div style="background:#f8f9fb;border:1px solid #e8eaf0;border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span style="display:flex;align-items:center;gap:6px;font-size:.85rem;font-weight:700;color:#1e1b4b;"><i class="ti ti-user" style="color:#4f46e5;"></i> <span id="am-sig-canvas-nome-preview">—</span></span>
+                <span style="font-size:.75rem;color:#6b7280;" id="am-sig-canvas-doc-preview">—</span>
+            </div>
+            <label class="am-form-label" style="margin-bottom:6px;">Assinatura <span id="am-sig-canvas-label">do recebedor</span> <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use dedo/caneta</small></label>
+            <div class="am-sig-canvas-wrap" style="flex:1;min-height:200px;">
+                <canvas id="am-sig-canvas" class="am-sig-canvas" style="height:100%;min-height:220px;"></canvas>
+            </div>
+            <div class="am-sig-hint" style="margin-top:6px;">Desenhe acima. Use Limpar para refazer.</div>
             <div style="display:flex;gap:8px;margin-top:10px;">
-                <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClearCanvas()"><i class="ti ti-eraser"></i> Limpar assinatura</button>
+                <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClearCanvas()"><i class="ti ti-eraser"></i> Limpar</button>
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i> Cancelar</button>
             </div>
         </div>
 
         <div id="am-sig-footer" class="am-modal-footer" style="display:none;">
-            <button type="button" id="am-sig-next-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amSigNextToTecnico()"><i class="ti ti-arrow-right"></i> Próximo: Assinatura do Técnico →</button>
+            <button type="button" id="am-sig-next-num-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amSigConfirmNum()"><i class="ti ti-arrow-right"></i> Próximo: Assinatura →</button>
+            <button type="button" id="am-sig-next-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amSigNextToTecnico()"><i class="ti ti-arrow-right"></i> Próximo: Técnico →</button>
             <button type="button" id="am-sig-save-btn" class="am-btn" style="display:none;flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;" onclick="amSigSave()"><i class="ti ti-device-floppy"></i> Confirmar e Assinar (2 assinaturas)</button>
         </div>
     </div>
@@ -283,7 +296,7 @@ const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
 let amSigTransferId = 0;
 let amSigDocType = '';
 let amSigDocNumber = '';
-let amSigStage = 'rec_nome'; // rec_nome | rec_doc | rec_sign | tec_nome | tec_doc | tec_sign
+let amSigStage = 'rec_nome'; // rec_nome | rec_doc | rec_num | rec_canvas | tec_nome | tec_doc | tec_num | tec_canvas
 let amSigRecDocType = '', amSigRecDocNumber = '', amSigRecNome = '', amSigRecImage = '';
 let amSigTecDocType = '', amSigTecDocNumber = '', amSigTecNome = '', amSigTecImage = '';
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
@@ -296,10 +309,12 @@ function amOpenAssinaturaModal(transferId) {
     amSigStage='rec_nome';
     document.getElementById('am-sig-step-nome').style.display = 'block';
     document.getElementById('am-sig-step1').style.display = 'none';
-    document.getElementById('am-sig-step2').style.display = 'none';
+    document.getElementById('am-sig-step-num').style.display = 'none';
+    document.getElementById('am-sig-step-canvas').style.display = 'none';
     document.getElementById('am-sig-footer').style.display = 'none';
     document.getElementById('am-sig-next-btn').style.display='none';
     document.getElementById('am-sig-save-btn').style.display='none';
+    const extraNext = document.getElementById('am-sig-next-num-btn'); if(extraNext) extraNext.style.display='none';
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0');
     document.getElementById('am-sig-doc-value').value = '';
@@ -318,8 +333,6 @@ function amCloseAssinaturaModal() {
 }
 function amSigUpdateStageUI(){
     const isRec = amSigStage.startsWith('rec');
-    const isNome = amSigStage.endsWith('nome');
-    const isDoc = amSigStage.endsWith('doc');
     const progRec = document.getElementById('am-sig-prog-rec');
     const progTec = document.getElementById('am-sig-prog-tec');
     const progBar = document.getElementById('am-sig-prog-bar');
@@ -333,13 +346,11 @@ function amSigUpdateStageUI(){
     const stepSub = document.getElementById('am-sig-step1-sub');
     const stepInfo = document.getElementById('am-sig-step1-info');
     const backWrap = document.getElementById('am-sig-step1-back-wrap');
-    const stageBadge = document.getElementById('am-sig-stage-badge');
-    const docOwner = document.getElementById('am-sig-doc-owner');
-    const canvasLabel = document.getElementById('am-sig-canvas-label');
-    const nomePreview = document.getElementById('am-sig-step2-nome-preview');
-    // progress widths: rec_nome 0%, rec_doc 15%, rec_sign 45%, tec_nome 50%, tec_doc 65%, tec_sign 90%
-    const widths = {rec_nome:'0%', rec_doc:'15%', rec_sign:'45%', tec_nome:'50%', tec_doc:'65%', tec_sign:'90%'};
+    const widths = {rec_nome:'0%', rec_doc:'12%', rec_num:'30%', rec_canvas:'45%', tec_nome:'50%', tec_doc:'62%', tec_num:'78%', tec_canvas:'92%'};
     if(progBar) progBar.style.width = widths[amSigStage] || '0%';
+    // badges cores
+    const stageBadges = ['am-sig-stage-badge-num','am-sig-stage-badge-canvas'];
+    const docBadges = ['am-sig-doc-badge','am-sig-doc-badge-canvas'];
     if(isRec){
         if(progRec) { progRec.style.background='#4f46e5'; progRec.style.color='#fff'; }
         if(progTec) { progTec.style.background='#e8eaf0'; progTec.style.color='#9ca3af'; }
@@ -353,9 +364,9 @@ function amSigUpdateStageUI(){
         if(stepSub) stepSub.textContent='Escolha o tipo de documento do recebedor';
         if(stepInfo) stepInfo.innerHTML='Documento do <strong>recebedor</strong> será impresso no termo.';
         if(backWrap) backWrap.style.display='none';
-        if(stageBadge) { stageBadge.textContent='RECEBEDOR'; stageBadge.style.background='#4f46e5'; }
-        if(docOwner) { docOwner.textContent='recebedor'; docOwner.style.color='#4f46e5'; }
-        if(canvasLabel) canvasLabel.textContent='do recebedor';
+        stageBadges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent='RECEBEDOR'; el.style.background='#4f46e5'; }});
+        docBadges.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.background='#4f46e5'; });
+        const lbl = document.getElementById('am-sig-canvas-label'); if(lbl) lbl.textContent='do recebedor';
         const hint = document.getElementById('am-sig-step1-hint'); if(hint) hint.textContent='Selecione RG ou CPF do recebedor';
     } else {
         if(progRec) { progRec.style.background='#d1fae5'; progRec.style.color='#065f46'; }
@@ -370,25 +381,48 @@ function amSigUpdateStageUI(){
         if(stepSub) stepSub.textContent='Escolha o tipo de documento do técnico';
         if(stepInfo) stepInfo.innerHTML='Documento do <strong>técnico</strong> será impresso no termo.';
         if(backWrap) backWrap.style.display='block';
-        if(stageBadge) { stageBadge.textContent='TÉCNICO'; stageBadge.style.background='#059669'; }
-        if(docOwner) { docOwner.textContent='técnico'; docOwner.style.color='#059669'; }
-        if(canvasLabel) canvasLabel.textContent='do técnico';
+        stageBadges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent='TÉCNICO'; el.style.background='#059669'; }});
+        docBadges.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.background='#059669'; });
+        const lbl = document.getElementById('am-sig-canvas-label'); if(lbl) lbl.textContent='do técnico';
         const hint = document.getElementById('am-sig-step1-hint'); if(hint) hint.textContent='Selecione RG ou CPF do técnico';
     }
     const hintEl = document.getElementById('am-sig-step1-hint'); if(hintEl) hintEl.style.color='#9ca3af';
-    if(nomePreview){
-        const curNome = isRec ? amSigRecNome : amSigTecNome;
-        const inputNome = document.getElementById('am-sig-nome').value.trim();
-        // mostra preview do nome já digitado
-        if(isRec && amSigStage==='rec_sign') nomePreview.textContent = amSigRecNome || inputNome || '—';
-        else if(!isRec && amSigStage==='tec_sign') nomePreview.textContent = amSigTecNome || inputNome || '—';
-        else nomePreview.textContent = curNome || '—';
+    // previews nome/doc
+    const previewNum = document.getElementById('am-sig-step-num-nome-preview');
+    const previewCanvasNome = document.getElementById('am-sig-canvas-nome-preview');
+    const previewCanvasDoc = document.getElementById('am-sig-canvas-doc-preview');
+    const curNome = isRec ? amSigRecNome : amSigTecNome;
+    if(previewNum) previewNum.textContent = curNome || '—';
+    if(previewCanvasNome) previewCanvasNome.textContent = curNome || '—';
+    if(previewCanvasDoc){
+        const curType = isRec ? amSigRecDocType : amSigTecDocType;
+        const curNum = isRec ? amSigRecDocNumber : amSigTecDocNumber;
+        // durante rec_num/tec_num mostra o doc digitado ao vivo, senão mostra salvo
+        let showType = curType; let showNum = curNum;
+        if(amSigStage==='rec_num' || amSigStage==='tec_num'){ showType = amSigDocType; showNum = amSigDocNumber; }
+        if(amSigStage==='rec_canvas' || amSigStage==='tec_canvas'){ showType = amSigDocType; showNum = amSigDocNumber; }
+        previewCanvasDoc.textContent = showType ? (showType + ' ' + amSigMaskDoc(showNum, showType)) : '—';
     }
     const nextBtn = document.getElementById('am-sig-next-btn');
     const saveBtn = document.getElementById('am-sig-save-btn');
-    if(amSigStage==='rec_sign'){ nextBtn.style.display='flex'; saveBtn.style.display='none'; }
-    else if(amSigStage==='tec_sign'){ nextBtn.style.display='none'; saveBtn.style.display='flex'; }
-    else { nextBtn.style.display='none'; saveBtn.style.display='none'; }
+    const nextNumBtn = document.getElementById('am-sig-next-num-btn');
+    // reseta todos
+    if(nextBtn) nextBtn.style.display='none';
+    if(saveBtn) saveBtn.style.display='none';
+    if(nextNumBtn) nextNumBtn.style.display='none';
+    const footer = document.getElementById('am-sig-footer');
+    if(amSigStage==='rec_num' || amSigStage==='tec_num'){
+        if(footer) footer.style.display='flex';
+        if(nextNumBtn) nextNumBtn.style.display='flex';
+    } else if(amSigStage==='rec_canvas'){
+        if(footer) footer.style.display='flex';
+        if(nextBtn){ nextBtn.style.display='flex'; nextBtn.innerHTML='<i class="ti ti-arrow-right"></i> Próximo: Técnico →'; nextBtn.onclick=amSigNextToTecnico; }
+    } else if(amSigStage==='tec_canvas'){
+        if(footer) footer.style.display='flex';
+        if(saveBtn) saveBtn.style.display='flex';
+    } else {
+        if(footer) footer.style.display='none';
+    }
 }
 function amSigNextFromNome(){
     const nome = document.getElementById('am-sig-nome').value.trim();
@@ -399,7 +433,6 @@ function amSigNextFromNome(){
     document.getElementById('am-sig-step-nome').style.display='none';
     document.getElementById('am-sig-step1').style.display='block';
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-    // se já tinha doc escolhido, reativa
     const curDoc = isRec ? amSigRecDocType : amSigTecDocType;
     if(curDoc) document.querySelectorAll('.am-doc-btn').forEach(b=>{ if(b.dataset.type===curDoc) b.classList.add('active'); });
     amSigUpdateStageUI();
@@ -414,11 +447,10 @@ function amSigBackToNome(){
     setTimeout(()=>document.getElementById('am-sig-nome').focus(), 100);
 }
 function amSigBackFromNome(){
-    // de tec_nome volta para rec_sign
     if(amSigStage==='tec_nome'){
-        amSigStage='rec_sign';
+        amSigStage='rec_canvas';
         document.getElementById('am-sig-step-nome').style.display='none';
-        document.getElementById('am-sig-step2').style.display='block';
+        document.getElementById('am-sig-step-canvas').style.display='block';
         document.getElementById('am-sig-footer').style.display='flex';
         amSigDocType = amSigRecDocType; amSigDocNumber = amSigRecDocNumber;
         document.getElementById('am-sig-doc-value').value = amSigDocNumber;
@@ -434,21 +466,21 @@ function amSigChooseDoc(type) {
     if(amSigStage==='rec_doc') amSigRecDocType=type; else amSigTecDocType=type;
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===type));
     const hint = document.getElementById('am-sig-step1-hint');
-    if(hint){ hint.textContent = type + ' selecionado — abrindo teclado + assinatura...'; hint.style.color='#059669'; }
+    if(hint){ hint.textContent = type + ' selecionado — abrindo teclado...'; hint.style.color='#059669'; }
     setTimeout(()=>amSigGoToKeypad(), 220);
 }
 function amSigGoToKeypad() {
     if (!amSigDocType) return;
     const isRec = amSigStage==='rec_doc';
-    amSigStage = isRec ? 'rec_sign' : 'tec_sign';
+    amSigStage = isRec ? 'rec_num' : 'tec_num';
     document.getElementById('am-sig-step-nome').style.display='none';
     document.getElementById('am-sig-step1').style.display = 'none';
-    document.getElementById('am-sig-step2').style.display = 'block';
+    document.getElementById('am-sig-step-num').style.display = 'block';
+    document.getElementById('am-sig-step-canvas').style.display = 'none';
     document.getElementById('am-sig-footer').style.display = 'flex';
-    document.getElementById('am-sig-doc-badge').textContent = amSigDocType;
-    document.getElementById('am-sig-doc-badge').style.background = amSigDocType==='CPF' ? '#4f46e5' : '#059669';
+    const badges = ['am-sig-doc-badge','am-sig-doc-badge-canvas'];
+    badges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=amSigDocType; el.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }});
     document.getElementById('am-sig-doc-hint').textContent = amSigDocType==='CPF' ? '11 dígitos' : '5 a 12 dígitos';
-    // restaura doc se editando
     if(isRec && amSigRecDocNumber && amSigDocType===amSigRecDocType){
         amSigDocNumber = amSigRecDocNumber;
     } else if(!isRec && amSigTecDocNumber && amSigDocType===amSigTecDocType){
@@ -460,32 +492,57 @@ function amSigGoToKeypad() {
     document.getElementById('am-sig-doc-value').value = amSigDocNumber;
     amSigUpdateStageUI();
     amSigUpdateDisplay();
+}
+function amSigConfirmNum(){
+    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { alert('CPF precisa de 11 dígitos.'); return; }
+    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { alert('RG precisa de 5 a 12 dígitos.'); return; }
+    const isRec = amSigStage==='rec_num';
+    if(isRec) amSigRecDocNumber = amSigDocNumber; else amSigTecDocNumber = amSigDocNumber;
+    amSigGoToCanvas();
+}
+function amSigGoToCanvas(){
+    const isRec = amSigStage==='rec_num';
+    amSigStage = isRec ? 'rec_canvas' : 'tec_canvas';
+    document.getElementById('am-sig-step-num').style.display='none';
+    document.getElementById('am-sig-step-canvas').style.display='block';
+    document.getElementById('am-sig-footer').style.display='flex';
+    const badges = ['am-sig-doc-badge','am-sig-doc-badge-canvas'];
+    badges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=amSigDocType; el.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }});
+    amSigUpdateStageUI();
     amSigClearCanvas();
     setTimeout(amSigInitCanvas, 100);
 }
 function amSigBackToDoc() {
-    const isRec = amSigStage==='rec_sign';
-    // guarda doc atual
+    const isRec = amSigStage==='rec_num';
     if(isRec) amSigRecDocNumber = amSigDocNumber;
     else amSigTecDocNumber = amSigDocNumber;
     amSigStage = isRec ? 'rec_doc' : 'tec_doc';
-    document.getElementById('am-sig-step2').style.display = 'none';
+    document.getElementById('am-sig-step-num').style.display = 'none';
+    document.getElementById('am-sig-step-canvas').style.display = 'none';
     document.getElementById('am-sig-footer').style.display = 'none';
     document.getElementById('am-sig-step1').style.display = 'block';
     amSigUpdateStageUI();
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===amSigDocType));
 }
+function amSigBackToNum(){
+    const isRec = amSigStage==='rec_canvas';
+    amSigStage = isRec ? 'rec_num' : 'tec_num';
+    document.getElementById('am-sig-step-canvas').style.display='none';
+    document.getElementById('am-sig-step-num').style.display='block';
+    document.getElementById('am-sig-footer').style.display='flex';
+    amSigUpdateStageUI();
+}
 function amSigBackToRecebedor(){
-    amSigStage='rec_sign';
+    amSigStage='rec_canvas';
     amSigDocType = amSigRecDocType;
     amSigDocNumber = amSigRecDocNumber;
     document.getElementById('am-sig-step-nome').style.display='none';
     document.getElementById('am-sig-step1').style.display='none';
-    document.getElementById('am-sig-step2').style.display='block';
+    document.getElementById('am-sig-step-num').style.display='none';
+    document.getElementById('am-sig-step-canvas').style.display='block';
     document.getElementById('am-sig-footer').style.display='flex';
-    document.getElementById('am-sig-doc-badge').textContent = amSigDocType;
-    document.getElementById('am-sig-doc-badge').style.background = amSigDocType==='CPF' ? '#4f46e5' : '#059669';
-    document.getElementById('am-sig-doc-hint').textContent = amSigDocType==='CPF' ? '11 dígitos' : '5 a 12 dígitos';
+    const badges=['am-sig-doc-badge','am-sig-doc-badge-canvas'];
+    badges.forEach(id=>{ const el=document.getElementById(id); if(el){ el.textContent=amSigDocType; el.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }});
     document.getElementById('am-sig-doc-value').value = amSigDocNumber;
     amSigUpdateStageUI();
     amSigUpdateDisplay();
@@ -503,12 +560,10 @@ function amSigNextToTecnico(){
     if (!dataUrl || dataUrl.length < 500) return alert('Assinatura do recebedor vazia — desenhe novamente.');
     amSigRecDocType = amSigDocType;
     amSigRecDocNumber = amSigDocNumber;
-    // nome já salvo em amSigRecNome via etapa nome
     amSigRecImage = dataUrl;
-    // Avança para técnico — nome
     amSigStage='tec_nome';
     amSigDocType=''; amSigDocNumber=''; amSigHasDrawn=false;
-    document.getElementById('am-sig-step2').style.display='none';
+    document.getElementById('am-sig-step-canvas').style.display='none';
     document.getElementById('am-sig-footer').style.display='none';
     document.getElementById('am-sig-step-nome').style.display='block';
     document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
@@ -521,7 +576,7 @@ function amSigNextToTecnico(){
 }
 function amSigPress(k) {
     if (k==='del') { amSigBackspace(); return; }
-    if (k==='ok')  { amSigCheckDocComplete(); return; }
+    if (k==='ok')  { amSigConfirmNum(); return; }
     if (amSigDocType==='CPF' && amSigDocNumber.length >= 11) return;
     if (amSigDocType==='RG' && amSigDocNumber.length >= 12) return;
     amSigDocNumber += k;
@@ -562,14 +617,11 @@ function amSigUpdateDisplay() {
     else if (amSigDocNumber.length <= max) el.style.borderColor = '#10b981';
     else el.style.borderColor = '#e8eaf0';
     if (amSigDocType==='CPF') el.style.borderColor = amSigDocNumber.length===11 ? '#10b981' : '#f59e0b';
+    // atualiza também badge doc se existir
+    const badges = ['am-sig-doc-badge','am-sig-doc-badge-canvas'];
+    badges.forEach(id=>{ const b=document.getElementById(id); if(b) b.textContent=amSigDocType; });
 }
-function amSigCheckDocComplete() {
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { alert('CPF precisa de 11 dígitos.'); return; }
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { alert('RG precisa de 5 a 12 dígitos.'); return; }
-    // nome já coletado na etapa anterior, foca no canvas (assinatura)
-    const c = document.getElementById('am-sig-canvas');
-    if(c) c.scrollIntoView({behavior:'smooth', block:'center'});
-}
+function amSigCheckDocComplete() { amSigConfirmNum(); }
 function amSigInitCanvas() {
     const c = document.getElementById('am-sig-canvas');
     if (!c) return;
@@ -616,9 +668,10 @@ function amSigClearCanvas() {
 }
 async function amSigSave() {
     if (!amSigTransferId) return alert('Transferência inválida.');
-    if(amSigStage==='rec_sign') return amSigNextToTecnico();
-    if(amSigStage==='rec_nome' || amSigStage==='rec_doc') return alert('Complete primeiro a assinatura do recebedor (nome → documento → número + assinatura).');
-    if(amSigStage==='tec_nome' || amSigStage==='tec_doc') return alert('Selecione o documento e preencha número + assinatura do técnico.');
+    // se ainda não está na tela final, guia
+    if(amSigStage==='rec_nome' || amSigStage==='rec_doc' || amSigStage==='rec_num') return alert('Complete primeiro o recebedor: nome → documento → número → assinatura.');
+    if(amSigStage==='rec_canvas') return amSigNextToTecnico();
+    if(amSigStage==='tec_nome' || amSigStage==='tec_doc' || amSigStage==='tec_num') return alert('Complete o técnico: nome → documento → número → assinatura.');
     if (!amSigRecImage) return alert('Assinatura do recebedor não capturada — volte e assine.');
     if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return alert('CPF do técnico precisa de 11 dígitos.');
     if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return alert('RG do técnico precisa de 5 a 12 dígitos.');
