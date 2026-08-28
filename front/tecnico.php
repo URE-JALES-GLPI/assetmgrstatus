@@ -516,27 +516,46 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-kanban">
             <?php
                 $currentUserId = (int)Session::getLoginUserID();
+                // Kanban unificado: 4 etapas com Transferências (laranja) + Chamados (vermelho) juntos, ordenados por data
                 $kanbanStages = [
-                    'pendente'   => ['label'=>'PENDENTE', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PENDENTE), 'status'=>Transfer::STATUS_PENDENTE, 'desc'=>'Novos'],
-                    'pego'       => ['label'=>'PEGO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_MANUTENCAO), 'status'=>Transfer::STATUS_MANUTENCAO, 'desc'=>'Só seus'],
-                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'status'=>Transfer::STATUS_PRONTO, 'desc'=>'Finalizar no GLPI'],
-                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_FINALIZADO), 'status'=>Transfer::STATUS_FINALIZADO, 'desc'=>'Assinado'],
+                    'pendente'   => ['label'=>'PENDENTE', 'color'=>'#f59e0b', 'desc'=>'Novos'],
+                    'pego'       => ['label'=>'PEGO', 'color'=>'#f59e0b', 'desc'=>'Só seus'],
+                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'desc'=>'Finalizar no GLPI'],
+                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>'#10b981', 'desc'=>'Assinado'],
                 ];
                 foreach ($kanbanStages as $stageKey=>$stage):
-                    $sKey = $stage['status'];
                     $sLabel = $stage['label'];
                     $sColor = $stage['color'];
-                    $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $sKey, $currentUserId){
-                        if ($it['type']!=='transfer') return false;
-                        if ($it['data']['status']!==$sKey) return false;
-                        if ($stageKey==='pego' && (int)($it['data']['users_id_tech'] ?? 0) !== $currentUserId) {
-                            // PEGO mostra só do usuário logado; "Mostrar todos" via JS mostra o resto
+                    $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $currentUserId){
+                        if ($stageKey==='pendente') {
+                            if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PENDENTE) return true;
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===1) return true; // Novo
                             return false;
                         }
-                        return true;
+                        if ($stageKey==='pego') {
+                            if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO && (int)($it['data']['users_id_tech'] ?? 0)===$currentUserId) return true;
+                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [2,3])) return true; // Em andamento / Planejado
+                            return false;
+                        }
+                        if ($stageKey==='aguardando') {
+                            if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_PRONTO) return true;
+                            if ($it['type']==='ticket' && (int)$it['data']['status']===4) return true; // Pendente
+                            return false;
+                        }
+                        if ($stageKey==='concluido') {
+                            if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_FINALIZADO) return true;
+                            if ($it['type']==='ticket' && in_array((int)$it['data']['status'], [5,6])) return true; // Solucionado / Fechado
+                            return false;
+                        }
+                        return false;
                     }));
-                    // Para kanban, não filtra por status do topo quando tipo=ticket, mas mantém tipo
-                    if ($filter_tipo==='ticket') continue;
+                    // Filtro tipo: se for só transferência, esconde chamados e vice-versa (já filtrado acima, mas mantém)
+                    if ($filter_tipo==='ticket' && $stageKey!=='pendente' && $stageKey!=='pego') {
+                        // Para tipo ticket, mostra só colunas que têm ticket mapeado; já filtrado, mas mantém
+                    }
+                    if ($filter_tipo==='transfer' && $stageKey==='concluido' && empty($colCards)) {
+                        // mantém coluna vazia para mostrar estrutura
+                    }
             ?>
             <div class="am-kanban-column" data-stage="<?= $stageKey ?>">
                 <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;">
@@ -552,22 +571,33 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 </div>
                 <div class="am-kanban-body" id="am-kanban-body-<?= $stageKey ?>">
                     <?php
-                        // Para PEGO, renderiza todos mas esconde os que não são do usuário (para "Mostrar todos")
                         $colCardsToRender = $colCards;
                         if ($stageKey==='pego') {
-                            $colCardsToRender = array_values(array_filter($combined, fn($it)=>$it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO));
+                            // PEGO: mostra todos mas esconde os que não são do usuário
+                            $colCardsToRender = array_values(array_filter($combined, function($it) use ($stageKey){
+                                if ($stageKey==='pego' && $it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO) return true;
+                                if ($stageKey==='pego' && $it['type']==='ticket' && in_array((int)$it['data']['status'], [2,3])) return true;
+                                return false;
+                            }));
+                            // Recalcula colCards para o header mas mantém ToRender com todos
+                            $colCards = array_values(array_filter($colCardsToRender, fn($it)=> (int)($it['data']['users_id_tech'] ?? $currentUserId) === $currentUserId || $it['type']==='ticket'));
                         }
                         foreach ($colCardsToRender as $item):
-                            $isHiddenPego = ($stageKey==='pego' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
-                            $t = $item['data'];
+                            $isHiddenPego = ($stageKey==='pego' && $item['type']==='transfer' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
+                            if ($item['type']==='transfer') {
+                                $t = $item['data'];
+                                $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
+                                $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
+                                $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
+                                $borderColor = '#f59e0b'; // Transferência = Laranja
+                            } else {
+                                $tk = $item['data'];
+                                $borderColor = '#ef4444'; // Chamado = Vermelho
+                            }
                     ?>
-                        $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
-                        $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
-                        $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
-                        $status_color = Transfer::getStatusColor($t['status']);
-                    ?>
-                    <div class="am-tc-card <?= ($stageKey==='pego' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" style="margin:0;<?= ($stageKey==='pego' && $isHiddenPego) ? 'display:none;' : '' ?>" data-mine="<?= ($stageKey==='pego' && !$isHiddenPego) ? '1' : '0' ?>">
-                        <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;padding:12px 14px;">
+                    <?php if ($item['type']==='transfer'): $t = $item['data']; $status_color = '#f59e0b'; ?>
+                    <div class="am-tc-card <?= ($stageKey==='pego' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" style="margin:0;<?= ($stageKey==='pego' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;" data-mine="<?= ($stageKey==='pego' && !$isHiddenPego) ? '1' : '0' ?>">
+                        <div class="am-tc-card-header" style="border-left:4px solid <?= $borderColor ?>;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
                                 <div style="font-size:.65rem;color:#9ca3af;font-weight:700;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
                                 <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($t['origin_entity_name']) ?></div>
@@ -590,7 +620,25 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php endforeach; ?>
+                    <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; ?>
+                    <div class="am-tc-card" style="margin:0;border-left:4px solid #ef4444;" data-mine="0">
+                        <div class="am-tc-card-header" style="border-left:4px solid #ef4444;padding:12px 14px;">
+                            <div style="min-width:0;flex:1;">
+                                <div style="font-size:.65rem;color:#ef4444;font-weight:700;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
+                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tk['name']?:'Sem título') ?></div>
+                            </div>
+                            <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.65rem;"><?= htmlspecialchars($tkStatusLabel) ?></span>
+                        </div>
+                        <div class="am-tc-card-body" style="padding:10px 14px;">
+                            <?php if ($tk['entity_name']): ?><div class="am-tc-info-row" style="font-size:.78rem;"><i class="ti ti-building"></i><span><?= htmlspecialchars($tk['entity_name']) ?></span></div><?php endif; ?>
+                            <div class="am-tc-info-row" style="font-size:.78rem;"><i class="ti ti-calendar"></i><span><?= Html::convDateTime($tk['date_mod']?:$tk['date_creation']) ?></span></div>
+                            <?php if ($tkContentShort): ?><div class="am-tc-reason" style="font-size:.75rem;padding:6px 8px;background:#fef2f2;border-color:#fecaca;"><?= htmlspecialchars($tkContentShort) ?></div><?php endif; ?>
+                        </div>
+                        <div class="am-tc-card-footer" style="padding:8px 12px;">
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/front/ticket.form.php?id=<?= (int)$tk['id'] ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-external-link"></i> Abrir</a>
+                        </div>
+                    </div>
+                    <?php endif; endforeach; ?>
                     <?php
                         $emptyCheck = ($stageKey==='pego') ? empty($colCardsToRender) : empty($colCards);
                         if ($emptyCheck): ?><div class="am-kanban-empty">Nenhum card</div><?php endif; ?>
@@ -598,7 +646,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             </div>
             <?php endforeach; ?>
         </div>
-        <?php if ($filter_tipo!=='transfer'): 
+        <?php // Chamados já estão no kanban unificado acima (borda vermelha), remove seção separada
+        if (false && $filter_tipo!=='transfer'): 
             $ticketsForKanban = array_values(array_filter($combined, fn($it)=>$it['type']==='ticket'));
         ?>
         <h3 style="margin:20px 0 12px;font-size:1rem;font-weight:800;color:#1e1b4b;display:flex;align-items:center;gap:8px;"><i class="ti ti-ticket" style="color:#4f46e5;"></i> Chamados <span style="font-weight:400;color:#9ca3af;font-size:.85rem;">por categoria</span></h3>
