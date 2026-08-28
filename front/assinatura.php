@@ -582,16 +582,24 @@ function amLoadTecSelectList(){
         // atualiza gestão também
         amRenderTecList(amSigTecCache);
     }
-    fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}})
       .then(r=>r.json()).then(j=>{
         if(loading) loading.style.display='none';
         if(!j.ok){
             console.warn('tecnico list fail', j);
-            // mantém cache inicial se fetch falhar
             if(!amSigTecCache.length && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length){
                 amSigTecCache = amInitialTecCache.slice();
                 amRenderTecSelectList(amSigTecCache);
+                amRenderTecList(amSigTecCache);
             }
+            return;
+        }
+        // se fetch retornou vazio mas cache inicial tem dados, mantém cache (evita piscar some)
+        if((!j.data || !j.data.length) && typeof amInitialTecCache!=='undefined' && amInitialTecCache.length && amInitialTecCache.length>0){
+            console.warn('fetch vazio mas inicial tem dados, mantém inicial');
+            // mantém amSigTecCache já com inicial, apenas garante render
+            amRenderTecSelectList(amSigTecCache);
+            amRenderTecList(amSigTecCache);
             return;
         }
         amSigTecCache=j.data||[];
