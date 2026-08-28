@@ -20,12 +20,27 @@ try {
         error_log('[assetmgrstatus] assinatura_save schema check: ' . $e->getMessage());
     }
 
-    if (!Session::checkLoginUser()) {
-        throw new Exception('Sessão expirada — faça login novamente');
+    // Ping de teste — acesse via GET ?ping=1 para verificar se o endpoint está acessível (deve retornar JSON, não 403 HTML)
+    if (($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'HEAD') && isset($_GET['ping'])) {
+        echo json_encode(['ok' => true, 'ping' => 'pong', 'user' => Session::getLoginUserID(), 'hasAssinatura' => Session::haveRight('plugin_assetmgrstatus_assinatura', READ)]);
+        exit;
     }
 
-    if (!Session::haveRight('plugin_assetmgrstatus_assinatura', READ) && !Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
-        echo json_encode(['ok' => false, 'error' => 'Sem permissão (Assinatura)']);
+    // Não usa Session::checkLoginUser() direto — ele pode imprimir HTML 403. Faz check manual e retorna JSON.
+    if (!Session::getLoginUserID()) {
+        http_response_code(200);
+        echo json_encode(['ok' => false, 'error' => 'Sessão expirada — faça login novamente no GLPI e recarregue a página']);
+        exit;
+    }
+
+    // Permissão: aceita assinatura OU tecnico OU admin OU ao menos acesso básico ao plugin (para não quebrar em perfis simples)
+    $hasAssinatura = Session::haveRight('plugin_assetmgrstatus_assinatura', READ);
+    $hasTecnico    = Session::haveRight('plugin_assetmgrstatus_tecnico', READ);
+    $hasAdmin      = Session::haveRight('plugin_assetmgrstatus_admin', READ);
+    $hasBasic      = Session::haveRight('plugin_assetmgrstatus', READ);
+    if (!$hasAssinatura && !$hasTecnico && !$hasAdmin && !$hasBasic) {
+        http_response_code(200);
+        echo json_encode(['ok' => false, 'error' => 'Sem permissão (Assinatura). Ative em Administração > Perfis > Manutenção > Assinatura de Termos']);
         exit;
     }
 

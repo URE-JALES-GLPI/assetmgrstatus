@@ -4,7 +4,7 @@ include('../../../inc/includes.php');
 use GlpiPlugin\Assetmgrstatus\Transfer;
 
 Session::checkLoginUser();
-if (!Session::haveRight('plugin_assetmgrstatus_assinatura', READ) && !Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus_admin', READ)) {
+if (!Session::haveRight('plugin_assetmgrstatus_assinatura', READ) && !Session::haveRight('plugin_assetmgrstatus_tecnico', READ) && !Session::haveRight('plugin_assetmgrstatus_admin', READ) && !Session::haveRight('plugin_assetmgrstatus', READ)) {
     Html::displayRightError(); exit;
 }
 
@@ -232,6 +232,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 </div>
 
 <script>
+const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
 let amSigTransferId = 0;
 let amSigDocType = '';
 let amSigDocNumber = '';
@@ -399,9 +400,9 @@ async function amSigSave() {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
         const res = await fetch(base + '/ajax/assinatura_save.php', {
             method: 'POST',
-            headers: {'Content-Type':'application/json'},
+            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
             credentials: 'same-origin',
-            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl})
+            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
         });
         const text = await res.text();
         let j;
