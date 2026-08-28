@@ -694,6 +694,249 @@ class Transfer
         return file_exists($path) ? $path : null;
     }
 
+    // -------------------------------------------------------
+    // Impressão no servidor (CUPS — Ubuntu) — fila da HP
+    // -------------------------------------------------------
+
+    /**
+     * Lista impressoras disponíveis no CUPS (lpstat -p)
+     * @return string[] nomes das impressoras
+     */
+    public static function getAvailablePrinters(): array
+    {
+        $out = [];
+        // tenta lpstat -p
+        @exec('lpstat -p 2>&1', $out, $ret);
+        $printers = [];
+        foreach ($out as $line) {
+            // formato: "printer HP_LaserJet_1020 is idle..."
+            if (preg_match('/^printer\s+(\S+)/i', trim($line), $m)) {
+                $printers[] = $m[1];
+            }
+        }
+        // também tenta cupsctl? fallback via lpstat -e (lista destinos)
+        if (empty($printers)) {
+            $out2 = [];
+            @exec('lpstat -e 2>&1', $out2, $ret2);
+            foreach ($out2 as $line) {
+                $name = trim($line);
+                if ($name !== '' && !str_starts_with($name, ' ') && stripos($name, 'error') === false && stripos($name, 'bash') === false) {
+                    // cada linha é um nome
+                    $printers[] = $name;
+                }
+            }
+        }
+        return array_values(array_unique($printers));
+    }
+
+    public static function getDefaultPrinter(): ?string
+    {
+        $out = [];
+        @exec('lpstat -d 2>&1', $out, $ret);
+        foreach ($out as $line) {
+            // "system default destination: HP_LaserJet_1020"
+            if (preg_match('/system default destination:\s*(\S+)/i', $line, $m)) {
+                return trim($m[1]);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Encontra impressora HP preferencial.
+     * Prioridade: 1) nome contém HP, 2) default, 3) primeira disponível
+     */
+    public static function findHpPrinter(): ?string
+    {
+        // 1) Verifica config específica do plugin se existir (glpi_configs plugin:assetmgrstatus)
+        try {
+            if (class_exists('Config')) {
+                // GLPI 10+ usa Config::getConfigurationValues('plugin:assetmgrstatus')
+                if (method_exists('Config', 'getConfigurationValues')) {
+                    $vals = \Config::getConfigurationValues('plugin:assetmgrstatus');
+                    if (!empty($vals['hp_printer'])) {
+                        $cfg = trim((string)$vals['hp_printer']);
+                        if ($cfg !== '') return $cfg;
+                    }
+                    // legacy key
+                    if (!empty($vals['printer_name'])) {
+                        $cfg = trim((string)$vals['printer_name']);
+                        if ($cfg !== '') return $cfg;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        // 2) env var
+        $env = getenv('ASSETMGR_HP_PRINTER');
+        if ($env && trim($env) !== '') return trim($env);
+
+        $available = self::getAvailablePrinters();
+        // procura HP (case-insensitive)
+        foreach ($available as $p) {
+            if (stripos($p, 'hp') !== false) return $p;
+        }
+        // fallback: default
+        $def = self::getDefaultPrinter();
+        if ($def) return $def;
+        // último fallback: primeira disponível
+        return $available[0] ?? null;
+    }
+
+    public static function isPrintCommandAvailable(): array
+    {
+        $lp = trim((string)@shell_exec('which lp 2>&1'));
+        $lpr = trim((string)@shell_exec('which lpr 2>&1'));
+        // fallback para command -v
+        if ($lp === '' || str_contains($lp, 'not found')) {
+            $tmp = trim((string)@shell_exec('command -v lp 2>&1'));
+            if ($tmp !== '' && !str_contains($tmp, 'not found')) $lp = $tmp;
+        }
+        if ($lpr === '' || str_contains($lpr, 'not found')) {
+            $tmp = trim((string)@shell_exec('command -v lpr 2>&1'));
+            if ($tmp !== '' && !str_contains($tmp, 'not found')) $lpr = $tmp;
+        }
+        return ['lp' => $lp, 'lpr' => $lpr];
+    }
+
+    /**
+     * Envia o PDF assinado para fila de impressão CUPS do servidor (Ubuntu).
+     * Gera o PDF via mPDF e executa `lp`/`lpr`.
+     * @return array{ok:bool, printer?:string, output?:string, error?:string, request_id?:string}
+     */
+    public static function printOnServer(int $transfer_id, string $stage = 'pronto', ?string $preferred_printer = null): array
+    {
+        global $DB;
+        $transfer = self::getById($transfer_id);
+        if (!$transfer) {
+            return ['ok' => false, 'error' => 'Transferência não encontrada'];
+        }
+        // Valida stage
+        if (!in_array($stage, ['transfer','pronto','final'], true)) $stage = 'pronto';
+
+        // Gera PDF temporário (usa mPDF — mesmo que vai para o chamado)
+        $pdf_path = self::generateDocPdf($transfer_id, $stage);
+        if (!$pdf_path || !file_exists($pdf_path)) {
+            $err = self::$last_ticket_error ?: 'Falha ao gerar PDF para impressão (mPDF indisponível ou erro interno)';
+            return ['ok' => false, 'error' => $err];
+        }
+
+        // Escolhe impressora
+        $printer = null;
+        if ($preferred_printer !== null && trim($preferred_printer) !== '') {
+            $printer = trim($preferred_printer);
+        } else {
+            $printer = self::findHpPrinter();
+        }
+
+        // Verifica se exec/shell_exec estão disponíveis (podem estar em disable_functions)
+        $execDisabled = !function_exists('exec') || !is_callable('exec');
+        $shellDisabled = !function_exists('shell_exec') || !is_callable('shell_exec');
+        if ($execDisabled && $shellDisabled) {
+            @unlink($pdf_path);
+            return ['ok' => false, 'error' => 'Funções exec/shell_exec desabilitadas no PHP (disable_functions). Habilite exec no php.ini do servidor Ubuntu para imprimir via CUPS.'];
+        }
+
+        $available = self::getAvailablePrinters();
+        $default = self::getDefaultPrinter();
+        $cmds = self::isPrintCommandAvailable();
+        $hasLp = !empty($cmds['lp']) && !str_contains($cmds['lp'], 'not found');
+        $hasLpr = !empty($cmds['lpr']) && !str_contains($cmds['lpr'], 'not found');
+
+        if (!$hasLp && !$hasLpr) {
+            @unlink($pdf_path);
+            $diag = 'lpstat -p: ' . implode('; ', $available) . ' | default: ' . ($default ?? 'nenhum') . ' | which lp: ' . ($cmds['lp'] ?: 'não encontrado');
+            return ['ok' => false, 'error' => 'Serviço de impressão CUPS não encontrado no servidor (comandos lp/lpr ausentes). Instale cups: sudo apt install cups && sudo systemctl enable --now cups. Detalhe: ' . $diag];
+        }
+
+        if ($printer === null || $printer === '') {
+            @unlink($pdf_path);
+            return ['ok' => false, 'error' => 'Nenhuma impressora encontrada no servidor CUPS. Configure a impressora HP no Ubuntu (Configurações > Impressoras ou lpadmin) e defina como padrão. Impressoras detectadas: ' . (empty($available) ? 'nenhuma' : implode(', ', $available)) . '. Dica: sudo lpstat -p -d'];
+        }
+
+        // Se impressora escolhida não está na lista mas há impressoras, avisa mas tenta mesmo assim (pode ser nome com alias)
+        // Monta comando com segurança (escapeshellarg)
+        $output = [];
+        $ret = -1;
+        $cmd = '';
+        $printed = false;
+        $lastOut = '';
+
+        // Tenta lp primeiro
+        if ($hasLp) {
+            // -o fit-to-page e media A4 são opcionais mas ajudam
+            $cmd = 'lp';
+            if ($printer) $cmd .= ' -d ' . escapeshellarg($printer);
+            // título do job
+            $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
+            $cmd .= ' -t ' . escapeshellarg($title);
+            $cmd .= ' -o fit-to-page';
+            $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
+            @exec($cmd, $output, $ret);
+            $lastOut = implode("\n", $output);
+            if ($ret === 0) {
+                $printed = true;
+            } else {
+                // fallback se lp falhou por impressora inexistente: tenta sem -d (default)
+                if (stripos($lastOut, 'Unknown destination') !== false || stripos($lastOut, 'unknown printer') !== false) {
+                    $out2 = [];
+                    $ret2 = -1;
+                    $cmd2 = 'lp -o fit-to-page ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    @exec($cmd2, $out2, $ret2);
+                    if ($ret2 === 0) {
+                        $printed = true;
+                        $lastOut = implode("\n", $out2) . " (fallback sem -d)";
+                        $printer = $default ?? 'default';
+                    }
+                }
+            }
+        }
+
+        // Se ainda não imprimiu e lpr disponível, tenta lpr
+        if (!$printed && $hasLpr) {
+            $output = [];
+            $cmd = 'lpr';
+            if ($printer) $cmd .= ' -P ' . escapeshellarg($printer);
+            $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
+            @exec($cmd, $output, $ret);
+            $lastOut = implode("\n", $output);
+            if ($ret === 0) $printed = true;
+        }
+
+        // Log e cleanup
+        $request_id = '';
+        if ($printed && preg_match('/request id is\s+(\S+)/i', $lastOut, $m)) {
+            $request_id = $m[1];
+        } elseif ($printed && preg_match('/(\S+-\d+)/', $lastOut, $m)) {
+            $request_id = $m[1];
+        }
+
+        // Remove PDF temporário após envio (CUPS já copiou)
+        @unlink($pdf_path);
+
+        if (!$printed) {
+            $msg = 'Falha ao enviar para fila CUPS (código ' . (int)$ret . '). Impressora: ' . $printer . '. Saída: ' . ($lastOut ?: '(vazia)') . '. Disponíveis: ' . (empty($available) ? 'nenhuma' : implode(', ', $available)) . '. Tente: lpstat -p -d; sudo lpstat -p';
+            error_log('[assetmgrstatus] printOnServer fail transfer=' . $transfer_id . ' printer=' . $printer . ' out=' . $lastOut);
+            return ['ok' => false, 'printer' => $printer, 'error' => $msg, 'output' => $lastOut];
+        }
+
+        // Sucesso: registra no timeline e no chamado
+        try {
+            self::logStatus($transfer_id, $transfer['status'], '🖨️ Impresso na HP (' . $printer . ') — fila CUPS' . ($request_id ? ' ' . $request_id : '') . ' por ' . self::getUserName(\Session::getLoginUserID()));
+        } catch (\Throwable $e) {}
+        if (!empty($transfer['tickets_id'])) {
+            try {
+                self::addTicketFollowup((int)$transfer['tickets_id'],
+                    "🖨️ Termo da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " enviado para **impressão na HP** (fila CUPS do servidor).\n"
+                    . "Impressora: `" . $printer . "`" . ($request_id ? " — Job: $request_id" : "") . "\n"
+                    . "Por: " . self::getUserName(\Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . " — IP " . ($_SERVER['REMOTE_ADDR'] ?? '')
+                );
+            } catch (\Throwable $e) {}
+        }
+
+        return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id];
+    }
+
     // HTML do termo (versão impressa p/ mPDF — sem CSS grid, só tabelas)
     public static function renderDocHtml(int $transfer_id, string $stage): string
     {

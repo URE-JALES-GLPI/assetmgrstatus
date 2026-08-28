@@ -276,7 +276,7 @@ $__am_assinaturaHistoryMap = \GlpiPlugin\Assetmgrstatus\Transfer::getAssinaturaH
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;" title="Ver termo (ainda sem assinatura)"><i class="ti ti-file-type-pdf"></i></a>
                     <?php elseif ($isAssinado): ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> PDF Assinado</a>
-                        <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;" onclick="window.open('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto','_blank')"><i class="ti ti-printer"></i> Imprimir</button>
+                        <button id="am-print-hp-<?= (int)$t['id'] ?>" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;" onclick="event.stopPropagation();amPrintHP(<?= (int)$t['id'] ?>)"><i class="ti ti-printer"></i> Imprimir na HP</button>
                         <button class="am-btn am-btn-secondary" style="flex:1;background:#fef3c7;color:#92400e;border-color:#fde68a;" onclick="event.stopPropagation();amOpenAssinaturaModalEdit(<?= (int)$t['id'] ?>)"><i class="ti ti-pencil"></i> Editar</button>
                     <?php else: ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=<?= $t['status']==='finalizado'?'pronto':'transfer' ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> Ver Termo</a>
@@ -1395,6 +1395,51 @@ async function amSigSave() {
         btn.disabled=false; btn.innerHTML=old; if(nextBtn) nextBtn.disabled=false;
     }
 }
+async function amPrintHP(transferId) {
+    const btn = document.getElementById('am-print-hp-' + transferId);
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nO PDF será gerado no servidor Ubuntu (GLPI) e enviado para a fila de impressão CUPS da impressora HP padrão.')) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
+    try {
+        const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+        let res = await fetch(base + '/front/print_hp.form.php', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+            credentials: 'same-origin',
+            body: JSON.stringify({transfer_id: transferId, stage: 'pronto', _glpi_csrf_token: amCsrfToken})
+        });
+        if (!res.ok && (res.status===403 || res.status===404)) {
+            res = await fetch(base + '/ajax/print_hp.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+                credentials: 'same-origin',
+                body: JSON.stringify({transfer_id: transferId, stage: 'pronto', _glpi_csrf_token: amCsrfToken})
+            });
+        }
+        const text = await res.text();
+        let j;
+        try { j = JSON.parse(text); } catch(e) {
+            console.error('Resposta não-JSON:', text);
+            alert('❌ Erro no servidor (HTTP ' + res.status + '):\n' + text.slice(0,1200).replace(/<[^>]*>/g,' ').trim().substring(0,500));
+            if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
+            return;
+        }
+        if (j.ok) {
+            const printer = j.printer ? ' (' + j.printer + ')' : '';
+            const job = j.request_id ? '\nJob: ' + j.request_id : (j.output ? '\n' + j.output.substring(0,200) : '');
+            alert('✅ Enviado para impressão na HP' + printer + '!\nTermo #' + String(transferId).padStart(4,'0') + ' entrou na fila CUPS do servidor.' + job);
+            if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
+        } else {
+            console.error(j);
+            alert('❌ Falha ao imprimir na HP:\n' + (j.error || 'Erro desconhecido') + (j.output ? '\n\nDetalhe: ' + j.output.substring(0,400) : ''));
+            if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
+        }
+    } catch(e) {
+        alert('Erro de rede ao imprimir: ' + e.message);
+        console.error(e);
+        if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
+    }
+}
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ amCloseAssinaturaModal(); amCloseTecCadastroModal(); }});
 document.getElementById('am-modal-assinatura').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-assinatura') amCloseAssinaturaModal(); });
 document.getElementById('am-modal-tec-cadastro').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-tec-cadastro') amCloseTecCadastroModal(); });
@@ -1474,5 +1519,6 @@ setInterval(amAssCheckForUpdates, 10000);
 document.addEventListener('visibilitychange', function(){ if(!document.hidden) amAssCheckForUpdates(); });
 })();
 </script>
+<style>@keyframes amSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}</style>
 
 <?php Html::footer(); ?>
