@@ -779,9 +779,11 @@ class Transfer
             $h .= '</table>';
         } else {
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) devolvido(s) após a realização dos procedimentos de manutenção técnica. O responsável pelo recebimento está ciente das condições e do novo status de cada equipamento, conforme verificado no momento da devolução.</div>';
-            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($tech_name) . '</b>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:</p>';
+            $tecDisplayName = $hasTec && $tec_nome !== '' ? $tec_nome : $tech_name;
+            if ($tecDisplayName === 'Sistema' || trim($tecDisplayName) === '') $tecDisplayName = $tec_nome !== '' ? $tec_nome : $tech_name;
+            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($tecDisplayName) . '</b>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:</p>';
             $h .= '<table class="info"><tr><td><b>Data de Devolução</b>' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
-            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tech_name, 40)) . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($creator_name, 40)) . '</td></tr>';
+            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tecDisplayName, 40)) . ($tec_masked ? ' — ' . htmlspecialchars($tec_type . ' ' . $tec_masked) : '') . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($creator_name, 40)) . '</td></tr>';
             $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Não informada', 50)) . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
             $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Escola de origem', 60)) . '</td></tr>';
             if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
@@ -814,16 +816,20 @@ class Transfer
             $h .= '</table>';
         }
 
+        // Fallback técnico nunca fica em branco — Usa tec_nome > tech_name > creator > "Técnico"
+        $tecFallbackName = $tech_name;
+        if ($tecFallbackName === 'Sistema' || trim($tecFallbackName) === '') $tecFallbackName = $tec_nome !== '' ? $tec_nome : $creator_name;
+        if ($tecFallbackName === 'Sistema' || trim($tecFallbackName) === '') $tecFallbackName = 'Técnico';
         if ($hasRec || $hasTec) {
             // Célula Técnico (esquerda)
             if ($hasTec) {
                 $tec_img_html = '<img src="' . $tec_image . '" style="height:55px;max-width:190px;display:block;margin:0 auto 4px;">';
-                $tec_nome_html = $tec_nome !== '' ? htmlspecialchars($tec_nome) : '________________________________________';
+                $tec_nome_html = $tec_nome !== '' ? htmlspecialchars($tec_nome) : htmlspecialchars($tecFallbackName);
                 $tec_doc_html  = htmlspecialchars($tec_type . ' ' . $tec_masked);
                 $tec_data_html = htmlspecialchars($tec_data_fmt);
                 $tecCell = '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $tec_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pela Entrega (Técnico) <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $tec_nome_html . '<br><br>Documento: ' . $tec_doc_html . '<br>Data: ' . $tec_data_html . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_tecnico_ip'] ?? '') . '</span></td>';
             } else {
-                $tecCell = '<td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
+                $tecCell = '<td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tecFallbackName : $creator_name) . '<br><br>Documento: ' . ($tec_masked ? htmlspecialchars($tec_type . ' ' . $tec_masked) : '____________________________') . '<br>Data: ' . ($tec_data_fmt ? htmlspecialchars($tec_data_fmt) : '____/____/________') . '</td>';
             }
             // Célula Recebedor (direita)
             if ($hasRec) {
@@ -842,7 +848,7 @@ class Transfer
                 $h .= '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo parcialmente assinado — falta ' . (!$hasRec ? 'recebedor' : '') . (!$hasRec && !$hasTec ? ' e ' : '') . (!$hasTec ? 'técnico' : '') . '. Colete na aba Assinatura.</div>';
             }
         } else {
-            $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
+            $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tecFallbackName : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
                 . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>'
                 . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura recebedor + técnico).</div>';
         }
