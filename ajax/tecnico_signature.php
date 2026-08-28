@@ -48,6 +48,18 @@ try {
         else echo json_encode(['ok'=>false,'error'=>Transfer::$last_ticket_error ?: 'Falha']);
         exit;
     }
+    if($action==='edit' || $action==='update'){
+        $id = (int)($data['id'] ?? 0);
+        $name = trim($data['name'] ?? $data['nome'] ?? '');
+        $doc_type = strtoupper(trim($data['doc_type'] ?? $data['document_type'] ?? ''));
+        $doc_number = trim($data['doc_number'] ?? $data['document'] ?? '');
+        $image = trim($data['image'] ?? $data['assinatura_image'] ?? '');
+        if($image!=='' && strpos($image,' ')!==false && strpos($image,'data:image/')===0) $image=str_replace(' ','+',$image);
+        if(!$id){ echo json_encode(['ok'=>false,'error'=>'ID obrigatório']); exit; }
+        $ok = Transfer::updateTecnicoAssinatura($id, $name, $doc_type, $doc_number, $image);
+        echo json_encode(['ok'=>$ok,'error'=> $ok ? null : Transfer::$last_ticket_error]);
+        exit;
+    }
     echo json_encode(['ok'=>false,'error'=>'Ação inválida']);
 } catch(Throwable $e){
     error_log('[assetmgrstatus] tecnico_signature: '.$e->getMessage());

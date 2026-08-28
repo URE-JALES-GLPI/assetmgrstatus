@@ -55,6 +55,7 @@ if (!empty($__am_ids)) {
     }
 }
 $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(true);
+$__am_assinaturaHistoryMap = \GlpiPlugin\Assetmgrstatus\Transfer::getAssinaturaHistoryMap($__am_ids);
 ?>
 
 <style>
@@ -144,6 +145,7 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
                     </div>
                 </div>
                 <div style="display:flex;gap:6px;">
+                    <button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amEditTec(<?= (int)$tec['id'] ?>)"><i class="ti ti-pencil"></i> Editar</button>
                     <button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amDeleteTec(<?= (int)$tec['id'] ?>)"><i class="ti ti-trash"></i> Excluir</button>
                 </div>
             </div>
@@ -154,6 +156,7 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
     </div>
     </div>
     <script>var amInitialTecCache = <?= json_encode($__am_tecnicos, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;</script>
+    <script>var amTransfersAssinatura = <?= json_encode(array_reduce($transfers, function($c,$t){ $c[$t['id']]=['rec_nome'=>$t['assinatura_nome']??'','rec_type'=>$t['assinatura_document_type']??'','rec_doc'=>$t['assinatura_document']??'','tec_nome'=>$t['assinatura_tecnico_nome']??'','tec_type'=>$t['assinatura_tecnico_document_type']??'','tec_doc'=>$t['assinatura_tecnico_document']??'','tec_image'=>$t['assinatura_tecnico_image']??'']; return $c; },[]), JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;</script>
 
     <div class="am-filters-bar" style="margin-bottom:20px;">
         <div class="am-filter-group">
@@ -218,6 +221,26 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
                             <div style="font-size:.78rem;color:#374151;">📥 Recebedor: <?= htmlspecialchars($t['assinatura_nome'] ?: '—') ?> — <?= htmlspecialchars($t['assinatura_document_type'] ?? '') ?> <?= htmlspecialchars($docMasked) ?></div>
                             <div style="font-size:.78rem;color:#374151;">🔧 Técnico: <?= htmlspecialchars($t['assinatura_tecnico_nome'] ?: '—') ?> — <?= htmlspecialchars($t['assinatura_tecnico_document_type'] ?? '') ?> <?= htmlspecialchars($docMaskedTec) ?></div>
                         </div>
+                        <?php
+                        $hist = $__am_assinaturaHistoryMap[(int)$t['id']] ?? [];
+                        if (!empty($hist)): ?>
+                        <details style="margin-top:8px;background:#f8f9fb;border:1px solid #e8eaf0;border-radius:8px;">
+                            <summary style="padding:8px 10px;cursor:pointer;font-size:.75rem;font-weight:700;color:#4f46e5;list-style:none;display:flex;align-items:center;justify-content:space-between;"><span><i class="ti ti-history"></i> Histórico (<?= count($hist) ?> versão<?= count($hist)>1?'s':'' ?> anterior<?= count($hist)>1?'es':'' ?>)</span><i class="ti ti-chevron-down" style="font-size:.70rem;"></i></summary>
+                            <div style="padding:8px 10px;border-top:1px solid #e8eaf0;display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;">
+                                <?php foreach ($hist as $h): ?>
+                                <div style="background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:8px;">
+                                    <div style="font-size:.68rem;color:#9ca3af;"><?= date('d/m/Y H:i', strtotime($h['date_creation'])) ?> • editado por <?= htmlspecialchars(Transfer::getUserName((int)$h['edit_user_id'])) ?> • IP <?= htmlspecialchars($h['edit_ip'] ?? '') ?></div>
+                                    <div style="font-size:.72rem;color:#374151;margin-top:4px;"><strong>Recebedor:</strong> <?= htmlspecialchars($h['assinatura_nome'] ?: '—') ?> — <?= htmlspecialchars($h['assinatura_document_type'] ?? '') ?> <?= htmlspecialchars($h['doc_masked'] ?? '') ?></div>
+                                    <div style="font-size:.72rem;color:#374151;"><strong>Técnico:</strong> <?= htmlspecialchars($h['assinatura_tecnico_nome'] ?: '—') ?> — <?= htmlspecialchars($h['assinatura_tecnico_document_type'] ?? '') ?> <?= htmlspecialchars($h['doc_tec_masked'] ?? '') ?></div>
+                                    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                                        <?php if(!empty($h['assinatura_image'])): ?><img src="<?= $h['assinatura_image'] ?>" style="height:32px;max-width:90px;object-fit:contain;border:1px solid #e8eaf0;border-radius:4px;background:#fff;" title="Recebedor anterior"><?php endif; ?>
+                                        <?php if(!empty($h['assinatura_tecnico_image'])): ?><img src="<?= $h['assinatura_tecnico_image'] ?>" style="height:32px;max-width:90px;object-fit:contain;border:1px solid #e8eaf0;border-radius:4px;background:#fff;" title="Técnico anterior"><?php endif; ?>
+                                    </div>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </details>
+                        <?php endif; ?>
                     <?php elseif ($isParcial): ?>
                         <div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;">
                             <div style="font-size:.75rem;font-weight:700;color:#92400e;">⚠️ Parcial — falta técnico</div>
@@ -254,6 +277,7 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
                     <?php elseif ($isAssinado): ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> PDF Assinado</a>
                         <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;" onclick="window.open('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto','_blank')"><i class="ti ti-printer"></i> Imprimir</button>
+                        <button class="am-btn am-btn-secondary" style="flex:1;background:#fef3c7;color:#92400e;border-color:#fde68a;" onclick="event.stopPropagation();amOpenAssinaturaModalEdit(<?= (int)$t['id'] ?>)"><i class="ti ti-pencil"></i> Editar</button>
                     <?php else: ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=<?= $t['status']==='finalizado'?'pronto':'transfer' ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> Ver Termo</a>
                     <?php endif; ?>
@@ -476,10 +500,13 @@ let amSigTecCache = [];
 function amNormalizeTecData(d){ if(Array.isArray(d)) return d; if(d && typeof d==='object') return Object.values(d); return []; }
 if(typeof amInitialTecCache!=='undefined'){ try{ let _normInit = amNormalizeTecData(amInitialTecCache); if(_normInit.length) amSigTecCache = _normInit.slice(); }catch(e){} }
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
+let amSigIsEdit = false;
+let amTecCadEditId = 0;
 
 function amOpenAssinaturaModal(transferId) {
     try{
     amSigTransferId = transferId;
+    amSigIsEdit=false;
     amSigDocType = ''; amSigDocNumber = ''; amSigHasDrawn = false;
     amSigRecDocType=''; amSigRecDocNumber=''; amSigRecNome=''; amSigRecImage='';
     amSigTecDocType=''; amSigTecDocNumber=''; amSigTecNome=''; amSigTecImage='';
@@ -509,6 +536,37 @@ function amOpenAssinaturaModal(transferId) {
     setTimeout(amSigInitCanvas, 120);
     }catch(e){ console.error('amOpenAssinaturaModal',e); alert('Erro ao abrir assinatura: '+e.message); }
 }
+function amOpenAssinaturaModalEdit(transferId){
+    try{
+        var data=(typeof amTransfersAssinatura!=='undefined' && amTransfersAssinatura[transferId])?amTransfersAssinatura[transferId]:null;
+        amOpenAssinaturaModal(transferId);
+        amSigIsEdit=true;
+        var ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Editar Assinatura — #' + String(transferId).padStart(4,'0') + ' (anterior será arquivada)';
+        var saveBtn=document.getElementById('am-sig-save-btn'); if(saveBtn) saveBtn.innerHTML='<i class="ti ti-device-floppy"></i> Salvar Edição';
+        if(data){
+            var tecDoc=(data.tec_doc||'').replace(/\D/g,'');
+            var tecName=data.tec_nome||'';
+            var found=null;
+            if(tecDoc) found=amSigTecCache.find(function(x){ return (x.document||'').replace(/\D/g,'')===tecDoc; });
+            if(!found && tecName) found=amSigTecCache.find(function(x){ return (x.name||'').toLowerCase()===tecName.toLowerCase(); });
+            if(found){
+                amSelectTec(found.id);
+            } else if(tecName){
+                var tmp={id:-1, name:tecName, document_type:data.tec_type||'CPF', document:tecDoc, doc_masked:(data.tec_type||'')+' '+(data.tec_doc||''), image:data.tec_image||''};
+                amSigTecCache.unshift(tmp);
+                amRenderTecSelectList(amSigTecCache);
+                amSelectTec(-1);
+                amSigSelectedTecData=tmp;
+            }
+            // pré-preenche recebedor para facilitar correção
+            amSigRecNome=data.rec_nome||'';
+            amSigRecDocType=data.rec_type||'';
+            amSigRecDocNumber=(data.rec_doc||'').replace(/\D/g,'');
+            // hint visual
+            var progTec=document.getElementById('am-sig-prog-tec'); if(progTec) progTec.innerHTML='<i class="ti ti-pencil"></i> 1. Técnico (editar)';
+        }
+    }catch(e){ console.error('amOpenEdit',e); amOpenAssinaturaModal(transferId); }
+}
 function amToggleAssets(id){
     const el=document.getElementById('am-sig-assets-'+id);
     if(!el) return;
@@ -518,6 +576,9 @@ function amToggleAssets(id){
 function amCloseAssinaturaModal() {
     document.getElementById('am-modal-assinatura').classList.remove('open');
     document.body.style.overflow = '';
+    amSigIsEdit=false;
+    var saveBtn=document.getElementById('am-sig-save-btn'); if(saveBtn) saveBtn.innerHTML='<i class="ti ti-device-floppy"></i> Confirmar e Assinar';
+    var ttl=document.getElementById('am-sig-modal-title'); if(ttl && ttl.textContent.indexOf('Editar')!==-1) ttl.textContent='Assinatura do Termo';
 }
 function amSigUpdateStageUI(){
     const progRec = document.getElementById('am-sig-prog-rec');
@@ -726,7 +787,7 @@ function amRenderTecList(list){
     list.forEach(t=>{
         const card=document.createElement('div');
         card.style.cssText='background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;';
-        card.innerHTML='<div style="display:flex;align-items:center;gap:10px;"><img src="'+(t.image||'')+'" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;" onerror="this.style.display=\'none\'"><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div><div style="font-size:.70rem;color:#9ca3af;">'+(t.date_creation?new Date(t.date_creation).toLocaleDateString('pt-BR'):'')+'</div></div></div><div style="display:flex;gap:6px;"><button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amDeleteTec('+t.id+')"><i class="ti ti-trash"></i> Excluir</button></div>';
+        card.innerHTML='<div style="display:flex;align-items:center;gap:10px;"><img src="'+(t.image||'')+'" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;" onerror="this.style.display=\'none\'"><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(t.name)+'</div><div style="font-size:.75rem;color:#6b7280;">'+escapeHtml(t.document_type)+' '+escapeHtml(t.doc_masked||t.document)+'</div><div style="font-size:.70rem;color:#9ca3af;">'+(t.date_creation?new Date(t.date_creation).toLocaleDateString('pt-BR'):'')+'</div></div></div><div style="display:flex;gap:6px;"><button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amEditTec('+t.id+')"><i class="ti ti-pencil"></i> Editar</button><button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amDeleteTec('+t.id+')"><i class="ti ti-trash"></i> Excluir</button></div>';
         cont.appendChild(card);
     });
 }
@@ -833,6 +894,9 @@ let amTecCadDocType='', amTecCadDocNumber='', amTecCadNome='', amTecCadStage='no
 let amTecCadCanvas=null, amTecCadCtx=null, amTecCadHasDrawn=false, amTecCadFromSelect=false;
 function amOpenTecCadastroModal(fromSelect){
     amTecCadFromSelect=!!fromSelect;
+    amTecCadEditId=0;
+    var ttl0=document.getElementById('am-tec-cad-title'); if(ttl0) ttl0.textContent='Cadastrar Técnico';
+    var saveBtn0=document.getElementById('am-tec-cad-save-btn'); if(saveBtn0) saveBtn0.innerHTML='<i class="ti ti-device-floppy"></i> Salvar Técnico';
     amTecCadDocType=''; amTecCadDocNumber=''; amTecCadNome=''; amTecCadHasDrawn=false; amTecCadStage='nome';
     document.getElementById('am-tec-cad-nome').value='';
     document.getElementById('am-tec-cad-doc-value').value='';
@@ -853,6 +917,64 @@ function amCloseTecCadastroModal(){
     document.getElementById('am-modal-tec-cadastro').classList.remove('open');
     if(!amTecCadFromSelect) document.body.style.overflow='';
     // se veio do select_tec, mantém main modal aberto
+    // reseta edit após fechar se não for seleção
+    if(!amTecCadFromSelect) amTecCadEditId=0;
+}
+function amEditTec(id){
+    var t=amSigTecCache.find(function(x){ return x.id===id; });
+    if(!t){
+        var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+        fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}}).then(function(r){return r.json();}).then(function(j){
+            var arr=amNormalizeTecData(j.data);
+            amSigTecCache=arr;
+            var found=arr.find(function(x){return x.id===id;});
+            if(found) amEditTec(id); else alert('Técnico não encontrado');
+        }).catch(function(){ alert('Falha ao buscar técnico'); });
+        return;
+    }
+    amTecCadEditId=id;
+    amTecCadFromSelect=false;
+    amTecCadDocType=t.document_type||'CPF';
+    amTecCadDocNumber=(t.document||'').replace(/\D/g,'');
+    amTecCadNome=t.name||'';
+    amTecCadHasDrawn=false;
+    amTecCadStage='nome';
+    document.getElementById('am-tec-cad-nome').value=amTecCadNome;
+    document.getElementById('am-tec-cad-doc-value').value=amTecCadDocNumber;
+    var disp=document.getElementById('am-tec-cad-display');
+    if(disp){ disp.textContent=amSigMaskDoc(amTecCadDocNumber, amTecCadDocType)||'Toque no teclado'; disp.classList.remove('empty'); }
+    document.querySelectorAll('#am-modal-tec-cadastro .am-doc-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.tecDoc===amTecCadDocType); });
+    var badge=document.getElementById('am-tec-cad-doc-badge'); if(badge){ badge.textContent=amTecCadDocType; badge.style.background=amTecCadDocType==='CPF'?'#059669':'#4f46e5'; }
+    var hint=document.getElementById('am-tec-cad-doc-hint'); if(hint) hint.textContent=amTecCadDocType==='CPF'?'11 dígitos':'5 a 12 dígitos';
+    var prev=document.getElementById('am-tec-cad-nome-preview'); if(prev) prev.textContent=amTecCadNome;
+    amTecCadUpdateDisplay();
+    document.getElementById('am-tec-cad-step-nome').style.display='block';
+    document.getElementById('am-tec-cad-step-doc').style.display='none';
+    document.getElementById('am-tec-cad-step-num').style.display='none';
+    document.getElementById('am-tec-cad-step-canvas').style.display='none';
+    document.getElementById('am-tec-cad-footer').style.display='none';
+    var ttl=document.getElementById('am-tec-cad-title'); if(ttl) ttl.textContent='Editar Técnico #' + String(id).padStart(4,'0');
+    var saveBtn=document.getElementById('am-tec-cad-save-btn'); if(saveBtn) saveBtn.innerHTML='<i class="ti ti-device-floppy"></i> Salvar Alterações';
+    document.getElementById('am-modal-tec-cadastro').classList.add('open');
+    document.body.style.overflow='hidden';
+    setTimeout(function(){ document.getElementById('am-tec-cad-nome').focus(); }, 80);
+    setTimeout(amTecCadInitCanvas, 150);
+    // pré-visualiza assinatura anterior no canvas após init
+    setTimeout(function(){
+        try{
+            var c=document.getElementById('am-tec-cad-canvas');
+            var ctx=c.getContext('2d');
+            var img=new Image();
+            img.onload=function(){
+                var r=c.getBoundingClientRect(); ctx.clearRect(0,0,r.width,r.height); ctx.fillStyle='#fff'; ctx.fillRect(0,0,r.width,r.height);
+                // desenha centralizada
+                var scale=Math.min(r.width/img.width, 160/img.height)*0.9;
+                var w=img.width*scale, h=img.height*scale;
+                ctx.drawImage(img, (r.width-w)/2, (r.height-h)/2, w, h);
+            };
+            img.src=t.image;
+        }catch(e){}
+    }, 300);
 }
 function amTecCadNextNome(){
     const n=document.getElementById('am-tec-cad-nome').value.trim();
@@ -936,20 +1058,42 @@ function amTecCadSave(){
     if(!amTecCadDocType) return alert('Escolha RG/CPF');
     if(amTecCadDocType==='CPF' && amTecCadDocNumber.length!==11) return alert('CPF 11 dígitos');
     if(amTecCadDocType==='RG' && (amTecCadDocNumber.length<5||amTecCadDocNumber.length>12)) return alert('RG 5-12');
-    if(!amTecCadHasDrawn) return alert('Assine no quadro');
-    const c=document.getElementById('am-tec-cad-canvas'); const dataUrl=c.toDataURL('image/png');
-    if(!dataUrl || dataUrl.length<500) return alert('Assinatura vazia');
+    var dataUrl='';
+    var c=document.getElementById('am-tec-cad-canvas');
+    if(amTecCadHasDrawn){
+        dataUrl=c.toDataURL('image/png');
+        if(!dataUrl || dataUrl.length<500) return alert('Assinatura vazia');
+    } else if(amTecCadEditId){
+        var tOld=amSigTecCache.find(function(x){return x.id===amTecCadEditId;});
+        if(tOld && tOld.image) dataUrl=tOld.image;
+        else return alert('Assine no quadro (ou desenhe novamente)');
+    } else {
+        return alert('Assine no quadro');
+    }
     const btn=document.getElementById('am-tec-cad-save-btn'); const old=btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     const base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
-    fetch(base+'/ajax/tecnico_signature.php', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({action:'add', name:amTecCadNome, doc_type:amTecCadDocType, doc_number:amTecCadDocNumber, image:dataUrl, _glpi_csrf_token:amCsrfToken})})
+    var payload = amTecCadEditId ? {action:'update', id:amTecCadEditId, name:amTecCadNome, doc_type:amTecCadDocType, doc_number:amTecCadDocNumber, image:dataUrl, _glpi_csrf_token:amCsrfToken} : {action:'add', name:amTecCadNome, doc_type:amTecCadDocType, doc_number:amTecCadDocNumber, image:dataUrl, _glpi_csrf_token:amCsrfToken};
+    fetch(base+'/ajax/tecnico_signature.php', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(payload)})
       .then(r=>r.json()).then(j=>{
         btn.disabled=false; btn.innerHTML=old;
         if(j.ok){
+            var wasEdit = !!amTecCadEditId;
+            var editedId = amTecCadEditId;
             amCloseTecCadastroModal();
+            amTecCadEditId=0;
+            var ttl0=document.getElementById('am-tec-cad-title'); if(ttl0) ttl0.textContent='Cadastrar Técnico';
+            var saveBtn0=document.getElementById('am-tec-cad-save-btn'); if(saveBtn0) saveBtn0.innerHTML='<i class="ti ti-device-floppy"></i> Salvar Técnico';
             // recarrega listas
             amLoadTecSelectList();
-            // se veio do select, auto-seleciona o novo
-            if(amTecCadFromSelect && j.id){
+            if(wasEdit){
+                // se editou, atualiza seleção se era o técnico selecionado
+                setTimeout(function(){
+                    var nt=amSigTecCache.find(function(x){return x.id===editedId;});
+                    if(nt && amSigSelectedTecId===editedId) amSelectTec(editedId);
+                }, 400);
+            }
+            // se veio do select, auto-seleciona o novo (apenas para criação)
+            if(!wasEdit && amTecCadFromSelect && j.id){
                 setTimeout(()=>{ amSigSelectedTecId=j.id; // será atualizado no próximo load
                     // força recarregar e selecionar (normaliza objeto vs array)
                     fetch(base+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}}).then(r=>r.json()).then(j2=>{
@@ -1236,7 +1380,8 @@ async function amSigSave() {
             }
         }
         if (j && j.ok) {
-            alert('✅ Assinaturas salvas! Recebedor e Técnico. Termo atualizado. Já pode imprimir.');
+            if(amSigIsEdit) alert('✏️ Assinatura EDITADA! Anterior arquivada no histórico. Card agora mostra 2 documentos.');
+            else alert('✅ Assinaturas salvas! Recebedor e Técnico. Termo atualizado. Já pode imprimir.');
             location.reload();
         } else {
             const err = (j && j.error) ? j.error : ('HTTP '+res.status+' — '+ text.slice(0,400).replace(/<[^>]*>/g,' ').trim());

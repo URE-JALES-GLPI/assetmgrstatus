@@ -228,6 +228,37 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     }
 
+    // -------------------------------------------------------
+    // 8. assinatura_history — histórico de edições de assinatura (mantém documento antigo)
+    // -------------------------------------------------------
+    if (!$DB->tableExists('glpi_plugin_assetmgrstatus_assinatura_history')) {
+        $DB->doQuery("
+            CREATE TABLE `glpi_plugin_assetmgrstatus_assinatura_history` (
+                `id`                               INT {$sign} NOT NULL AUTO_INCREMENT,
+                `transfers_id`                     INT {$sign} NOT NULL DEFAULT '0',
+                `assinatura_document_type`         VARCHAR(10)  DEFAULT NULL,
+                `assinatura_document`              VARCHAR(20)  DEFAULT NULL,
+                `assinatura_nome`                  VARCHAR(255) DEFAULT NULL,
+                `assinatura_data`                  DATETIME     DEFAULT NULL,
+                `assinatura_user_id`               INT {$sign} DEFAULT NULL,
+                `assinatura_ip`                    VARCHAR(45)  DEFAULT NULL,
+                `assinatura_image`                 LONGTEXT     DEFAULT NULL,
+                `assinatura_tecnico_document_type` VARCHAR(10)  DEFAULT NULL,
+                `assinatura_tecnico_document`      VARCHAR(20)  DEFAULT NULL,
+                `assinatura_tecnico_nome`          VARCHAR(255) DEFAULT NULL,
+                `assinatura_tecnico_data`          DATETIME     DEFAULT NULL,
+                `assinatura_tecnico_user_id`       INT {$sign} DEFAULT NULL,
+                `assinatura_tecnico_ip`            VARCHAR(45)  DEFAULT NULL,
+                `assinatura_tecnico_image`         LONGTEXT     DEFAULT NULL,
+                `edit_user_id`                     INT {$sign} NOT NULL DEFAULT '0',
+                `edit_ip`                          VARCHAR(45)  DEFAULT NULL,
+                `date_creation`                    DATETIME     DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                KEY `transfers_id` (`transfers_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
+        ") or die($DB->error());
+    }
+
     return true;
 }
 
@@ -304,6 +335,7 @@ function plugin_assetmgrstatus_uninstall(): bool
         'glpi_plugin_assetmgrstatus_views',
         'glpi_plugin_assetmgrstatus_transfer_history',
         'glpi_plugin_assetmgrstatus_tecnicos',
+        'glpi_plugin_assetmgrstatus_assinatura_history',
     ] as $table) {
         if ($DB->tableExists($table)) {
             $DB->doQuery("DROP TABLE `{$table}`");

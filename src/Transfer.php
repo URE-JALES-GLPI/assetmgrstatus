@@ -1725,10 +1725,7 @@ class Transfer
                 self::$last_ticket_error = 'Transferência não encontrada';
                 return false;
             }
-            if (self::isAssinado($transfer)) {
-                self::$last_ticket_error = 'Termo já assinado';
-                return false;
-            }
+            $isEdit = self::isAssinado($transfer);
             $doc_type = strtoupper(trim($doc_type));
             if (!in_array($doc_type, ['RG','CPF'], true)) {
                 self::$last_ticket_error = 'Tipo de documento inválido (recebedor)';
@@ -1817,51 +1814,91 @@ class Transfer
                 error_log('[assetmgrstatus] ensure assinatura columns: ' . $e->getMessage());
             }
 
-            // Se já tem recebedor e está tentando salvar só recebedor novamente sem técnico, bloqueia
             $hasRecAlready = !empty($transfer['assinatura_image']);
             $hasTecAlready = !empty($transfer['assinatura_tecnico_image']);
-            if ($hasRecAlready && $hasTecAlready) {
-                self::$last_ticket_error = 'Termo já assinado (recebedor + técnico)';
-                return false;
-            }
-            // Se recebedor já existe e estamos enviando dual, considera apenas técnico faltante
-            $update = [];
-            if (!$hasRecAlready) {
-                $update['assinatura_document_type'] = $doc_type;
-                $update['assinatura_document']      = $doc_number;
-                $update['assinatura_nome']          = $nome !== '' ? mb_substr($nome, 0, 255) : null;
-                $update['assinatura_data']          = $now;
-                $update['assinatura_user_id']       = $uid;
-                $update['assinatura_ip']            = $ip;
-                $update['assinatura_image']         = $image_base64;
-            } elseif ($hasTec && !$hasTecAlready) {
-                // Recebedor já assinado, agora só falta técnico — ignora dados recebedor enviados (mantém existente)
-                // mas valida que recebedor enviado coincide? Não necessário
-            } else if (!$hasTec && $hasRecAlready) {
-                self::$last_ticket_error = 'Recebedor já assinado — falta assinatura do técnico';
-                return false;
-            }
-            if ($hasTec && !$hasTecAlready) {
-                $update['assinatura_tecnico_document_type'] = $tec_doc_type_norm;
-                $update['assinatura_tecnico_document']      = $tec_doc_number_norm;
-                $update['assinatura_tecnico_nome']          = $tec_nome_norm !== '' ? mb_substr($tec_nome_norm, 0, 255) : null;
-                $update['assinatura_tecnico_data']          = $now;
-                $update['assinatura_tecnico_user_id']       = $uid;
-                $update['assinatura_tecnico_ip']            = $ip;
-                $update['assinatura_tecnico_image']         = $tec_image_base64;
-            } elseif ($hasRecAlready && !$hasTec) {
-                // Caso legado: se só recebedor e técnico não enviado, mas ainda precisa técnico — erro já retornado acima
-            }
-            // Compatibilidade: se não enviou técnico mas é novo fluxo, exige técnico
-            if (!$hasTec && !$hasTecAlready && !$hasRecAlready) {
-                // Permite salvar só recebedor para compatibilidade antiga, mas avisa que falta técnico
-                // Vamos exigir técnico para novas assinaturas — se não veio técnico, falha com instrução
-                // Porém para não quebrar fluxo antigo, permitimos mas marcará como parcial
-                // Para novo fluxo do modal dual, sempre virá técnico
-            }
-            if (empty($update)) {
-                self::$last_ticket_error = 'Nada a atualizar (já assinado)';
-                return false;
+            // Se já assinado (2/2), trata como EDIÇÃO: arquiva versão anterior no histórico antes de sobrescrever (mantém 2 docs no card)
+            if ($isEdit) {
+                if (!$hasTec) {
+                    self::$last_ticket_error = 'Edição requer técnico (selecione um técnico cadastrado)';
+                    return false;
+                }
+                try {
+                    if (function_exists('plugin_assetmgrstatus_schema')) @plugin_assetmgrstatus_schema();
+                    if ($DB->tableExists('glpi_plugin_assetmgrstatus_assinatura_history')) {
+                        $DB->insert('glpi_plugin_assetmgrstatus_assinatura_history', [
+                            'transfers_id' => $transfer_id,
+                            'assinatura_document_type' => $transfer['assinatura_document_type'],
+                            'assinatura_document' => $transfer['assinatura_document'],
+                            'assinatura_nome' => $transfer['assinatura_nome'],
+                            'assinatura_data' => $transfer['assinatura_data'],
+                            'assinatura_user_id' => $transfer['assinatura_user_id'],
+                            'assinatura_ip' => $transfer['assinatura_ip'],
+                            'assinatura_image' => $transfer['assinatura_image'],
+                            'assinatura_tecnico_document_type' => $transfer['assinatura_tecnico_document_type'],
+                            'assinatura_tecnico_document' => $transfer['assinatura_tecnico_document'],
+                            'assinatura_tecnico_nome' => $transfer['assinatura_tecnico_nome'],
+                            'assinatura_tecnico_data' => $transfer['assinatura_tecnico_data'],
+                            'assinatura_tecnico_user_id' => $transfer['assinatura_tecnico_user_id'],
+                            'assinatura_tecnico_ip' => $transfer['assinatura_tecnico_ip'],
+                            'assinatura_tecnico_image' => $transfer['assinatura_tecnico_image'],
+                            'edit_user_id' => $uid,
+                            'edit_ip' => $ip,
+                            'date_creation' => $now,
+                        ]);
+                    }
+                } catch (Throwable $e) { error_log('[assetmgrstatus] salvarAssinatura history: '.$e->getMessage()); }
+                // edição sobrescreve ambos os lados
+                $update = [
+                    'assinatura_document_type' => $doc_type,
+                    'assinatura_document' => $doc_number,
+                    'assinatura_nome' => $nome !== '' ? mb_substr($nome, 0, 255) : null,
+                    'assinatura_data' => $now,
+                    'assinatura_user_id' => $uid,
+                    'assinatura_ip' => $ip,
+                    'assinatura_image' => $image_base64,
+                    'assinatura_tecnico_document_type' => $tec_doc_type_norm,
+                    'assinatura_tecnico_document' => $tec_doc_number_norm,
+                    'assinatura_tecnico_nome' => $tec_nome_norm !== '' ? mb_substr($tec_nome_norm, 0, 255) : null,
+                    'assinatura_tecnico_data' => $now,
+                    'assinatura_tecnico_user_id' => $uid,
+                    'assinatura_tecnico_ip' => $ip,
+                    'assinatura_tecnico_image' => $tec_image_base64,
+                ];
+            } else {
+                if ($hasRecAlready && $hasTecAlready) {
+                    self::$last_ticket_error = 'Termo já assinado (recebedor + técnico)';
+                    return false;
+                }
+                $update = [];
+                if (!$hasRecAlready) {
+                    $update['assinatura_document_type'] = $doc_type;
+                    $update['assinatura_document']      = $doc_number;
+                    $update['assinatura_nome']          = $nome !== '' ? mb_substr($nome, 0, 255) : null;
+                    $update['assinatura_data']          = $now;
+                    $update['assinatura_user_id']       = $uid;
+                    $update['assinatura_ip']            = $ip;
+                    $update['assinatura_image']         = $image_base64;
+                } elseif ($hasTec && !$hasTecAlready) {
+                } else if (!$hasTec && $hasRecAlready) {
+                    self::$last_ticket_error = 'Recebedor já assinado — falta assinatura do técnico';
+                    return false;
+                }
+                if ($hasTec && !$hasTecAlready) {
+                    $update['assinatura_tecnico_document_type'] = $tec_doc_type_norm;
+                    $update['assinatura_tecnico_document']      = $tec_doc_number_norm;
+                    $update['assinatura_tecnico_nome']          = $tec_nome_norm !== '' ? mb_substr($tec_nome_norm, 0, 255) : null;
+                    $update['assinatura_tecnico_data']          = $now;
+                    $update['assinatura_tecnico_user_id']       = $uid;
+                    $update['assinatura_tecnico_ip']            = $ip;
+                    $update['assinatura_tecnico_image']         = $tec_image_base64;
+                } elseif ($hasRecAlready && !$hasTec) {
+                }
+                if (!$hasTec && !$hasTecAlready && !$hasRecAlready) {
+                }
+                if (empty($update)) {
+                    self::$last_ticket_error = 'Nada a atualizar (já assinado)';
+                    return false;
+                }
             }
             $ok = $DB->update('glpi_plugin_assetmgrstatus_transfers', $update, ['id' => $transfer_id]);
             if (!$ok) {
@@ -1872,21 +1909,33 @@ class Transfer
                 }
                 return false;
             }
-        // Timeline
+        // Timeline (diferencia edição com histórico)
         $labelRec = $nome !== '' ? $nome . ' (' . $doc_type . ' ' . self::maskDocumento($doc_type, $doc_number) . ')' : ($doc_type . ' ' . self::maskDocumento($doc_type, $doc_number));
         $labelTec = '';
         if ($hasTec) {
             $labelTec = $tec_nome_norm !== '' ? $tec_nome_norm . ' (' . $tec_doc_type_norm . ' ' . self::maskDocumento($tec_doc_type_norm, $tec_doc_number_norm) . ')' : ($tec_doc_type_norm . ' ' . self::maskDocumento($tec_doc_type_norm, $tec_doc_number_norm));
         }
-        $logMsg = '✍️ Assinado por ' . $labelRec;
-        if ($hasTec) $logMsg .= ' e Técnico ' . $labelTec;
-        $logMsg .= ' em ' . date('d/m/Y H:i', strtotime($now));
+        if ($isEdit) {
+            $logMsg = '✏️ Assinatura EDITADA por ' . $labelRec;
+            if ($hasTec) $logMsg .= ' e Técnico ' . $labelTec;
+            $logMsg .= ' em ' . date('d/m/Y H:i', strtotime($now)) . ' (anterior arquivada)';
+        } else {
+            $logMsg = '✍️ Assinado por ' . $labelRec;
+            if ($hasTec) $logMsg .= ' e Técnico ' . $labelTec;
+            $logMsg .= ' em ' . date('d/m/Y H:i', strtotime($now));
+        }
         self::logStatus($transfer_id, $transfer['status'], $logMsg);
         if (!empty($transfer['tickets_id'])) {
             try {
-                $follow = "✍️ **Termo assinado** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $labelRec . "**";
-                if ($hasTec) $follow .= " e Técnico **" . $labelTec . "**";
-                $follow .= " em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . ").\nO termo atualizado com assinaturas está disponível para impressão.";
+                if ($isEdit) {
+                    $follow = "✏️ **Assinatura EDITADA** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $labelRec . "**";
+                    if ($hasTec) $follow .= " e Técnico **" . $labelTec . "**";
+                    $follow .= " em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . "). Documento anterior arquivado no histórico.\nO termo atualizado está disponível para impressão.";
+                } else {
+                    $follow = "✍️ **Termo assinado** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $labelRec . "**";
+                    if ($hasTec) $follow .= " e Técnico **" . $labelTec . "**";
+                    $follow .= " em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . ").\nO termo atualizado com assinaturas está disponível para impressão.";
+                }
                 self::addTicketFollowup((int)$transfer['tickets_id'], $follow);
             } catch (\Throwable $e) {}
         }
@@ -1994,5 +2043,59 @@ class Transfer
         $ok = $DB->delete('glpi_plugin_assetmgrstatus_tecnicos', ['id'=>$id]);
         if (!$ok) self::$last_ticket_error = $DB->error() ?: 'Falha ao excluir';
         return (bool)$ok;
+    }
+    public static function updateTecnicoAssinatura(int $id, string $name, string $doc_type, string $doc_number, string $image): bool
+    {
+        global $DB;
+        self::$last_ticket_error='';
+        if (!$DB->tableExists('glpi_plugin_assetmgrstatus_tecnicos')) return false;
+        $iter=$DB->request(['FROM'=>'glpi_plugin_assetmgrstatus_tecnicos','WHERE'=>['id'=>$id],'LIMIT'=>1]);
+        if($iter->count()===0){ self::$last_ticket_error='Técnico não encontrado'; return false; }
+        $cur=$iter->current();
+        $name=trim($name); $doc_type=strtoupper(trim($doc_type)); $doc_number=preg_replace('/\D+/', '', $doc_number);
+        if($name===''||mb_strlen($name)<2){ self::$last_ticket_error='Nome obrigatório (mín. 2 letras)'; return false; }
+        if(!in_array($doc_type,['RG','CPF'],true)){ self::$last_ticket_error='Tipo documento inválido'; return false; }
+        if($doc_type==='CPF'&&strlen($doc_number)!==11){ self::$last_ticket_error='CPF 11 dígitos'; return false; }
+        if($doc_type==='RG'&&(strlen($doc_number)<5||strlen($doc_number)>12)){ self::$last_ticket_error='RG 5-12 dígitos'; return false; }
+        if(strpos($image,'data:image/')!==0||strlen($image)<100){ self::$last_ticket_error='Assinatura inválida'; return false; }
+        if(strlen($image)>500000){ self::$last_ticket_error='Assinatura muito grande'; return false; }
+        // verifica duplicado por documento em outro id
+        $dup=$DB->request(['FROM'=>'glpi_plugin_assetmgrstatus_tecnicos','WHERE'=>['document'=>$doc_number, ['id'=>['<>',$id]]],'LIMIT'=>1])->count()>0;
+        if($dup){ self::$last_ticket_error='Documento já cadastrado em outro técnico'; return false; }
+        $ok=$DB->update('glpi_plugin_assetmgrstatus_tecnicos',[
+            'name'=>mb_substr($name,0,255),
+            'document_type'=>$doc_type,
+            'document'=>$doc_number,
+            'image'=>$image,
+            'date_mod'=>date('Y-m-d H:i:s'),
+        ],['id'=>$id]);
+        if(!$ok) self::$last_ticket_error=$DB->error()?:'Falha ao atualizar';
+        return (bool)$ok;
+    }
+    public static function getAssinaturaHistory(int $transfer_id): array
+    {
+        global $DB;
+        try{ if(function_exists('plugin_assetmgrstatus_schema')) @plugin_assetmgrstatus_schema(); }catch(\Throwable $e){}
+        if(!$DB->tableExists('glpi_plugin_assetmgrstatus_assinatura_history')) return [];
+        $rows=iterator_to_array($DB->request(['FROM'=>'glpi_plugin_assetmgrstatus_assinatura_history','WHERE'=>['transfers_id'=>$transfer_id],'ORDER'=>['date_creation DESC','id DESC']]));
+        foreach($rows as &$r){
+            $r['doc_masked']=self::maskDocumento($r['assinatura_document_type']??'',$r['assinatura_document']??'');
+            $r['doc_tec_masked']=self::maskDocumento($r['assinatura_tecnico_document_type']??'',$r['assinatura_tecnico_document']??'');
+        }
+        return array_values($rows);
+    }
+    public static function getAssinaturaHistoryMap(array $ids): array
+    {
+        global $DB;
+        if(empty($ids)) return [];
+        try{ if(function_exists('plugin_assetmgrstatus_schema')) @plugin_assetmgrstatus_schema(); }catch(\Throwable $e){}
+        if(!$DB->tableExists('glpi_plugin_assetmgrstatus_assinatura_history')) return [];
+        $map=[];
+        foreach($DB->request(['FROM'=>'glpi_plugin_assetmgrstatus_assinatura_history','WHERE'=>['transfers_id'=>$ids],'ORDER'=>['date_creation DESC','id DESC']]) as $r){
+            $r['doc_masked']=self::maskDocumento($r['assinatura_document_type']??'',$r['assinatura_document']??'');
+            $r['doc_tec_masked']=self::maskDocumento($r['assinatura_tecnico_document_type']??'',$r['assinatura_tecnico_document']??'');
+            $map[(int)$r['transfers_id']][]=$r;
+        }
+        return $map;
     }
 }
