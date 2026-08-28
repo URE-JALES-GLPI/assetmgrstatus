@@ -36,6 +36,7 @@ if (!empty($__am_ids)) {
         $__am_itemsMap[(int)$r['transfers_id']][] = $r;
     }
 }
+$__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(true);
 ?>
 
 <style>
@@ -104,15 +105,32 @@ if (!empty($__am_ids)) {
                 <span style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;"><i class="ti ti-users" style="font-size:1.1rem;"></i></span>
                 <div>
                     <div style="font-weight:800;color:#1e1b4b;">Técnicos Cadastrados</div>
-                    <div style="font-size:.78rem;color:#9ca3af;"><span id="am-tec-count">0</span> técnico(s) • usado para preencher "Responsável pela Entrega"</div>
+                    <div style="font-size:.78rem;color:#9ca3af;"><span id="am-tec-count"><?= count($__am_tecnicos) ?></span> técnico(s) • usado para preencher "Responsável pela Entrega"</div>
                 </div>
             </div>
             <button type="button" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:9px 16px;" onclick="amOpenTecCadastroModal()"><i class="ti ti-plus"></i> Cadastrar Técnico</button>
         </div>
-        <div id="am-tec-list" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;"></div>
-        <div id="am-tec-empty" style="display:none;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-user-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhum técnico cadastrado. Clique em Cadastrar Técnico.</div>
-        <div id="am-tec-loading" style="text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Carregando técnicos...</div>
+        <div id="am-tec-list" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
+            <?php foreach ($__am_tecnicos as $tec): ?>
+            <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <?php if (!empty($tec['image'])): ?><img src="<?= $tec['image'] ?>" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;"><?php else: ?><span style="width:56px;height:36px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span><?php endif; ?>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tec['name']) ?></div>
+                        <div style="font-size:.75rem;color:#6b7280;"><?= htmlspecialchars($tec['document_type'] . ' ' . ($tec['doc_masked'] ?? $tec['document'])) ?></div>
+                        <div style="font-size:.70rem;color:#9ca3af;"><?= $tec['date_creation'] ? date('d/m/Y', strtotime($tec['date_creation'])) : '' ?></div>
+                    </div>
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amDeleteTec(<?= (int)$tec['id'] ?>)"><i class="ti ti-trash"></i> Excluir</button>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <div id="am-tec-empty" style="<?= empty($__am_tecnicos) ? 'display:block' : 'display:none' ?>;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-user-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhum técnico cadastrado. Clique em Cadastrar Técnico.</div>
+        <div id="am-tec-loading" style="display:none;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Carregando técnicos...</div>
     </div>
+    <script>var amInitialTecCache = <?= json_encode($__am_tecnicos, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;</script>
 
     <div class="am-filters-bar" style="margin-bottom:20px;">
         <div class="am-filter-group">
@@ -415,6 +433,7 @@ let amSigRecDocType = '', amSigRecDocNumber = '', amSigRecNome = '', amSigRecIma
 let amSigTecDocType = '', amSigTecDocNumber = '', amSigTecNome = '', amSigTecImage = '';
 let amSigSelectedTecId = 0, amSigSelectedTecData = null;
 let amSigTecCache = [];
+if(typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache)) amSigTecCache = amInitialTecCache.slice();
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
 function amOpenAssinaturaModal(transferId) {
