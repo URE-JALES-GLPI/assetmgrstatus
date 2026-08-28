@@ -118,11 +118,16 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 
 <style>
 @keyframes amSpin{to{transform:rotate(360deg)}}
-.am-kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
-.am-kanban-column{flex:0 0 340px;min-width:340px;max-width:340px;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:14px;display:flex;flex-direction:column;max-height:75vh;scroll-snap-align:start;}
+.am-kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;width:100%;}
+.am-kanban-column{flex:0 0 340px;min-width:340px;max-width:340px;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:14px;display:flex;flex-direction:column;max-height:82vh;scroll-snap-align:start;}
 .am-kanban-header{padding:14px 16px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
 .am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
 .am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
+/* Overlay maximizado ocupa quase tela toda para evitar barrinhas */
+#am-kanban-maximized-overlay{padding:8px !important;align-items:stretch !important;}
+#am-kanban-maximized-overlay .am-modal{width:98vw !important;max-width:98vw !important;height:96vh !important;max-height:96vh !important;margin:4px auto !important;}
+#am-kanban-maximized-overlay .am-modal-body{padding:16px !important;}
+#am-max-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr)) !important;gap:16px !important;}
 .am-kanban-empty{text-align:center;color:#9ca3af;padding:24px 12px;font-size:.85rem;border:1.5px dashed #e8eaf0;border-radius:10px;background:#fff;}
 .am-kanban .am-tc-card{margin:0;flex-shrink:0;}
 @media(max-width:768px){.am-kanban{gap:12px;padding-bottom:12px;}.am-kanban-column{flex:0 0 300px;min-width:300px;max-width:300px;}}
@@ -787,8 +792,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <!-- Maximized Kanban Overlay -->
-<div id="am-kanban-maximized-overlay" class="am-modal-overlay" style="z-index:10001;align-items:flex-start;overflow-y:auto;padding:20px;" onclick="if(event.target===this) amKanbanMaximizeClose()">
-    <div class="am-modal" style="max-width:1280px;width:98%;margin:20px auto;max-height:94vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+<div id="am-kanban-maximized-overlay" class="am-modal-overlay" style="z-index:10001;align-items:stretch;overflow-y:auto;padding:8px;" onclick="if(event.target===this) amKanbanMaximizeClose()">
+    <div class="am-modal" style="max-width:98vw;width:98vw;margin:4px auto;max-height:96vh;height:96vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
         <div class="am-modal-header" id="am-maximized-header" style="background:linear-gradient(135deg,#1e293b,#334155);">
             <div class="am-modal-title"><i class="ti ti-maximize"></i><span id="am-maximized-title">PENDENTE</span> <span id="am-maximized-count" class="am-kanban-count" style="background:#fff;color:#1e293b;margin-left:8px;"></span></div>
             <button class="am-modal-close" onclick="amKanbanMaximizeClose()" style="background:rgba(255,255,255,.18);"><i class="ti ti-x"></i></button>
