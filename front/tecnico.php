@@ -596,22 +596,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                                 $borderColor = '#ef4444';
                             }
                     ?>
-                        }
-                        foreach ($colCardsToRender as $item):
-                            $isHiddenPego = ($stageKey==='pego' && $item['type']==='transfer' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
-                            if ($item['type']==='transfer') {
-                                $t = $item['data'];
-                                $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
-                                $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
-                                $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
-                                $borderColor = '#f59e0b'; // Transferência = Laranja
-                            } else {
-                                $tk = $item['data'];
-                                $borderColor = '#ef4444'; // Chamado = Vermelho
-                            }
-                    ?>
                     <?php if ($item['type']==='transfer'): $t = $item['data']; $status_color = '#f59e0b'; ?>
-                    <div class="am-tc-card <?= ($stageKey==='pego' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" style="margin:0;<?= ($stageKey==='pego' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;" data-mine="<?= ($stageKey==='pego' && !$isHiddenPego) ? '1' : '0' ?>">
+                    <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDrag ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="transfer" data-id="<?= $t['id'] ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;<?= $canDrag ? 'cursor:grab;' : 'opacity:.6;' ?>" data-mine="<?= ($stageKey==='emandamento' && !$isHiddenPego) ? '1' : '0' ?>">
                         <div class="am-tc-card-header" style="border-left:4px solid <?= $borderColor ?>;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
                                 <div style="font-size:.65rem;color:#9ca3af;font-weight:700;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
@@ -635,8 +621,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; ?>
-                    <div class="am-tc-card" style="margin:0;border-left:4px solid #ef4444;" data-mine="0">
+                    <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; $canDragTicket = !($stageKey==='retirada'); ?>
+                    <div class="am-tc-card" draggable="<?= $canDragTicket ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="ticket" data-id="<?= $tk['id'] ?>" style="margin:0;border-left:4px solid #ef4444;<?= $canDragTicket ? 'cursor:grab;' : 'opacity:.6;cursor:not-allowed;' ?>" data-mine="0">
                         <div class="am-tc-card-header" style="border-left:4px solid #ef4444;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
                                 <div style="font-size:.65rem;color:#ef4444;font-weight:700;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
@@ -655,7 +641,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </div>
                     <?php endif; endforeach; ?>
                     <?php
-                        $emptyCheck = ($stageKey==='pego') ? empty($colCardsToRender) : empty($colCards);
+                        $emptyCheck = ($stageKey==='emandamento') ? empty($colCardsToRender) : empty($colCards);
                         if ($emptyCheck): ?><div class="am-kanban-empty">Nenhum card</div><?php endif; ?>
                 </div>
             </div>
