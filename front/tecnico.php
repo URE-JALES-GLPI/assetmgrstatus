@@ -358,7 +358,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 $status_color = Transfer::getStatusColor($t['status']);
                 $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
         ?>
-        <div class="am-tc-card">
+        <div class="am-tc-card" style="cursor:pointer;" onclick="if(!event.target.closest('button,a,details,summary')) amOpenCardModal('transfer', <?= (int)$t['id'] ?>)">
             <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;">
                 <div>
                     <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;">
@@ -520,8 +520,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 if (mb_strlen($tkContentShort) > 120) $tkContentShort = mb_substr($tkContentShort,0,120).'…';
                 $tkCatColor = '#4f46e5';
         ?>
-        <div class="am-tc-card" style="border-left:4px solid <?= $tkStatusColor ?>;">
-            <div class="am-tc-card-header" style="border-left:4px solid <?= $tkStatusColor ?>;background:#f8f9ff;">
+        <div class="am-tc-card" style="border-left:4px solid #2563eb;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('ticket', <?= (int)$tk['id'] ?>)">
+            <div class="am-tc-card-header" style="border-left:4px solid #2563eb;background:#f8f9ff;">
                 <div>
                     <div style="font-size:.72rem;color:#4f46e5;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
                         <i class="ti ti-ticket" style="font-size:.9rem;"></i> Chamado #<?= str_pad($tk['id'], 6, '0', STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?>
@@ -654,11 +654,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                                 $borderColor = '#f59e0b';
                             } else {
                                 $tk = $item['data'];
-                                $borderColor = '#ef4444';
+                                $borderColor = '#2563eb';
                             }
                     ?>
                     <?php if ($item['type']==='transfer'): $t = $item['data']; $status_color = '#f59e0b'; ?>
-                    <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDrag ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="transfer" data-id="<?= $t['id'] ?>" data-date="<?= htmlspecialchars($t['date_creation']) ?>" data-status="<?= htmlspecialchars($t['status']) ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;<?= $canDrag ? 'cursor:grab;' : 'opacity:.6;' ?>" data-mine="<?= ($stageKey==='emandamento' && !$isHiddenPego) ? '1' : '0' ?>">
+                    <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDrag ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="transfer" data-id="<?= $t['id'] ?>" data-date="<?= htmlspecialchars($t['date_creation']) ?>" data-status="<?= htmlspecialchars($t['status']) ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;<?= $canDrag ? 'cursor:pointer;' : 'opacity:.6;' ?>;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('transfer', <?= (int)$t['id'] ?>)" data-mine="<?= ($stageKey==='emandamento' && !$isHiddenPego) ? '1' : '0' ?>">
                         <div class="am-tc-card-header" style="border-left:4px solid <?= $borderColor ?>;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
                                 <div style="font-size:.65rem;color:#9ca3af;font-weight:700;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
@@ -684,10 +684,10 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                         </div>
                     </div>
                     <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; $canDragTicket = !($stageKey==='retirada'); $isTicketPendente = (int)$tk['status']===1; ?>
-                    <div class="am-tc-card" draggable="<?= $canDragTicket ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="ticket" data-id="<?= $tk['id'] ?>" style="margin:0;border-left:4px solid #ef4444;<?= $canDragTicket ? 'cursor:grab;' : 'opacity:.6;cursor:not-allowed;' ?>" data-mine="0" data-status="<?= (int)$tk['status'] ?>" data-date="<?= htmlspecialchars($tk['date_creation']) ?>">
-                        <div class="am-tc-card-header" style="border-left:4px solid #ef4444;padding:12px 14px;">
+                    <div class="am-tc-card" draggable="<?= $canDragTicket ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="ticket" data-id="<?= $tk['id'] ?>" style="margin:0;border-left:4px solid #2563eb;<?= $canDragTicket ? 'cursor:pointer;' : 'opacity:.6;cursor:not-allowed;' ?>;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('ticket', <?= (int)$tk['id'] ?>)" data-mine="0" data-status="<?= (int)$tk['status'] ?>" data-date="<?= htmlspecialchars($tk['date_creation']) ?>">
+                        <div class="am-tc-card-header" style="border-left:4px solid #2563eb;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
-                                <div style="font-size:.65rem;color:#ef4444;font-weight:700;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
+                                <div style="font-size:.65rem;color:#2563eb;font-weight:700;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
                                 <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tk['name']?:'Sem título') ?></div>
                             </div>
                             <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.65rem;"><?= htmlspecialchars($tkStatusLabel) ?></span>
@@ -846,6 +846,21 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <div class="am-modal-footer" style="justify-content:space-between;">
             <span id="am-max-footer-info" style="font-size:.78rem;color:#6b7280;"></span>
             <button type="button" class="am-btn am-btn-secondary" onclick="amKanbanMaximizeClose()"><i class="ti ti-x"></i> Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalhes do Card -->
+<div id="am-modal-card-details" class="am-modal-overlay" onclick="if(event.target===this) amCloseCardModal()" style="z-index:10002;">
+    <div class="am-modal" style="max-width:680px;width:95%;max-height:90vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
+        <div class="am-modal-header" id="am-card-details-header" style="background:linear-gradient(135deg,#2563eb,#3b82f6);">
+            <div class="am-modal-title"><i class="ti ti-info-circle"></i><span id="am-card-details-title">Detalhes</span></div>
+            <button class="am-modal-close" onclick="amCloseCardModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="am-modal-body" id="am-card-details-body" style="padding:20px;background:#fff;overflow-y:auto;flex:1;"></div>
+        <div class="am-modal-footer" style="justify-content:space-between;">
+            <button class="am-btn am-btn-secondary" onclick="amCloseCardModal()">Fechar</button>
+            <a id="am-card-details-link" href="#" target="_blank" class="am-btn am-btn-primary" style="display:none;"><i class="ti ti-external-link"></i> Abrir no GLPI</a>
         </div>
     </div>
 </div>
@@ -1099,6 +1114,94 @@ function amTogglePegarTicketBtn() {
     if (!b) return;
     b.disabled = !ok; b.style.opacity = ok?'1':'.4'; b.style.cursor = ok?'pointer':'not-allowed';
 }
+function amOpenCardModal(type, id) {
+    var modal = document.getElementById('am-modal-card-details');
+    var titleEl = document.getElementById('am-card-details-title');
+    var bodyEl = document.getElementById('am-card-details-body');
+    var linkEl = document.getElementById('am-card-details-link');
+    var headerEl = document.getElementById('am-card-details-header');
+    if (!modal || !bodyEl) return;
+    var isTicket = type==='ticket';
+    titleEl.textContent = isTicket ? 'Chamado #' + String(id).padStart(6,'0') : 'Transferência #' + String(id).padStart(4,'0');
+    bodyEl.innerHTML = '<div style="text-align:center;padding:30px;color:#9ca3af;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;font-size:1.5rem;display:block;margin-bottom:8px;"></i> Carregando...</div>';
+    linkEl.style.display='none';
+    if (headerEl) headerEl.style.background = isTicket ? 'linear-gradient(135deg,#2563eb,#3b82f6)' : 'linear-gradient(135deg,#d97706,#f59e0b)';
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+    var url = (window._amCardDetailsBase || '') + '?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id);
+    // base detecta via location
+    var base = '';
+    try {
+        var idx = window.location.pathname.indexOf('/plugins/assetmgrstatus/');
+        if (idx!==-1) base = window.location.pathname.substring(0, idx) + '/plugins/assetmgrstatus/ajax/card_details.php';
+        else base = window.location.origin + '/glpi/plugins/assetmgrstatus/ajax/card_details.php';
+    } catch(e){ base = 'ajax/card_details.php'; }
+    fetch(base + '?type=' + encodeURIComponent(type) + '&id=' + encodeURIComponent(id), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, json:j}; }); })
+        .then(function(res){
+            if (!res.ok || !res.json.success) throw new Error(res.json.message || 'Falha ao carregar');
+            var d = res.json.data;
+            if (isTicket) {
+                var statusColor = d.status===1?'#f59e0b':d.status===2?'#3b82f6':d.status===5?'#10b981':d.status===6?'#111827':'#6b7280';
+                var html = '<div style="display:flex;flex-direction:column;gap:14px;">';
+                html += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><span class="am-badge" style="background:'+statusColor+';color:#fff;">'+d.status_label+'</span><span class="am-badge" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;"><i class="ti ti-category"></i> '+d.category+'</span><span style="font-size:.82rem;color:#6b7280;"><i class="ti ti-building"></i> '+(d.entity||'—')+'</span></div>';
+                html += '<h3 style="margin:0;font-size:1.05rem;font-weight:800;color:#1e2333;">'+d.name+'</h3>';
+                html += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:#f8f9fb;border:1px solid #e8eaf0;border-radius:10px;padding:12px;">';
+                html += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Atribuído</div><div style="font-weight:700;color:'+(d.assigned?'#059669':'#9ca3af')+';">'+(d.assigned||'Sem técnico')+'</div></div>';
+                html += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Prioridade</div><div>'+d.priority+'</div></div>';
+                html += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Criado</div><div>'+(d.date||'').replace(' ',' às ')+'</div></div>';
+                html += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Atualizado</div><div>'+(d.date_mod||'').replace(' ',' às ')+'</div></div>';
+                html += '</div>';
+                if (d.content) html += '<div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:14px;"><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Descrição</div><div style="font-size:.88rem;color:#374151;line-height:1.6;white-space:pre-wrap;word-break:break-word;">'+d.content_html+'</div></div>';
+                html += '</div>';
+                bodyEl.innerHTML = html;
+                linkEl.href = (window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '/glpi') + '/front/ticket.form.php?id=' + d.id;
+                // fallback usa origin
+                try{ var root = document.querySelector('a[href*="ticket.form.php"]'); if(root) linkEl.href = root.href.split('?')[0] + '?id=' + d.id; }catch(e){}
+                linkEl.style.display='inline-flex';
+                linkEl.innerHTML = '<i class="ti ti-external-link"></i> Abrir Chamado no GLPI';
+                // adiciona botão Pegar se status Novo
+                if (d.status===1) {
+                    var pegarBtn = '<button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;margin-top:10px;" onclick="amCloseCardModal(); amOpenPegarTicketModal('+d.id+', '+JSON.stringify(d.name)+')"><i class="ti ti-hand-grab"></i> Pegar este chamado</button>';
+                    bodyEl.innerHTML += pegarBtn;
+                }
+            } else {
+                var html2 = '<div style="display:flex;flex-direction:column;gap:14px;">';
+                html2 += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="am-badge" style="background:'+d.status_color+';color:#fff;">'+d.status_label+'</span><span style="font-size:.82rem;color:#6b7280;">'+d.items_count+' ativo(s)</span></div>';
+                html2 += '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;background:#f8f9fb;border:1px solid #e8eaf0;border-radius:10px;padding:12px;">';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Origem</div><div style="font-weight:700;">'+(d.origin||'—')+'</div></div>';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Destino</div><div style="font-weight:700;">'+(d.dest||'—')+'</div></div>';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Técnico</div><div>'+(d.tech||'—')+'</div></div>';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Criado por</div><div>'+(d.creator||'—')+'</div></div>';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Criado em</div><div>'+(d.date_creation||'').replace(' ',' às ')+'</div></div>';
+                html2 += '<div><div style="font-size:.70rem;font-weight:700;text-transform:uppercase;color:#9ca3af;">Chamado</div><div>'+(d.tickets_id ? ('#'+String(d.tickets_id).padStart(6,'0')) : '—')+'</div></div>';
+                html2 += '</div>';
+                if (d.reason) html2 += '<div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:12px;"><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:6px;">Motivo</div><div style="font-size:.88rem;color:#374151;">'+d.reason+'</div></div>';
+                if (d.items && d.items.length) {
+                    html2 += '<div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Itens ('+d.items.length+')</div><div style="display:flex;flex-direction:column;gap:6px;">';
+                    d.items.forEach(function(it){ var tp = it.type.replace('Glpi\\\\CustomAsset\\\\','').replace('Asset',''); html2 += '<div style="display:flex;justify-content:space-between;align-items:center;background:#fff;border:1px solid #e8eaf0;border-radius:8px;padding:8px 10px;"><span style="font-weight:600;">'+it.name+'</span><span style="font-size:.75rem;color:#6b7280;">'+tp+(it.final_status?' • '+it.final_status:'')+'</span></div>'; });
+                    html2 += '</div></div>';
+                }
+                if (d.timeline && d.timeline.length) {
+                    html2 += '<div><div style="font-size:.75rem;font-weight:700;text-transform:uppercase;color:#9ca3af;margin-bottom:8px;">Histórico</div><div style="display:flex;flex-direction:column;gap:8px;">';
+                    d.timeline.forEach(function(tl){ html2 += '<div style="display:flex;gap:8px;align-items:flex-start;"><span style="width:8px;height:8px;border-radius:50%;background:'+(tl.status?"#4f46e5":"#9ca3af")+';margin-top:6px;flex-shrink:0;"></span><div><div style="font-size:.82rem;color:#374151;">'+(tl.note||tl.status)+'</div><div style="font-size:.72rem;color:#9ca3af;">'+(tl.status||'')+' • '+(tl.user_name||'')+' • '+(tl.date_creation||'')+'</div></div></div>'; });
+                    html2 += '</div></div>';
+                }
+                html2 += '</div>';
+                bodyEl.innerHTML = html2;
+                if (d.tickets_id) {
+                    linkEl.href = (window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '/glpi') + '/front/ticket.form.php?id=' + d.tickets_id;
+                    try{ var root2 = document.querySelector('a[href*="ticket.form.php"]'); if(root2) linkEl.href = root2.href.split('?')[0] + '?id=' + d.tickets_id; }catch(e){}
+                    linkEl.style.display='inline-flex';
+                    linkEl.innerHTML = '<i class="ti ti-external-link"></i> Ver Chamado';
+                } else {
+                    linkEl.style.display='none';
+                }
+            }
+        })
+        .catch(function(err){ bodyEl.innerHTML = '<div style="color:#dc2626;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px;">Erro: '+err.message+'</div>'; });
+}
+function amCloseCardModal(){ var m=document.getElementById('am-modal-card-details'); if(m) m.classList.remove('open'); document.body.style.overflow=''; }
 
 // ---- Maximizar Kanban por categoria ----
 var _amMaxStage = null;
@@ -1236,7 +1339,7 @@ function amMaxFilter() {
 function amMaxGoPage(p) { _amMaxPage = p; amMaxFilter(); window.scrollTo({top:0,behavior:'smooth'}); var overlay = document.getElementById('am-kanban-maximized-overlay'); if(overlay) overlay.scrollTop=0; var body = overlay ? overlay.querySelector('.am-modal-body') : null; if(body) body.scrollTop=0; }
 document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
-    amClosePegarModal(); amCloseFinalizarModal(); amCloseCancelarModal(); amClosePegarTicketModal(); amKanbanMaximizeClose();
+    amClosePegarModal(); amCloseFinalizarModal(); amCloseCancelarModal(); amClosePegarTicketModal(); amKanbanMaximizeClose(); amCloseCardModal();
 });
 // limita CONCLUÍDO a 10 no kanban normal
 function amLimitConcluido() {
