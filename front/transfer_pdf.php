@@ -49,7 +49,7 @@ $tech_name = ($transfer['users_id_tech'] && $u->getFromDB($transfer['users_id_te
 $u2 = new User();
 $creator_name = ($transfer['users_id_created'] && $u2->getFromDB($transfer['users_id_created'])) ? $u2->getName() : '—';
 
-// Assinatura digital (RG/CPF + desenho) — coleta via tablet
+// Assinatura digital dual (recebedor + técnico) — coleta via tablet
 $assinatura_image         = $transfer['assinatura_image'] ?? '';
 $assinatura_doc_type      = $transfer['assinatura_document_type'] ?? '';
 $assinatura_doc_raw       = $transfer['assinatura_document'] ?? '';
@@ -58,7 +58,22 @@ $assinatura_data          = $transfer['assinatura_data'] ?? '';
 $assinatura_doc_masked    = $assinatura_doc_raw ? Transfer::maskDocumento($assinatura_doc_type, $assinatura_doc_raw) : '';
 $assinatura_data_fmt      = $assinatura_data ? date('d/m/Y H:i', strtotime($assinatura_data)) : '';
 $assinatura_data_short    = $assinatura_data ? date('d/m/Y', strtotime($assinatura_data)) : '';
-$is_assinado              = !empty($assinatura_image);
+$assinatura_tec_image     = $transfer['assinatura_tecnico_image'] ?? '';
+$assinatura_tec_doc_type  = $transfer['assinatura_tecnico_document_type'] ?? '';
+$assinatura_tec_doc_raw   = $transfer['assinatura_tecnico_document'] ?? '';
+$assinatura_tec_nome      = trim($transfer['assinatura_tecnico_nome'] ?? '');
+$assinatura_tec_data      = $transfer['assinatura_tecnico_data'] ?? '';
+$assinatura_tec_doc_masked = $assinatura_tec_doc_raw ? Transfer::maskDocumento($assinatura_tec_doc_type, $assinatura_tec_doc_raw) : '';
+$assinatura_tec_data_fmt  = $assinatura_tec_data ? date('d/m/Y H:i', strtotime($assinatura_tec_data)) : '';
+$hasRec = !empty($assinatura_image);
+$hasTec = !empty($assinatura_tec_image);
+$is_assinado = $hasRec && $hasTec;
+// fallback técnico nunca vazio
+$tecFallbackName = $tech_name;
+if ($tecFallbackName === 'Sistema' || trim($tecFallbackName) === '') $tecFallbackName = $assinatura_tec_nome !== '' ? $assinatura_tec_nome : $creator_name;
+if ($tecFallbackName === 'Sistema' || trim($tecFallbackName) === '') $tecFallbackName = 'Técnico';
+$tecDisplayName = $hasTec && $assinatura_tec_nome !== '' ? $assinatura_tec_nome : $tech_name;
+if ($tecDisplayName === 'Sistema' || trim($tecDisplayName) === '') $tecDisplayName = $assinatura_tec_nome !== '' ? $assinatura_tec_nome : $tech_name;
 
 // Logo em base64
 $logo_file = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
@@ -235,7 +250,7 @@ header('Content-Type: text/html; charset=UTF-8');
     </div>
 
     <div class="eu-declaro">
-        Eu, <strong><?= htmlspecialchars($tech_name) ?></strong>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <strong>JALES</strong>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:
+        Eu, <strong><?= htmlspecialchars($tecDisplayName) ?></strong>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <strong>JALES</strong>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:
     </div>
 
     <!-- Informações -->
@@ -250,7 +265,7 @@ header('Content-Type: text/html; charset=UTF-8');
         </div>
         <div class="info-box">
             <label>Técnico Responsável</label>
-            <span><?= htmlspecialchars($tech_name) ?></span>
+            <span><?= htmlspecialchars($tecDisplayName) ?><?= $hasTec ? ' — ' . htmlspecialchars($assinatura_tec_doc_type . ' ' . $assinatura_tec_doc_masked) : '' ?></span>
         </div>
         <div class="info-box">
             <label>Responsável pela Retirada</label>
@@ -352,41 +367,55 @@ header('Content-Type: text/html; charset=UTF-8');
     </table>
     <?php endif; ?>
 
-    <!-- Assinaturas — segunda coluna preenchida via tablet (RG/CPF + desenho) -->
+    <!-- Assinaturas — dual via tablet (recebedor + técnico) -->
     <div class="sign-section">
-        <div class="section-title">Assinaturas <?= $is_assinado ? '<span class="sign-badge">✍️ Assinado digitalmente em ' . htmlspecialchars($assinatura_data_fmt) . '</span>' : '' ?></div>
+        <div class="section-title">Assinaturas <?= $is_assinado ? '<span class="sign-badge">✍️ Assinado digitalmente — Recebedor ' . htmlspecialchars($assinatura_data_fmt) . ' / Técnico ' . htmlspecialchars($assinatura_tec_data_fmt) . '</span>' : ($hasRec || $hasTec ? '<span class="sign-badge" style="background:#fffbeb;border-color:#fde68a;color:#92400e;">⚠️ Parcial ' . (!$hasRec?'recebedor ':'') . (!$hasRec&&!$hasTec?'e ':'') . (!$hasTec?'técnico':'') . '</span>' : '') ?></div>
         <div class="sign-grid">
-            <div class="sign-box">
-                <div class="sign-line-space"></div>
-                <div class="sign-name"><?= $is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio' ?></div>
+            <div class="sign-box" style="<?= $hasTec ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
+                <?php if ($hasTec): ?>
+                    <img src="<?= $assinatura_tec_image ?>" alt="Assinatura Técnico" class="sign-img">
+                    <div class="sign-line-space" style="height:2px;margin-bottom:6px;border-color:#065f46;"></div>
+                <?php else: ?>
+                    <div class="sign-line-space"></div>
+                <?php endif; ?>
+                <div class="sign-name"><?= $is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio' ?> <?= $hasTec ? '<span style="color:#059669;font-size:9px;">● ASSINADO</span>' : '' ?></div>
                 <div class="sign-fields">
-                    <span>Nome: <?= htmlspecialchars($is_pronto ? $tech_name : $creator_name) ?></span>
-                    <span>Documento de Identidade: _________________________________</span>
-                    <span>Data: _____ / _____ / ___________</span>
+                    <span>Nome: <?= $hasTec && $assinatura_tec_nome !== '' ? htmlspecialchars($assinatura_tec_nome) : htmlspecialchars($tecFallbackName) ?></span>
+                    <span>Documento (<?= $hasTec ? htmlspecialchars($assinatura_tec_doc_type) : 'RG/CPF' ?>): <?= $hasTec ? htmlspecialchars($assinatura_tec_doc_type . ' ' . $assinatura_tec_doc_masked) : '_________________________________' ?></span>
+                    <span>Data: <?= $hasTec ? htmlspecialchars($assinatura_tec_data_fmt) : '_____ / _____ / ___________' ?></span>
+                    <?php if ($hasTec): ?>
+                        <span style="font-size:8px;color:#6b7280;border:none;padding:0;">via tablet em <?= htmlspecialchars($assinatura_tec_data_fmt) ?> — IP <?= htmlspecialchars($transfer['assinatura_tecnico_ip'] ?? '') ?></span>
+                    <?php endif; ?>
                 </div>
             </div>
-            <div class="sign-box" style="<?= $is_assinado ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
-                <?php if ($is_assinado): ?>
+            <div class="sign-box" style="<?= $hasRec ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
+                <?php if ($hasRec): ?>
                     <img src="<?= $assinatura_image ?>" alt="Assinatura" class="sign-img">
                     <div class="sign-line-space" style="height:2px;margin-bottom:6px;border-color:#065f46;"></div>
                 <?php else: ?>
                     <div class="sign-line-space"></div>
                 <?php endif; ?>
-                <div class="sign-name">Responsável pelo Recebimento <?= $is_assinado ? '<span style="color:#059669;font-size:9px;">● ASSINADO</span>' : '' ?></div>
+                <div class="sign-name">Responsável pelo Recebimento <?= $hasRec ? '<span style="color:#059669;font-size:9px;">● ASSINADO</span>' : '' ?></div>
                 <div class="sign-fields">
-                    <span>Nome: <?= $is_assinado && $assinatura_nome !== '' ? htmlspecialchars($assinatura_nome) : '_____________________________________________' ?></span>
-                    <span>Documento (<?= $is_assinado ? htmlspecialchars($assinatura_doc_type) : 'RG/CPF' ?>): <?= $is_assinado ? htmlspecialchars($assinatura_doc_type . ' ' . $assinatura_doc_masked) : '_________________________________' ?></span>
-                    <span>Data: <?= $is_assinado ? htmlspecialchars($assinatura_data_fmt) : '_____ / _____ / ___________' ?></span>
-                    <?php if ($is_assinado): ?>
-                        <span style="font-size:8px;color:#6b7280;border:none;padding:0;">Assinatura coletada via tablet em <?= htmlspecialchars($assinatura_data_fmt) ?> — IP <?= htmlspecialchars($transfer['assinatura_ip'] ?? '') ?></span>
+                    <span>Nome: <?= $hasRec && $assinatura_nome !== '' ? htmlspecialchars($assinatura_nome) : '_____________________________________________' ?></span>
+                    <span>Documento (<?= $hasRec ? htmlspecialchars($assinatura_doc_type) : 'RG/CPF' ?>): <?= $hasRec ? htmlspecialchars($assinatura_doc_type . ' ' . $assinatura_doc_masked) : '_________________________________' ?></span>
+                    <span>Data: <?= $hasRec ? htmlspecialchars($assinatura_data_fmt) : '_____ / _____ / ___________' ?></span>
+                    <?php if ($hasRec): ?>
+                        <span style="font-size:8px;color:#6b7280;border:none;padding:0;">via tablet em <?= htmlspecialchars($assinatura_data_fmt) ?> — IP <?= htmlspecialchars($transfer['assinatura_ip'] ?? '') ?></span>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
         <?php if (!$is_assinado): ?>
+            <?php if ($hasRec || $hasTec): ?>
             <div style="margin-top:10px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:9px;color:#92400e;text-align:center;">
-                ⚠️ Termo ainda não assinado — colete a assinatura na aba <strong>Assinatura</strong> usando tablet/celular (RG/CPF + desenho).
+                ⚠️ Termo parcialmente assinado — falta <?= !$hasRec ? 'recebedor' : '' ?><?= !$hasRec && !$hasTec ? ' e ' : '' ?><?= !$hasTec ? 'técnico' : '' ?>. Colete na aba <strong>Assinatura</strong>.
             </div>
+            <?php else: ?>
+            <div style="margin-top:10px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:9px;color:#92400e;text-align:center;">
+                ⚠️ Termo ainda não assinado — colete na aba <strong>Assinatura</strong> (recebedor + técnico) via tablet.
+            </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 
