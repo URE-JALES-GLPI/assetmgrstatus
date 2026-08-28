@@ -398,12 +398,23 @@ async function amSigSave() {
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
-        const res = await fetch(base + '/ajax/assinatura_save.php', {
+        // Tenta primeiro via front (mais permissivo para CSRF/GLPI), fallback para ajax se necessário
+        let res = await fetch(base + '/front/assinatura.form.php', {
             method: 'POST',
             headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
             credentials: 'same-origin',
             body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
         });
+        // Se front der 403/404, tenta ajax como fallback (compatibilidade)
+        if (!res.ok && (res.status===403 || res.status===404)) {
+            console.warn('front 403, tentando ajax fallback');
+            res = await fetch(base + '/ajax/assinatura_save.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+                credentials: 'same-origin',
+                body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
+            });
+        }
         const text = await res.text();
         let j;
         try { j = JSON.parse(text); } catch(parseErr) {
