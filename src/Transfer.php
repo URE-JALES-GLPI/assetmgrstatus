@@ -1049,45 +1049,54 @@ class Transfer
             return ['ok' => false, 'error' => 'Nenhuma impressora encontrada no servidor CUPS. Configure a impressora HP no Ubuntu (Configurações > Impressoras ou lpadmin) e defina como padrão. Impressoras detectadas: ' . (empty($available) ? 'nenhuma' : implode(', ', $available)) . '. Dica: sudo lpstat -p -d'];
         }
 
+        // Garante que CUPS (usuário lp) consegue ler o arquivo (www-data cria com 600)
+        @chmod($pdf_path, 0644);
+
         // Se impressora escolhida não está na lista mas há impressoras, avisa mas tenta mesmo assim (pode ser nome com alias)
-        // Monta comando com segurança (escapeshellarg)
+        // Monta comando com segurança (escapeshellarg) — replica comando que usuário usa: lp -d HP_PeB /tmp/file
         $output = [];
         $ret = -1;
         $cmd = '';
         $printed = false;
         $lastOut = '';
 
-        // Tenta lp primeiro
+        // Tenta lp primeiro — simples como usuário faz: lp -d HP_PeB /tmp/file
         if ($hasLp) {
-            // -o fit-to-page e media A4 são opcionais mas ajudam
             $cmd = 'lp';
             if ($printer) $cmd .= ' -d ' . escapeshellarg($printer);
-            // título do job
-            $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
-            $cmd .= ' -t ' . escapeshellarg($title);
-            $cmd .= ' -o fit-to-page';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
             if ($ret === 0) {
                 $printed = true;
             } else {
-                // fallback se lp falhou por impressora inexistente: tenta sem -d (default)
+                // fallback com título e fit-to-page se simples falhar
                 if (stripos($lastOut, 'Unknown destination') !== false || stripos($lastOut, 'unknown printer') !== false) {
                     $out2 = [];
                     $ret2 = -1;
-                    $cmd2 = 'lp -o fit-to-page ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd2 = 'lp ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd2, $out2, $ret2);
                     if ($ret2 === 0) {
                         $printed = true;
                         $lastOut = implode("\n", $out2) . " (fallback sem -d)";
                         $printer = $default ?? 'default';
                     }
+                } else {
+                    // tenta com opções de página (pode ajudar PDF)
+                    $out3 = [];
+                    $ret3 = -1;
+                    $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
+                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' -o fit-to-page ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    @exec($cmd3, $out3, $ret3);
+                    if ($ret3 === 0) {
+                        $printed = true;
+                        $lastOut = implode("\n", $out3) . " (fallback fit-to-page)";
+                    }
                 }
             }
         }
 
-        // Se ainda não imprimiu e lpr disponível, tenta lpr
+        // Se ainda não imprimiu e lpr disponível, tenta lpr (também simples)
         if (!$printed && $hasLpr) {
             $output = [];
             $cmd = 'lpr';
@@ -1096,6 +1105,12 @@ class Transfer
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
             if ($ret === 0) $printed = true;
+        }
+        // Debug: verifica fila após envio (lpstat -o)
+        if ($printed) {
+            $qOut = [];
+            @exec('lpstat -o ' . escapeshellarg($printer) . ' 2>&1', $qOut, $qRet);
+            $lastOut .= ($lastOut ? "\n" : "") . "Fila: " . implode('; ', $qOut);
         }
 
         // Log e cleanup
