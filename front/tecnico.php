@@ -290,20 +290,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         usort($combined, fn($a,$b) => strtotime($b['date']) <=> strtotime($a['date']));
     }
 
-    // Paginação sobre timeline unificada — concluído limita a 10 por página
-    $tc_page     = max(1, (int)($_GET['page'] ?? 1));
-    $isConcluidoView = ($filter_status === Transfer::STATUS_FINALIZADO);
-    // Se estiver visualizando apenas concluídos (via status ou kanban concluído), limita a 10
-    if ($isConcluidoView) {
-        $tc_per_page = 10;
-    } else {
-        // Também limita se a coluna concluído estiver sendo maximizada via query ?max=concluido (futuro)
-        $tc_per_page = 12;
-    }
+    // Sem paginação — mostra todos os cards (kanban já mostra tudo, grid também)
     $tc_total    = count($combined);
-    $tc_pages    = max(1, (int)ceil($tc_total / $tc_per_page));
-    $tc_page     = min($tc_page, $tc_pages);
-    $combined_page = array_slice($combined, ($tc_page - 1) * $tc_per_page, $tc_per_page);
+    $tc_pages    = 1;
+    $tc_page     = 1;
+    $tc_per_page = $tc_total ?: 1;
+    $combined_page = $combined;
 
     // Filtro TÉCNICO removido do topo a pedido — agora PEGO mostra só do usuário com botão "Mostrar todos" no Kanban
     $techs_in_transfers = [];
@@ -758,36 +750,6 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <?php endif; ?>
     </div>
 
-    <?php if ($tc_pages > 1): ?>
-    <div class="am-pagination">
-        <div class="am-pagination-info"><?= $tc_total ?> card(s) — página <?= $tc_page ?> de <?= $tc_pages ?> (<?= count($transfers) ?> transf. + <?= count($tickets) ?> chamados)</div>
-        <div class="am-pagination-pages">
-            <?php
-            $tc_qs = fn($p) => http_build_query([
-                'status' => $filter_status,
-                'tech'   => $filter_tech ?: '',
-                'date'   => $filter_date,
-                'sort'   => $filter_sort,
-                'q'      => $q,
-                'tipo'   => $filter_tipo,
-                'cat'    => $filter_cat ?: '',
-                'page'   => $p,
-            ]);
-            $tc_window = $tc_pages <= 10 ? range(1, $tc_pages) : array_values(array_unique(array_merge(
-                [1],
-                range(max(2, $tc_page - 2), min($tc_pages - 1, $tc_page + 2)),
-                [$tc_pages]
-            )));
-            $tc_last = 0;
-            foreach ($tc_window as $tc_n):
-                if ($tc_n - $tc_last > 1): ?><span class="am-page-link disabled" style="background:transparent;box-shadow:none;">…</span><?php endif;
-                $tc_last = $tc_n;
-            ?>
-            <a class="am-page-link <?= $tc_n === $tc_page ? 'active' : '' ?>" href="?<?= $tc_qs($tc_n) ?>"><?= $tc_n ?></a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
     <?php endif; ?>
 
 </div>
