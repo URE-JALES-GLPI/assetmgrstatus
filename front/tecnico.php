@@ -395,6 +395,14 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     </div>
     <?php endif; ?>
     <?php endif; ?>
+
+    <?php
+    // ---- Integração TicketJAL: exibe chamados da Central por categoria no Técnico ----
+    $tj_snippet = GLPI_ROOT . '/plugins/ticketjal/inc/tecnico_snippet.php';
+    if (file_exists($tj_snippet)) {
+        include $tj_snippet;
+    }
+    ?>
 </div>
 
 <!-- Modal Pegar -->
