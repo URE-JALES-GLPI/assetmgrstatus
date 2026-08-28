@@ -28,7 +28,7 @@ $transfers     = Transfer::getAll($filter_status);
 // TicketJAL: busca chamados para timeline unificada (sem filtro de entidade para garantir que apareça)
 $tickets = [];
 $tjCatIds = [];
-if (Plugin::isActivated('ticketjal')) {
+if ((new Plugin())->isActivated('ticketjal')) {
     try {
         $iterCat = $DB->request(['SELECT' => ['itilcategories_id'], 'FROM' => 'glpi_plugin_ticketjal_cards', 'WHERE' => ['type' => 'ticket', 'is_active' => 1, 'itilcategories_id' => ['>', 0]]]);
         foreach ($iterCat as $r) $tjCatIds[] = (int)$r['itilcategories_id'];
