@@ -98,18 +98,22 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
         </div>
     </div>
 
-    <!-- Técnicos cadastrados -->
-    <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:14px;padding:16px 20px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:10px;">
-                <span style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;"><i class="ti ti-users" style="font-size:1.1rem;"></i></span>
-                <div>
-                    <div style="font-weight:800;color:#1e1b4b;">Técnicos Cadastrados</div>
-                    <div style="font-size:.78rem;color:#9ca3af;"><span id="am-tec-count"><?= count($__am_tecnicos) ?></span> técnico(s) • usado para preencher "Responsável pela Entrega"</div>
+    <!-- Técnicos cadastrados (minimizado por padrão) -->
+    <div id="am-tec-section" style="background:#fff;border:1.5px solid #e8eaf0;border-radius:14px;margin-bottom:20px;overflow:hidden;">
+        <div id="am-tec-header" onclick="amToggleTecSection()" style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <span style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;"><i class="ti ti-users" style="font-size:1.1rem;"></i></span>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:800;color:#1e1b4b;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">Técnicos Cadastrados <span style="background:#f0f2ff;color:#4f46e5;padding:2px 8px;border-radius:99px;font-size:.72rem;font-weight:800;"><span id="am-tec-count"><?= count($__am_tecnicos) ?></span> <span id="am-tec-count-label"><?= count($__am_tecnicos)===1?'técnico':'técnicos' ?></span></span> <i id="am-tec-chevron" class="ti ti-chevron-down" style="transition:transform .2s;color:#9ca3af;font-size:.9rem;"></i></div>
+                    <div style="font-size:.78rem;color:#9ca3af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Toque para expandir • usado para "Responsável pela Entrega"</div>
                 </div>
             </div>
-            <button type="button" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:9px 16px;" onclick="amOpenTecCadastroModal()"><i class="ti ti-plus"></i> Cadastrar Técnico</button>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <span id="am-tec-hint" style="font-size:.70rem;color:#9ca3af;display:none;"></span>
+                <button type="button" class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:8px 12px;font-size:.78rem;white-space:nowrap;" onclick="event.stopPropagation(); amOpenTecCadastroModal()"><i class="ti ti-plus"></i> Cadastrar</button>
+            </div>
         </div>
+        <div id="am-tec-body" style="display:none;padding:0 16px 16px;border-top:1px solid #f0f2f8;">
         <div id="am-tec-list" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
             <?php foreach ($__am_tecnicos as $tec): ?>
             <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;">
@@ -129,6 +133,7 @@ $__am_tecnicos = \GlpiPlugin\Assetmgrstatus\Transfer::getTecnicosAssinaturas(tru
         </div>
         <div id="am-tec-empty" style="<?= empty($__am_tecnicos) ? 'display:block' : 'display:none' ?>;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-user-off" style="font-size:1.4rem;display:block;margin-bottom:6px;"></i>Nenhum técnico cadastrado. Clique em Cadastrar Técnico.</div>
         <div id="am-tec-loading" style="display:none;text-align:center;color:#9ca3af;padding:14px;font-size:.85rem;"><i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Carregando técnicos...</div>
+    </div>
     </div>
     <script>var amInitialTecCache = <?= json_encode($__am_tecnicos, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;</script>
 
@@ -660,13 +665,26 @@ function amSigConfirmTecSelection(){
     setTimeout(()=>document.getElementById('am-sig-nome').focus(), 100);
 }
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m])); }
+// --- Minimizado por padrão: Técnicos Cadastrados ---
+function amToggleTecSection(force){
+    var body=document.getElementById('am-tec-body');
+    var chev=document.getElementById('am-tec-chevron');
+    if(!body) return;
+    var isHidden = body.style.display==='none' || body.style.display==='';
+    var show = typeof force==='boolean' ? force : isHidden;
+    body.style.display = show ? 'block' : 'none';
+    if(chev) chev.style.transform = show ? 'rotate(180deg)' : 'rotate(0deg)';
+    try{ localStorage.setItem('am_tec_collapsed', show ? '0' : '1'); }catch(e){}
+}
 // --- Gerenciamento lista fora do modal ---
 function amRenderTecList(list){
     const cont=document.getElementById('am-tec-list');
     const empty=document.getElementById('am-tec-empty');
     const count=document.getElementById('am-tec-count');
+    const countLabel=document.getElementById('am-tec-count-label');
     if(!cont) return;
     if(count) count.textContent=list.length;
+    if(countLabel) countLabel.textContent = list.length===1 ? 'técnico' : 'técnicos';
     if(!list.length){ cont.innerHTML=''; if(empty) empty.style.display='block'; return; }
     if(empty) empty.style.display='none';
     const loading=document.getElementById('am-tec-loading'); if(loading) loading.style.display='none';
@@ -1155,7 +1173,13 @@ async function amSigSave() {
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ amCloseAssinaturaModal(); amCloseTecCadastroModal(); }});
 document.getElementById('am-modal-assinatura').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-assinatura') amCloseAssinaturaModal(); });
 document.getElementById('am-modal-tec-cadastro').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-tec-cadastro') amCloseTecCadastroModal(); });
-document.addEventListener('DOMContentLoaded', ()=>{ amLoadTecSelectList(); });
+document.addEventListener('DOMContentLoaded', ()=>{
+  amLoadTecSelectList();
+  try{
+    var c = localStorage.getItem('am_tec_collapsed');
+    if(c==='0') amToggleTecSection(true); else amToggleTecSection(false);
+  }catch(e){ amToggleTecSection(false); }
+});
 
 // ---- Auto-refresh assinatura (pendente/assinado) + tecnicos sem F5 ----
 (function(){
