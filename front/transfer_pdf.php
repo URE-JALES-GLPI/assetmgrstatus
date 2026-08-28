@@ -371,10 +371,10 @@ header('Content-Type: text/html; charset=UTF-8');
     <div class="sign-section">
         <div class="section-title">Assinaturas <?= $is_assinado ? '<span class="sign-badge">✍️ Assinado digitalmente — Recebedor ' . htmlspecialchars($assinatura_data_fmt) . ' / Técnico ' . htmlspecialchars($assinatura_tec_data_fmt) . '</span>' : ($hasRec || $hasTec ? '<span class="sign-badge" style="background:#fffbeb;border-color:#fde68a;color:#92400e;">⚠️ Parcial ' . (!$hasRec?'recebedor ':'') . (!$hasRec&&!$hasTec?'e ':'') . (!$hasTec?'técnico':'') . '</span>' : '') ?></div>
         <div class="sign-grid">
-            <div class="sign-box" style="<?= $hasTec ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
+            <div class="sign-box" style="<?= $hasTec ? 'background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px;' : '' ?>">
                 <?php if ($hasTec): ?>
                     <img src="<?= $assinatura_tec_image ?>" alt="Assinatura Técnico" class="sign-img">
-                    <div class="sign-line-space" style="height:2px;margin-bottom:6px;border-color:#065f46;"></div>
+                    <div class="sign-line-space" style="height:1.5px;margin-bottom:6px;border-color:#2d2d2d;"></div>
                 <?php else: ?>
                     <div class="sign-line-space"></div>
                 <?php endif; ?>
@@ -388,10 +388,10 @@ header('Content-Type: text/html; charset=UTF-8');
                     <?php endif; ?>
                 </div>
             </div>
-            <div class="sign-box" style="<?= $hasRec ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
+            <div class="sign-box" style="<?= $hasRec ? 'background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px;' : '' ?>">
                 <?php if ($hasRec): ?>
                     <img src="<?= $assinatura_image ?>" alt="Assinatura" class="sign-img">
-                    <div class="sign-line-space" style="height:2px;margin-bottom:6px;border-color:#065f46;"></div>
+                    <div class="sign-line-space" style="height:1.5px;margin-bottom:6px;border-color:#2d2d2d;"></div>
                 <?php else: ?>
                     <div class="sign-line-space"></div>
                 <?php endif; ?>

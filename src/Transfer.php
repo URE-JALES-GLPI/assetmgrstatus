@@ -827,7 +827,7 @@ class Transfer
                 $tec_nome_html = $tec_nome !== '' ? htmlspecialchars($tec_nome) : htmlspecialchars($tecFallbackName);
                 $tec_doc_html  = htmlspecialchars($tec_type . ' ' . $tec_masked);
                 $tec_data_html = htmlspecialchars($tec_data_fmt);
-                $tecCell = '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $tec_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pela Entrega (Técnico) <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $tec_nome_html . '<br><br>Documento: ' . $tec_doc_html . '<br>Data: ' . $tec_data_html . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_tecnico_ip'] ?? '') . '</span></td>';
+                $tecCell = '<td style="background:#fff;border:1.5px solid #e8eaf0;">' . $tec_img_html . '<div class="line" style="border-color:#2d2d2d;height:1.5px;margin-bottom:4px;"></div><b>Responsável pela Entrega (Técnico) <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $tec_nome_html . '<br><br>Documento: ' . $tec_doc_html . '<br>Data: ' . $tec_data_html . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_tecnico_ip'] ?? '') . '</span></td>';
             } else {
                 $tecCell = '<td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tecFallbackName : $creator_name) . '<br><br>Documento: ' . ($tec_masked ? htmlspecialchars($tec_type . ' ' . $tec_masked) : '____________________________') . '<br>Data: ' . ($tec_data_fmt ? htmlspecialchars($tec_data_fmt) : '____/____/________') . '</td>';
             }
@@ -837,7 +837,7 @@ class Transfer
                 $receb_nome = $sig_nome !== '' ? htmlspecialchars($sig_nome) : '________________________________________';
                 $receb_doc  = htmlspecialchars($sig_type . ' ' . $sig_masked);
                 $receb_data = htmlspecialchars($sig_data_fmt);
-                $recCell = '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $sig_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td>';
+                $recCell = '<td style="background:#fff;border:1.5px solid #e8eaf0;">' . $sig_img_html . '<div class="line" style="border-color:#2d2d2d;height:1.5px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td>';
             } else {
                 $recCell = '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
             }
