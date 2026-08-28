@@ -562,11 +562,17 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;">
                     <span><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?></span>
                     <div style="display:flex;align-items:center;gap:6px;">
-                        <span class="am-kanban-count"><?= count($colCards) ?></span>
+                        <span class="am-kanban-count" id="am-kanban-count-<?= $stageKey ?>"><?= count($colCards) ?></span>
                         <?php if ($stageKey==='emandamento'):
-                            $allPegoCount = count(array_values(array_filter($combined, fn($it)=>$it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO)));
-                            if ($allPegoCount > count($colCards)): ?>
-                        <button onclick="amTogglePegoTodos(this)" data-show="0" style="font-size:.65rem;padding:3px 8px;border-radius:20px;border:1px solid #e8eaf0;background:#fff;color:#4f46e5;cursor:pointer;white-space:nowrap;">Mostrar todos (<?= $allPegoCount ?>)</button>
+                            $allEmAndamento = array_values(array_filter($combined, function($it){
+                                if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO) return true;
+                                if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true;
+                                return false;
+                            }));
+                            $allEmAndamentoCount = count($allEmAndamento);
+                            $mineEmAndamentoCount = count($colCards);
+                            if ($allEmAndamentoCount > $mineEmAndamentoCount): ?>
+                        <button onclick="amTogglePegoTodos(this)" data-show="0" data-total="<?= $allEmAndamentoCount ?>" data-mine="<?= $mineEmAndamentoCount ?>" style="font-size:.65rem;padding:3px 8px;border-radius:20px;border:1px solid #e8eaf0;background:#fff;color:#4f46e5;cursor:pointer;white-space:nowrap;">Mostrar todos (<?= $allEmAndamentoCount ?>)</button>
                         <?php endif; endif; ?>
                     </div>
                 </div>
@@ -574,12 +580,22 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     <?php
                         $colCardsToRender = $colCards;
                         if ($stageKey==='emandamento') {
-                            $colCardsToRender = array_values(array_filter($combined, function($it){
+                            $colCardsToRender = $allEmAndamento ?? array_values(array_filter($combined, function($it){
                                 if ($it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO) return true;
                                 if ($it['type']==='ticket' && (int)$it['data']['status']===2) return true;
                                 return false;
                             }));
-                            $colCards = array_values(array_filter($colCardsToRender, fn($it)=> $it['type']==='ticket' || (int)($it['data']['users_id_tech'] ?? $currentUserId) === $currentUserId));
+                            $colCards = array_values(array_filter($colCardsToRender, function($it) use ($currentUserId){
+                                if ($it['type']==='ticket') {
+                                    // Para chamados, mostra só os atribuídos ao usuário ou sem técnico (para pegar)
+                                    $assigned = $it['data']['users_id_recipient'] ?? 0;
+                                    // Se o chamado já tem técnico, mostra só se for o seu; se não tem, mostra como disponível
+                                    return true; // mostra todos os Pego para simplificar, mas filtra via JS para "Mostrar todos"
+                                }
+                                return (int)($it['data']['users_id_tech'] ?? 0) === $currentUserId;
+                            }));
+                            // Para o toggle, mantém todos em ToRender mas esconde os não seus
+                            $colCardsToRender = $allEmAndamento;
                         }
                         foreach ($colCardsToRender as $item):
                             $isHiddenPego = ($stageKey==='emandamento' && $item['type']==='transfer' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
@@ -832,6 +848,27 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Modal Confirmar Mover Kanban -->
+<div id="am-kanban-confirm-modal" class="am-modal-overlay">
+    <div class="am-modal" style="max-width:460px;">
+        <div class="am-modal-header" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+            <div class="am-modal-title"><i class="ti ti-arrows-move"></i><span>Mover no Kanban</span></div>
+        </div>
+        <div class="am-modal-body" style="padding:24px;text-align:center;">
+            <div style="width:56px;height:56px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin:0 auto 12px;">
+                <i class="ti ti-arrows-move" style="font-size:1.6rem;color:#fff;"></i>
+            </div>
+            <div id="am-kanban-confirm-text" style="font-size:1rem;font-weight:700;color:#1e1b4b;">Mover card?</div>
+            <div id="am-kanban-confirm-sub" style="font-size:.82rem;color:#6b7280;margin-top:6px;"></div>
+            <div style="margin-top:12px;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:8px;padding:8px 12px;font-size:.78rem;color:#6b7280;">Ao confirmar, o status será atualizado e o técnico será vinculado ao chamado (quando aplicável).</div>
+        </div>
+        <div class="am-modal-footer" style="justify-content:center;gap:16px;">
+            <button type="button" class="am-btn am-btn-secondary" style="min-width:120px;" onclick="amKanbanConfirmClose()"><i class="ti ti-x"></i> Cancelar</button>
+            <button type="button" id="am-kanban-confirm-btn" class="am-btn" style="min-width:120px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amKanbanConfirmGo()"><i class="ti ti-arrows-move"></i> Confirmar</button>
+        </div>
     </div>
 </div>
 
@@ -1156,6 +1193,7 @@ function amKanbanDragLeave(e){
   col.style.background='#f8f9fb';
   col.style.borderColor='#e8eaf0';
 }
+var amKanbanPending = null;
 function amKanbanDrop(e){
   e.preventDefault();
   var col=e.currentTarget;
@@ -1164,23 +1202,43 @@ function amKanbanDrop(e){
   var raw=e.dataTransfer.getData('text/plain');
   var obj; try{ obj=JSON.parse(raw); }catch(err){ return; }
   if(obj.type==='ticket' && col.dataset.stage==='retirada'){
-    alert('Chamados não podem ir para RETIRADA (apenas Transferências)');
+    if(window.amKanbanToast) amKanbanToast('Chamados não podem ir para RETIRADA', 'error');
+    else alert('Chamados não podem ir para RETIRADA (apenas Transferências)');
     return;
   }
   var to = col.dataset.stage;
   if(!to || !obj.type || !obj.id) return;
-  if(!confirm('Mover #' + obj.id + ' para ' + to.toUpperCase() + '?')) return;
+  amKanbanPending = {type: obj.type, id: obj.id, to: to};
+  var label = to==='pendente'?'PENDENTE':to==='emandamento'?'Em Andamento':to==='retirada'?'RETIRADA':'CONCLUÍDO';
+  var typeLabel = obj.type==='ticket' ? 'Chamado' : 'Transferência';
+  document.getElementById('am-kanban-confirm-text').textContent = 'Mover ' + typeLabel + ' #' + obj.id + ' para ' + label + '?';
+  document.getElementById('am-kanban-confirm-sub').textContent = obj.type==='ticket' && to==='emandamento' ? 'Você será vinculado como técnico no chamado padrão GLPI.' : 'A mudança de etapa será registrada no histórico.';
+  amKanbanConfirmOpen();
+}
+function amKanbanConfirmOpen(){ var m=document.getElementById('am-kanban-confirm-modal'); if(m){ m.classList.add('open'); document.body.style.overflow='hidden'; } }
+function amKanbanConfirmClose(){ var m=document.getElementById('am-kanban-confirm-modal'); if(m) m.classList.remove('open'); document.body.style.overflow=''; amKanbanPending=null; }
+function amKanbanConfirmGo(){
+  if(!amKanbanPending) return;
+  var btn=document.getElementById('am-kanban-confirm-btn');
+  if(btn){ btn.disabled=true; btn.innerHTML='<i class=\"ti ti-loader-2\" style=\"animation:amSpin .8s linear infinite;\"></i> Movendo...'; }
   var fd=new FormData();
-  fd.append('type', obj.type);
-  fd.append('id', obj.id);
-  fd.append('to', to);
-  fd.append('_glpi_csrf_token', (document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value || '');
+  fd.append('type', amKanbanPending.type);
+  fd.append('id', amKanbanPending.id);
+  fd.append('to', amKanbanPending.to);
+  fd.append('_glpi_csrf_token', (document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value || '<?= Session::getNewCSRFToken() ?>');
   fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin'})
     .then(r=>r.json().then(j=>({ok:r.ok, j:j})))
     .then(res=>{
       if(res.ok && res.j.success){ location.reload(); }
-      else { alert(res.j.message||'Falha ao mover'); }
-    }).catch(err=>alert('Erro: '+err.message));
+      else { alert(res.j.message||'Falha ao mover'); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } }
+    }).catch(err=>{ alert('Erro: '+err.message); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } });
+}
+function amKanbanToast(msg, type){
+  var c=document.createElement('div');
+  c.textContent=msg;
+  c.style.cssText='position:fixed;top:20px;right:20px;background:'+(type==='error'?'linear-gradient(135deg,#dc2626,#ef4444)':'linear-gradient(135deg,#4f46e5,#7c3aed)')+';color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:10002;';
+  document.body.appendChild(c);
+  setTimeout(function(){ c.style.opacity='0'; c.style.transition='opacity .3s'; setTimeout(function(){ c.remove(); },300); }, 3000);
 }
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.am-kanban-column .am-tc-card').forEach(function(card){

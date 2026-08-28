@@ -74,9 +74,17 @@ try {
         $ticket = new Ticket();
         if (!$ticket->getFromDB($id)) throw new Exception('Chamado não encontrado');
 
-        // Verifica se pode mudar status (precisa ter direito)
-        $ok = $ticket->update(['id' => $id, 'status' => $newStatus]);
-        if (!$ok) throw new Exception('Falha ao atualizar chamado');
+        $update = ['id' => $id, 'status' => $newStatus];
+        // Ao mover para Em Andamento, vincula o técnico logado no chamado padrão GLPI
+        if ($to === 'emandamento') {
+            $update['_itil_assign'] = [['users_id' => Session::getLoginUserID()]];
+            // Também atribui como técnico se o campo existir
+            if (isset($ticket->fields['users_id_tech'])) {
+                $update['users_id_tech'] = Session::getLoginUserID();
+            }
+        }
+        $ok = $ticket->update($update);
+        if (!$ok) throw new Exception('Falha ao atualizar chamado: ' . ($ticket->getError() ?? ''));
 
         echo json_encode(['success'=>true]);
         exit;
