@@ -1398,22 +1398,30 @@ async function amSigSave() {
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nO PDF será gerado no servidor Ubuntu (GLPI) e enviado para a fila de impressão CUPS da impressora HP padrão.')) return;
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nO PDF será gerado no servidor Ubuntu (GLPI) e enviado para a fila de impressão CUPS da impressora HP padrão (HP_PeB).')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+        const formBody = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', _glpi_csrf_token: amCsrfToken});
         let res = await fetch(base + '/front/print_hp.form.php', {
             method: 'POST',
-            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+            headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'},
             credentials: 'same-origin',
-            body: JSON.stringify({transfer_id: transferId, stage: 'pronto', _glpi_csrf_token: amCsrfToken})
+            body: formBody
         });
         if (!res.ok && (res.status===403 || res.status===404)) {
+            const formBody2 = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', _glpi_csrf_token: amCsrfToken});
             res = await fetch(base + '/ajax/print_hp.php', {
                 method: 'POST',
-                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+                headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                 credentials: 'same-origin',
-                body: JSON.stringify({transfer_id: transferId, stage: 'pronto', _glpi_csrf_token: amCsrfToken})
+                body: formBody2
+            });
+        }
+        if (!res.ok && (res.status===403 || res.status===404)) {
+            res = await fetch(base + '/front/print_hp.form.php?transfer_id=' + encodeURIComponent(String(transferId)) + '&stage=pronto&_glpi_csrf_token=' + encodeURIComponent(amCsrfToken), {
+                credentials: 'same-origin',
+                headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'}
             });
         }
         const text = await res.text();
