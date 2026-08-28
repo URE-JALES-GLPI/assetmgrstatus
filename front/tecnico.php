@@ -91,7 +91,17 @@ if (!empty($tjCatIds)) {
 Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecnico');
 ?>
 
-<style>@keyframes amSpin{to{transform:rotate(360deg)}}</style>
+<style>
+@keyframes amSpin{to{transform:rotate(360deg)}}
+.am-kanban{display:flex;gap:16px;overflow-x:auto;padding-bottom:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;}
+.am-kanban-column{flex:0 0 340px;min-width:340px;max-width:340px;background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:14px;display:flex;flex-direction:column;max-height:75vh;scroll-snap-align:start;}
+.am-kanban-header{padding:14px 16px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
+.am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
+.am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
+.am-kanban-empty{text-align:center;color:#9ca3af;padding:24px 12px;font-size:.85rem;border:1.5px dashed #e8eaf0;border-radius:10px;background:#fff;}
+.am-kanban .am-tc-card{margin:0;flex-shrink:0;}
+@media(max-width:768px){.am-kanban{flex-direction:column;overflow:visible;}.am-kanban-column{flex:1 1 auto;min-width:0;max-width:none;max-height:none;}}
+</style>
 <div class="container-fluid am-page">
 
     <div class="am-breadcrumb">
@@ -121,6 +131,10 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-plus"></i> Cadastrar
             </a>
+            <div style="display:flex;background:#f4f6fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:3px;gap:3px;">
+                <button id="am-view-grid-btn" class="am-view-btn active" onclick="amSetView('grid')" title="Grade" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:#fff;color:#4f46e5;box-shadow:0 2px 6px rgba(79,70,229,.15);cursor:pointer;"><i class="ti ti-layout-grid"></i></button>
+                <button id="am-view-kanban-btn" class="am-view-btn" onclick="amSetView('kanban')" title="Kanban" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:transparent;color:#9ca3af;cursor:pointer;"><i class="ti ti-layout-kanban"></i></button>
+            </div>
             <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
                 <i class="ti ti-refresh"></i> Atualizar
             </button>
@@ -316,7 +330,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <?php if (empty($combined_page)): ?>
     <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhum card encontrado (transferência ou chamado) para os filtros atuais.</p></div>
     <?php else: ?>
-    <div class="am-tc-grid">
+    <div class="am-tc-grid" id="am-grid-view">
         <?php foreach ($combined_page as $item):
             if ($item['type'] === 'transfer'):
                 $t = $item['data'];
@@ -515,6 +529,98 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             </div>
         </div>
         <?php endif; endforeach; ?>
+    </div>
+
+    <!-- Kanban View (por etapa) -->
+    <div id="am-kanban-view" style="display:none;">
+        <div class="am-kanban">
+            <?php foreach (Transfer::getStatusOptions() as $sKey => $sLabel):
+                $colCards = array_values(array_filter($combined_page, fn($it) => $it['type']==='transfer' && $it['data']['status']===$sKey));
+                if ($filter_tipo==='ticket') continue;
+            ?>
+            <div class="am-kanban-column">
+                <div class="am-kanban-header" style="border-top:4px solid <?= Transfer::getStatusColor($sKey) ?>;">
+                    <span><?= htmlspecialchars($sLabel) ?></span><span class="am-kanban-count"><?= count($colCards) ?></span>
+                </div>
+                <div class="am-kanban-body">
+                    <?php foreach ($colCards as $item): $t = $item['data'];
+                        $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
+                        $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
+                        $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
+                        $status_color = Transfer::getStatusColor($t['status']);
+                    ?>
+                    <div class="am-tc-card" style="margin:0;">
+                        <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;padding:12px 14px;">
+                            <div style="min-width:0;flex:1;">
+                                <div style="font-size:.65rem;color:#9ca3af;font-weight:700;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
+                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($t['origin_entity_name']) ?></div>
+                            </div>
+                            <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>" style="font-size:.65rem;"><?= htmlspecialchars($sLabel) ?></span>
+                        </div>
+                        <div class="am-tc-card-body" style="padding:10px 14px;">
+                            <div class="am-tc-info-row" style="font-size:.78rem;"><i class="ti ti-box"></i><span><?= $t['items_count'] ?> ativo(s)</span></div>
+                            <?php if ($t['reason']): ?><div class="am-tc-reason" style="font-size:.75rem;padding:6px 8px;"><?= htmlspecialchars(mb_strimwidth($t['reason'],0,60,'…')) ?></div><?php endif; ?>
+                        </div>
+                        <div class="am-tc-card-footer" style="padding:8px 12px;">
+                            <?php if ($t['status']===Transfer::STATUS_PENDENTE): ?>
+                            <button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenPegarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>',<?= $t['items_count'] ?>)"><i class="ti ti-hand-grab"></i> Pegar</button>
+                            <?php elseif ($t['status']===Transfer::STATUS_MANUTENCAO): ?>
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_diario.php?id=<?= $t['id'] ?>" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;">Diário</a>
+                            <?php elseif ($t['status']===Transfer::STATUS_PRONTO): ?>
+                            <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenFinalizarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['entity_dest_name'])) ?>')"><i class="ti ti-flag-check"></i> Finalizar</button>
+                            <?php else: ?>
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= $t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-file-type-pdf"></i> PDF</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($colCards)): ?><div class="am-kanban-empty">Nenhum card</div><?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php if ($filter_tipo!=='transfer'): 
+            $ticketsForKanban = array_values(array_filter($combined_page, fn($it)=>$it['type']==='ticket'));
+        ?>
+        <h3 style="margin:20px 0 12px;font-size:1rem;font-weight:800;color:#1e1b4b;display:flex;align-items:center;gap:8px;"><i class="ti ti-ticket" style="color:#4f46e5;"></i> Chamados <span style="font-weight:400;color:#9ca3af;font-size:.85rem;">por categoria</span></h3>
+        <div class="am-kanban" id="am-kanban-tickets">
+            <?php
+                $catsInPage = [];
+                foreach ($ticketsForKanban as $it) $catsInPage[$it['data']['itilcategories_id']] = $it['data']['category_name'];
+                if (empty($catsInPage)) $catsInPage = $tjCategoriesForFilter;
+                foreach ($catsInPage as $cid=>$cname):
+                    $colTickets = array_values(array_filter($ticketsForKanban, fn($it)=>(int)$it['data']['itilcategories_id']===(int)$cid));
+                    if ($filter_cat && (int)$filter_cat !== (int)$cid) continue;
+            ?>
+            <div class="am-kanban-column">
+                <div class="am-kanban-header" style="border-top:4px solid #4f46e5;">
+                    <span><?= htmlspecialchars($cname ?: 'Cat #'.$cid) ?></span><span class="am-kanban-count"><?= count($colTickets) ?></span>
+                </div>
+                <div class="am-kanban-body">
+                    <?php foreach ($colTickets as $item): $tk=$item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#3b82f6',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#9ca3af'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; ?>
+                    <div class="am-tc-card" style="margin:0;border-left:4px solid <?= $tkStatusColor ?>;">
+                        <div class="am-tc-card-header" style="border-left:4px solid <?= $tkStatusColor ?>;padding:10px 12px;">
+                            <div style="min-width:0;flex:1;">
+                                <div style="font-size:.65rem;color:#4f46e5;font-weight:700;">#<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
+                                <div style="font-weight:700;font-size:.85rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tk['name']?:'Sem título') ?></div>
+                            </div>
+                            <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.65rem;"><?= htmlspecialchars($tkStatusLabel) ?></span>
+                        </div>
+                        <div class="am-tc-card-body" style="padding:10px 12px;">
+                            <?php if ($tk['entity_name']): ?><div class="am-tc-info-row" style="font-size:.75rem;"><i class="ti ti-building"></i><span><?= htmlspecialchars($tk['entity_name']) ?></span></div><?php endif; ?>
+                            <div class="am-tc-info-row" style="font-size:.75rem;"><i class="ti ti-calendar"></i><span><?= Html::convDateTime($tk['date_mod']?:$tk['date_creation']) ?></span></div>
+                        </div>
+                        <div class="am-tc-card-footer" style="padding:8px 12px;">
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/front/ticket.form.php?id=<?= (int)$tk['id'] ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-external-link"></i> Abrir</a>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($colTickets)): ?><div class="am-kanban-empty">Nenhum chamado</div><?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </div>
 
     <?php if ($tc_pages > 1): ?>
@@ -909,6 +1015,38 @@ amSoftRefresh = function(){
     return r;
 };
 document.addEventListener('DOMContentLoaded', function(){ try{ amInitTecEntitySearch(); }catch(e){} });
+</script>
+
+<script>
+function amSetView(view){
+  try{
+    localStorage.setItem('am_tec_view', view);
+    var grid=document.getElementById('am-grid-view');
+    var kanban=document.getElementById('am-kanban-view');
+    var gridBtn=document.getElementById('am-view-grid-btn');
+    var kanBtn=document.getElementById('am-view-kanban-btn');
+    if(view==='kanban'){
+      if(grid) grid.style.display='none';
+      if(kanban) kanban.style.display='block';
+      if(gridBtn){gridBtn.style.background='transparent';gridBtn.style.color='#9ca3af';gridBtn.style.boxShadow='none';gridBtn.classList.remove('active');}
+      if(kanBtn){kanBtn.style.background='#fff';kanBtn.style.color='#4f46e5';kanBtn.style.boxShadow='0 2px 6px rgba(79,70,229,.15)';kanBtn.classList.add('active');}
+    } else {
+      if(grid) grid.style.display='grid';
+      if(kanban) kanban.style.display='none';
+      if(kanBtn){kanBtn.style.background='transparent';kanBtn.style.color='#9ca3af';kanBtn.style.boxShadow='none';kanBtn.classList.remove('active');}
+      if(gridBtn){gridBtn.style.background='#fff';gridBtn.style.color='#4f46e5';gridBtn.style.boxShadow='0 2px 6px rgba(79,70,229,.15)';gridBtn.classList.add('active');}
+    }
+    var url=new URL(window.location.href);
+    url.searchParams.set('view',view);
+    history.replaceState(null,'',url.toString());
+  }catch(e){}
+}
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'grid';
+    amSetView(v==='kanban'?'kanban':'grid');
+  }catch(e){}
+});
 </script>
 
 <script>
