@@ -400,18 +400,28 @@ async function amSigSave() {
         const res = await fetch(base + '/ajax/assinatura_save.php', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
+            credentials: 'same-origin',
             body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl})
         });
-        const j = await res.json();
+        const text = await res.text();
+        let j;
+        try { j = JSON.parse(text); } catch(parseErr) {
+            console.error('Resposta não-JSON:', text);
+            alert('❌ Erro servidor (resposta não-JSON, HTTP ' + res.status + '):\n' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
+            btn.disabled=false; btn.innerHTML=old;
+            return;
+        }
         if (j.ok) {
             alert('✅ Assinatura salva! Termo atualizado. Você já pode imprimir.');
             location.reload();
         } else {
             alert('❌ ' + (j.error || 'Falha ao salvar.'));
+            console.error(j);
             btn.disabled=false; btn.innerHTML=old;
         }
     } catch(e) {
         alert('Erro de rede: ' + e.message);
+        console.error(e);
         btn.disabled=false; btn.innerHTML=old;
     }
 }

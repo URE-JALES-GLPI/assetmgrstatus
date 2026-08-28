@@ -1668,32 +1668,84 @@ class Transfer
     public static function salvarAssinatura(int $transfer_id, string $doc_type, string $doc_number, string $nome, string $image_base64): bool
     {
         global $DB;
-        $transfer = self::getById($transfer_id);
-        if (!$transfer) return false;
-        if (self::isAssinado($transfer)) return false; // já assinado não sobrescreve
-        $doc_type = strtoupper(trim($doc_type));
-        if (!in_array($doc_type, ['RG','CPF'], true)) return false;
-        // Normaliza documento: só números
-        $doc_number = preg_replace('/\D+/', '', $doc_number);
-        if ($doc_type === 'CPF' && strlen($doc_number) !== 11) return false;
-        if ($doc_type === 'RG' && (strlen($doc_number) < 5 || strlen($doc_number) > 12)) return false;
-        $nome = trim($nome);
-        // Valida imagem base64: deve começar com data:image/
-        if (strpos($image_base64, 'data:image/') !== 0) return false;
-        if (strlen($image_base64) < 100) return false; // assinatura vazia é muito curta
-        if (strlen($image_base64) > 500000) return false; // limite ~500kb
-        $now = date('Y-m-d H:i:s');
-        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-        $uid = Session::getLoginUserID();
-        $DB->update('glpi_plugin_assetmgrstatus_transfers', [
-            'assinatura_document_type' => $doc_type,
-            'assinatura_document'      => $doc_number,
-            'assinatura_nome'          => $nome !== '' ? mb_substr($nome, 0, 255) : null,
-            'assinatura_data'          => $now,
-            'assinatura_user_id'       => $uid,
-            'assinatura_ip'            => $ip,
-            'assinatura_image'         => $image_base64,
-        ], ['id' => $transfer_id]);
+        try {
+            $transfer = self::getById($transfer_id);
+            if (!$transfer) {
+                self::$last_ticket_error = 'Transferência não encontrada';
+                return false;
+            }
+            if (self::isAssinado($transfer)) {
+                self::$last_ticket_error = 'Termo já assinado';
+                return false;
+            }
+            $doc_type = strtoupper(trim($doc_type));
+            if (!in_array($doc_type, ['RG','CPF'], true)) {
+                self::$last_ticket_error = 'Tipo de documento inválido';
+                return false;
+            }
+            // Normaliza documento: só números
+            $doc_number = preg_replace('/\D+/', '', $doc_number);
+            if ($doc_type === 'CPF' && strlen($doc_number) !== 11) {
+                self::$last_ticket_error = 'CPF deve ter 11 dígitos';
+                return false;
+            }
+            if ($doc_type === 'RG' && (strlen($doc_number) < 5 || strlen($doc_number) > 12)) {
+                self::$last_ticket_error = 'RG deve ter entre 5 e 12 dígitos';
+                return false;
+            }
+            $nome = trim($nome);
+            // Valida imagem base64: deve começar com data:image/
+            if (strpos($image_base64, 'data:image/') !== 0) {
+                self::$last_ticket_error = 'Assinatura inválida (formato)';
+                return false;
+            }
+            if (strlen($image_base64) < 100) {
+                self::$last_ticket_error = 'Assinatura vazia';
+                return false;
+            }
+            if (strlen($image_base64) > 500000) {
+                self::$last_ticket_error = 'Assinatura muito grande (limite 500kb)';
+                return false;
+            }
+            $now = date('Y-m-d H:i:s');
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+            $uid = Session::getLoginUserID();
+
+            // Garante colunas de assinatura existam (auto-migração se plugin não foi atualizado no banco)
+            try {
+                $sign = \DBConnection::getDefaultPrimaryKeySignOption();
+                if (function_exists('plugin_assetmgrstatus_add_columns')) {
+                    plugin_assetmgrstatus_add_columns('glpi_plugin_assetmgrstatus_transfers', [
+                        'assinatura_document_type' => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_document_type` VARCHAR(10) DEFAULT NULL",
+                        'assinatura_document'      => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_document` VARCHAR(20) DEFAULT NULL",
+                        'assinatura_nome'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_nome` VARCHAR(255) DEFAULT NULL",
+                        'assinatura_data'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_data` DATETIME DEFAULT NULL",
+                        'assinatura_user_id'       => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_user_id` INT {$sign} DEFAULT NULL",
+                        'assinatura_ip'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_ip` VARCHAR(45) DEFAULT NULL",
+                        'assinatura_image'         => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_image` LONGTEXT DEFAULT NULL",
+                    ]);
+                }
+            } catch (Throwable $e) {
+                error_log('[assetmgrstatus] ensure assinatura columns: ' . $e->getMessage());
+            }
+
+            $ok = $DB->update('glpi_plugin_assetmgrstatus_transfers', [
+                'assinatura_document_type' => $doc_type,
+                'assinatura_document'      => $doc_number,
+                'assinatura_nome'          => $nome !== '' ? mb_substr($nome, 0, 255) : null,
+                'assinatura_data'          => $now,
+                'assinatura_user_id'       => $uid,
+                'assinatura_ip'            => $ip,
+                'assinatura_image'         => $image_base64,
+            ], ['id' => $transfer_id]);
+            if (!$ok) {
+                $dbErr = $DB->error();
+                if ($dbErr) {
+                    self::$last_ticket_error = 'DB: ' . $dbErr;
+                    error_log('[assetmgrstatus] salvarAssinatura DB error: ' . $dbErr);
+                }
+                return false;
+            }
         // Timeline
         $label = $nome !== '' ? $nome . ' (' . $doc_type . ' ' . self::maskDocumento($doc_type, $doc_number) . ')' : ($doc_type . ' ' . self::maskDocumento($doc_type, $doc_number));
         self::logStatus($transfer_id, $transfer['status'], '✍️ Assinado por ' . $label . ' em ' . date('d/m/Y H:i', strtotime($now)));
@@ -1705,6 +1757,11 @@ class Transfer
             } catch (\Throwable $e) {}
         }
         return true;
+        } catch (Throwable $e) {
+            error_log('[assetmgrstatus] salvarAssinatura: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+            self::$last_ticket_error = 'Exceção: ' . $e->getMessage();
+            return false;
+        }
     }
 
     public static function maskDocumento(string $type, string $raw): string
