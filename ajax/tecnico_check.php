@@ -35,19 +35,19 @@ if ($filter_sort === 'old') {
     usort($transfers, fn($a, $b) => strtotime($b['date_creation']) <=> strtotime($a['date_creation']));
 }
 
-// Monta hash leve: id + status + datas + tech + progresso (para atualizar barra ao concluir itens no diário)
+// Monta hash leve: id + status + datas + tech + progresso + assinatura (para detectar assinatura sem F5)
 $parts = [];
 foreach ($transfers as $t) {
-    $parts[] = $t['id'] . ':' . $t['status'] . ':' . ($t['date_creation'] ?? '') . ':' . ($t['date_manutencao'] ?? '') . ':' . ($t['date_pronto'] ?? '') . ':' . ($t['date_finalizado'] ?? '') . ':' . ($t['date_cancelado'] ?? '') . ':' . ($t['users_id_tech'] ?? 0) . ':' . ($t['items_done'] ?? 0) . ':' . ($t['progress_pct'] ?? 0) . ':' . ($t['items_count'] ?? 0);
+    $parts[] = $t['id'] . ':' . $t['status'] . ':' . ($t['date_creation'] ?? '') . ':' . ($t['date_manutencao'] ?? '') . ':' . ($t['date_pronto'] ?? '') . ':' . ($t['date_finalizado'] ?? '') . ':' . ($t['date_cancelado'] ?? '') . ':' . ($t['users_id_tech'] ?? 0) . ':' . ($t['items_done'] ?? 0) . ':' . ($t['progress_pct'] ?? 0) . ':' . ($t['items_count'] ?? 0) . ':' . ($t['assinatura_data'] ?? '') . ':' . ($t['assinatura_tecnico_data'] ?? '') . ':' . (!empty($t['assinatura_image']) ? '1' : '0') . ':' . (!empty($t['assinatura_tecnico_image']) ? '1' : '0');
 }
 $hash = md5(implode('|', $parts));
 $count = count($transfers);
 
-// Também retorna timestamp da última alteração para debug
+// Também retorna timestamp da última alteração para debug (inclui assinatura)
 $latest = '';
 foreach ($transfers as $t) {
     $d = $t['date_creation'] ?? '';
-    foreach (['date_manutencao','date_pronto','date_finalizado','date_cancelado'] as $k) {
+    foreach (['date_manutencao','date_pronto','date_finalizado','date_cancelado','assinatura_data','assinatura_tecnico_data'] as $k) {
         if (!empty($t[$k]) && $t[$k] > $d) $d = $t[$k];
     }
     if ($d > $latest) $latest = $d;

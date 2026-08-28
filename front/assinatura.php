@@ -1156,6 +1156,72 @@ document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ amCloseAssinat
 document.getElementById('am-modal-assinatura').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-assinatura') amCloseAssinaturaModal(); });
 document.getElementById('am-modal-tec-cadastro').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-tec-cadastro') amCloseTecCadastroModal(); });
 document.addEventListener('DOMContentLoaded', ()=>{ amLoadTecSelectList(); });
+
+// ---- Auto-refresh assinatura (pendente/assinado) + tecnicos sem F5 ----
+(function(){
+var _amAssCheckBase = '<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/assinatura_check.php';
+var _amAssFilter = '<?= $filter ?>';
+var _amAssLastHash = null, _amAssLastCount = null, _amAssLastTecCount = null;
+function _amAssBuildUrl(){ return _amAssCheckBase + '?f=' + encodeURIComponent(_amAssFilter) + '&_t=' + Date.now(); }
+// init hash
+fetch(_amAssBuildUrl(), {headers:{'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'}).then(function(r){return r.json();}).then(function(d){ _amAssLastHash=d.hash; _amAssLastCount=d.count; _amAssLastTecCount=d.tec_count; }).catch(function(){});
+function amAssShowToast(msg){
+    var t=document.createElement('div');
+    t.textContent=msg||'🔔 Atualizado!';
+    t.style.cssText='position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:9999;opacity:0;transition:opacity .3s;';
+    document.body.appendChild(t); requestAnimationFrame(function(){t.style.opacity='1';});
+    setTimeout(function(){t.style.opacity='0'; setTimeout(function(){t.remove();},300);},3500);
+}
+function amAssSoftRefresh(){
+    var modalOpen=document.querySelector('.am-modal-overlay.open');
+    if(modalOpen) return;
+    // atualiza também lista de técnicos (nome/assinatura pode ter sido cadastrada por outro usuário)
+    try{ amLoadTecSelectList(); }catch(e){}
+    fetch(window.location.href, {headers:{'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'})
+        .then(function(r){return r.text();}).then(function(html){
+            var parser=new DOMParser(); var doc=parser.parseFromString(html,'text/html');
+            var newGrid=doc.querySelector('.am-sig-grid');
+            var newEmpty=doc.querySelector('.am-empty-state');
+            var curGrid=document.querySelector('.am-sig-grid');
+            var curEmpty=document.querySelector('.am-empty-state');
+            var curContainer=curGrid||curEmpty;
+            var newContent=newGrid||newEmpty;
+            if(!newContent || !curContainer || !curContainer.parentNode) return;
+            var oldCount=(curGrid?curGrid.querySelectorAll('.am-sig-card').length:0);
+            var newCount=(newGrid?newGrid.querySelectorAll('.am-sig-card').length:0);
+            // se não mudou nada de card mas hash mudou (ex: tecnico count), só atualiza tecnicos já feito
+            if(newGrid && curGrid && newCount===oldCount && newContent.innerHTML===curContainer.innerHTML) return;
+            curContainer.style.transition='opacity .25s'; curContainer.style.opacity='0.35';
+            setTimeout(function(){
+                curContainer.parentNode.replaceChild(newContent, curContainer);
+                newContent.style.opacity='0.35'; newContent.style.transition='opacity .25s';
+                requestAnimationFrame(function(){newContent.style.opacity='1';});
+                if(newCount!==oldCount){
+                    if(newCount>oldCount) amAssShowToast('🔔 Nova transferência com assinatura pendente!');
+                    else if(document.querySelector('[href="?f=pendente"]')) amAssShowToast('✅ Lista de pendentes atualizada');
+                } else {
+                    amAssShowToast('✅ Atualizado — assinatura detectada');
+                }
+            },200);
+        }).catch(function(){});
+}
+function amAssCheckForUpdates(){
+    if(document.querySelector('.am-modal-overlay.open')) return;
+    if(document.hidden) return;
+    fetch(_amAssBuildUrl(), {headers:{'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin'})
+        .then(function(r){return r.json();}).then(function(d){
+            if(_amAssLastHash===null){ _amAssLastHash=d.hash; _amAssLastCount=d.count; _amAssLastTecCount=d.tec_count; return; }
+            var changed=(d.hash!==_amAssLastHash);
+            var tecChanged=(d.tec_count!==_amAssLastTecCount);
+            if(changed || tecChanged){
+                _amAssLastHash=d.hash; _amAssLastCount=d.count; _amAssLastTecCount=d.tec_count;
+                amAssSoftRefresh();
+            }
+        }).catch(function(){});
+}
+setInterval(amAssCheckForUpdates, 10000);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden) amAssCheckForUpdates(); });
+})();
 </script>
 
 <?php Html::footer(); ?>
