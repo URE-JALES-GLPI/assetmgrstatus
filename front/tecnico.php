@@ -267,7 +267,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     $tc_page     = min($tc_page, $tc_pages);
     $combined_page = array_slice($combined, ($tc_page - 1) * $tc_per_page, $tc_per_page);
 
-    // Monta lista de técnicos únicos que já pegaram algum card
+    // Filtro TÉCNICO removido do topo a pedido — agora PEGO mostra só do usuário com botão "Mostrar todos" no Kanban
     $techs_in_transfers = [];
     foreach (Transfer::getAll() as $t) {
         if ($t['users_id_tech'] && $t['tech_name'] && !isset($techs_in_transfers[$t['users_id_tech']])) {
@@ -275,26 +275,6 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         }
     }
     ?>
-
-    <?php if (!empty($techs_in_transfers)): ?>
-    <div class="am-filters-bar" style="margin-bottom:16px;">
-        <div class="am-filter-group">
-            <label>TÉCNICO</label>
-            <div class="am-type-tabs">
-                <a href="?<?= http_build_query(['status' => $filter_status,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
-                   class="am-type-tab <?= !$filter_tech ? 'active' : '' ?>">
-                    Todos
-                </a>
-                <?php foreach ($techs_in_transfers as $uid => $uname): ?>
-                <a href="?<?= http_build_query(['status' => $filter_status, 'tech' => $uid,'tipo'=>$filter_tipo,'cat'=>$filter_cat?:'','date' => $filter_date, 'sort' => $filter_sort, 'q' => $q]) ?>"
-                   class="am-type-tab <?= $filter_tech === $uid ? 'active' : '' ?>">
-                    <i class="ti ti-user-check"></i> <?= htmlspecialchars($uname) ?>
-                </a>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
 
     <!-- Filtro de data e ordenação -->
     <div class="am-filters-bar" style="margin-bottom:16px;">
@@ -535,43 +515,58 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <div id="am-kanban-view">
         <div class="am-kanban">
             <?php
+                $currentUserId = (int)Session::getLoginUserID();
                 $kanbanStages = [
-                    'pendente'   => ['label'=>'PENDENTE', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PENDENTE), 'status'=>Transfer::STATUS_PENDENTE],
-                    'pego'       => ['label'=>'PEGO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_MANUTENCAO), 'status'=>Transfer::STATUS_MANUTENCAO],
-                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PRONTO), 'status'=>Transfer::STATUS_PRONTO],
-                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'status'=>Transfer::STATUS_PRONTO, 'desc'=>'Assinar finaliza'],
-                    'finalizado' => ['label'=>'FINALIZADO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_FINALIZADO), 'status'=>Transfer::STATUS_FINALIZADO],
+                    'pendente'   => ['label'=>'PENDENTE', 'color'=>Transfer::getStatusColor(Transfer::STATUS_PENDENTE), 'status'=>Transfer::STATUS_PENDENTE, 'desc'=>'Novos'],
+                    'pego'       => ['label'=>'PEGO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_MANUTENCAO), 'status'=>Transfer::STATUS_MANUTENCAO, 'desc'=>'Só seus'],
+                    'aguardando' => ['label'=>'AGUARDANDO PEGAR', 'color'=>'#f59e0b', 'status'=>Transfer::STATUS_PRONTO, 'desc'=>'Finalizar no GLPI'],
+                    'concluido'  => ['label'=>'CONCLUÍDO', 'color'=>Transfer::getStatusColor(Transfer::STATUS_FINALIZADO), 'status'=>Transfer::STATUS_FINALIZADO, 'desc'=>'Assinado'],
                 ];
                 foreach ($kanbanStages as $stageKey=>$stage):
                     $sKey = $stage['status'];
                     $sLabel = $stage['label'];
                     $sColor = $stage['color'];
-                    // Kanban mostra todos os cards filtrados (sem paginação) - diferente da grade paginada
-                    $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $sKey){
+                    $colCards = array_values(array_filter($combined, function($it) use ($stageKey, $sKey, $currentUserId){
                         if ($it['type']!=='transfer') return false;
                         if ($it['data']['status']!==$sKey) return false;
-                        // Diferencia CONCLUÍDO vs AGUARDANDO pela assinatura
-                        if ($stageKey==='concluido' && !empty($it['data']['assinatura_image'])) return false;
-                        if ($stageKey==='aguardando' && empty($it['data']['assinatura_image'])) return false;
-                        // Para PENDENTE/PEGO/FINALIZADO mostra direto
-                        if (in_array($stageKey, ['pendente','pego','finalizado'])) return true;
+                        if ($stageKey==='pego' && (int)($it['data']['users_id_tech'] ?? 0) !== $currentUserId) {
+                            // PEGO mostra só do usuário logado; "Mostrar todos" via JS mostra o resto
+                            return false;
+                        }
                         return true;
                     }));
+                    // Para kanban, não filtra por status do topo quando tipo=ticket, mas mantém tipo
                     if ($filter_tipo==='ticket') continue;
-                    if ($stageKey==='aguardando' && $filter_status!=='' && $filter_status!==Transfer::STATUS_PRONTO) continue;
             ?>
-            <div class="am-kanban-column">
+            <div class="am-kanban-column" data-stage="<?= $stageKey ?>">
                 <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;">
-                    <span><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?></span><span class="am-kanban-count"><?= count($colCards) ?></span>
+                    <span><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?></span>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="am-kanban-count"><?= count($colCards) ?></span>
+                        <?php if ($stageKey==='pego'):
+                            $allPegoCount = count(array_values(array_filter($combined, fn($it)=>$it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO)));
+                            if ($allPegoCount > count($colCards)): ?>
+                        <button onclick="amTogglePegoTodos(this)" data-show="0" style="font-size:.65rem;padding:3px 8px;border-radius:20px;border:1px solid #e8eaf0;background:#fff;color:#4f46e5;cursor:pointer;white-space:nowrap;">Mostrar todos (<?= $allPegoCount ?>)</button>
+                        <?php endif; endif; ?>
+                    </div>
                 </div>
-                <div class="am-kanban-body">
-                    <?php foreach ($colCards as $item): $t = $item['data'];
+                <div class="am-kanban-body" id="am-kanban-body-<?= $stageKey ?>">
+                    <?php
+                        // Para PEGO, renderiza todos mas esconde os que não são do usuário (para "Mostrar todos")
+                        $colCardsToRender = $colCards;
+                        if ($stageKey==='pego') {
+                            $colCardsToRender = array_values(array_filter($combined, fn($it)=>$it['type']==='transfer' && $it['data']['status']===Transfer::STATUS_MANUTENCAO));
+                        }
+                        foreach ($colCardsToRender as $item):
+                            $isHiddenPego = ($stageKey==='pego' && (int)($item['data']['users_id_tech'] ?? 0) !== $currentUserId);
+                            $t = $item['data'];
+                    ?>
                         $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
                         $isTerminal = in_array($t['status'], [Transfer::STATUS_FINALIZADO, Transfer::STATUS_CANCELADA], true);
                         $elapsed = Transfer::getElapsedTime($t['date_creation'], $isTerminal ? $endForElapsed : null);
                         $status_color = Transfer::getStatusColor($t['status']);
                     ?>
-                    <div class="am-tc-card" style="margin:0;">
+                    <div class="am-tc-card <?= ($stageKey==='pego' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" style="margin:0;<?= ($stageKey==='pego' && $isHiddenPego) ? 'display:none;' : '' ?>" data-mine="<?= ($stageKey==='pego' && !$isHiddenPego) ? '1' : '0' ?>">
                         <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;padding:12px 14px;">
                             <div style="min-width:0;flex:1;">
                                 <div style="font-size:.65rem;color:#9ca3af;font-weight:700;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
@@ -596,7 +591,9 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                         </div>
                     </div>
                     <?php endforeach; ?>
-                    <?php if (empty($colCards)): ?><div class="am-kanban-empty">Nenhum card</div><?php endif; ?>
+                    <?php
+                        $emptyCheck = ($stageKey==='pego') ? empty($colCardsToRender) : empty($colCards);
+                        if ($emptyCheck): ?><div class="am-kanban-empty">Nenhum card</div><?php endif; ?>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -1072,6 +1069,21 @@ document.addEventListener('DOMContentLoaded', function(){
     document.getElementById('am-kanban-view').style.display='block';
   }catch(e){}
 });
+function amTogglePegoTodos(btn){
+  try{
+    var showAll = btn.dataset.show === '0';
+    document.querySelectorAll('.am-kanban-hidden-pego').forEach(function(el){ el.style.display = showAll ? 'block' : 'none'; });
+    btn.dataset.show = showAll ? '1' : '0';
+    btn.textContent = showAll ? 'Mostrar só meus' : 'Mostrar todos ('+ (btn.dataset.count||'') +')';
+    var col = btn.closest('.am-kanban-column');
+    var countEl = col ? col.querySelector('.am-kanban-count') : null;
+    if(countEl){
+      var all = parseInt(btn.dataset.count||'0');
+      var mine = col.querySelectorAll('.am-tc-card:not(.am-kanban-hidden-pego)').length;
+      countEl.textContent = showAll ? all : mine;
+    }
+  }catch(e){}
+}
 </script>
 
 <script>
