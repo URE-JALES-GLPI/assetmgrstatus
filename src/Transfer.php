@@ -719,7 +719,7 @@ class Transfer
         $tech_name    = self::getUserName((int)$transfer['users_id_tech']);
         $creator_name = self::getUserName((int)$transfer['users_id_created']);
 
-        // Assinatura digital via tablet
+        // Assinatura digital via tablet — dual
         $sig_image      = $transfer['assinatura_image'] ?? '';
         $sig_type       = $transfer['assinatura_document_type'] ?? '';
         $sig_doc_raw    = $transfer['assinatura_document'] ?? '';
@@ -727,7 +727,16 @@ class Transfer
         $sig_data       = $transfer['assinatura_data'] ?? '';
         $sig_masked     = $sig_doc_raw ? self::maskDocumento($sig_type, $sig_doc_raw) : '';
         $sig_data_fmt   = $sig_data ? date('d/m/Y H:i', strtotime($sig_data)) : '';
-        $is_assinado    = !empty($sig_image);
+        $tec_image      = $transfer['assinatura_tecnico_image'] ?? '';
+        $tec_type       = $transfer['assinatura_tecnico_document_type'] ?? '';
+        $tec_doc_raw    = $transfer['assinatura_tecnico_document'] ?? '';
+        $tec_nome       = trim($transfer['assinatura_tecnico_nome'] ?? '');
+        $tec_data       = $transfer['assinatura_tecnico_data'] ?? '';
+        $tec_masked     = $tec_doc_raw ? self::maskDocumento($tec_type, $tec_doc_raw) : '';
+        $tec_data_fmt   = $tec_data ? date('d/m/Y H:i', strtotime($tec_data)) : '';
+        $hasRec         = !empty($sig_image);
+        $hasTec         = !empty($tec_image);
+        $is_assinado    = $hasRec && $hasTec;
 
         $logo_file = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
         $logo_b64  = file_exists($logo_file) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo_file)) : '';
@@ -805,18 +814,37 @@ class Transfer
             $h .= '</table>';
         }
 
-        if ($is_assinado) {
-            $sig_img_html = '<img src="' . $sig_image . '" style="height:55px;max-width:190px;display:block;margin:0 auto 4px;">';
-            $receb_nome = $sig_nome !== '' ? htmlspecialchars($sig_nome) : '________________________________________';
-            $receb_doc  = htmlspecialchars($sig_type . ' ' . $sig_masked);
-            $receb_data = htmlspecialchars($sig_data_fmt);
-            $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
-                . '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $sig_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td></tr></table>'
-                . '<div style="margin-top:8px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#065f46;">✍️ Assinado digitalmente em ' . htmlspecialchars($sig_data_fmt) . ' — ' . htmlspecialchars($sig_type . ' ' . $sig_masked) . '</div>';
+        if ($hasRec || $hasTec) {
+            // Célula Técnico (esquerda)
+            if ($hasTec) {
+                $tec_img_html = '<img src="' . $tec_image . '" style="height:55px;max-width:190px;display:block;margin:0 auto 4px;">';
+                $tec_nome_html = $tec_nome !== '' ? htmlspecialchars($tec_nome) : '________________________________________';
+                $tec_doc_html  = htmlspecialchars($tec_type . ' ' . $tec_masked);
+                $tec_data_html = htmlspecialchars($tec_data_fmt);
+                $tecCell = '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $tec_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pela Entrega (Técnico) <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $tec_nome_html . '<br><br>Documento: ' . $tec_doc_html . '<br>Data: ' . $tec_data_html . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_tecnico_ip'] ?? '') . '</span></td>';
+            } else {
+                $tecCell = '<td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
+            }
+            // Célula Recebedor (direita)
+            if ($hasRec) {
+                $sig_img_html = '<img src="' . $sig_image . '" style="height:55px;max-width:190px;display:block;margin:0 auto 4px;">';
+                $receb_nome = $sig_nome !== '' ? htmlspecialchars($sig_nome) : '________________________________________';
+                $receb_doc  = htmlspecialchars($sig_type . ' ' . $sig_masked);
+                $receb_data = htmlspecialchars($sig_data_fmt);
+                $recCell = '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $sig_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td>';
+            } else {
+                $recCell = '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
+            }
+            $h .= '<table class="sign"><tr>' . $tecCell . $recCell . '</tr></table>';
+            if ($is_assinado) {
+                $h .= '<div style="margin-top:8px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#065f46;">✍️ Assinado digitalmente — Recebedor em ' . htmlspecialchars($sig_data_fmt) . ' (' . htmlspecialchars($sig_type . ' ' . $sig_masked) . ') e Técnico em ' . htmlspecialchars($tec_data_fmt) . ' (' . htmlspecialchars($tec_type . ' ' . $tec_masked) . ')</div>';
+            } else {
+                $h .= '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo parcialmente assinado — falta ' . (!$hasRec ? 'recebedor' : '') . (!$hasRec && !$hasTec ? ' e ' : '') . (!$hasTec ? 'técnico' : '') . '. Colete na aba Assinatura.</div>';
+            }
         } else {
             $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
                 . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>'
-                . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura).</div>';
+                . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura recebedor + técnico).</div>';
         }
 
         $h .= '<table class="ftr"><tr><td>Unidade Regional de Ensino — Região de Jales | Suporte Técnico</td><td style="text-align:right;">Gerado em ' . date('d/m/Y \à\s H:i') . ' | Transferência #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '</td></tr></table>';
@@ -1649,23 +1677,40 @@ class Transfer
     }
 
     // -------------------------------------------------------
-    // Assinatura digital (RG/CPF + caneta/dedo)
+    // Assinatura digital (RG/CPF + caneta/dedo) — dual: Recebedor + Técnico
     // -------------------------------------------------------
 
+    public static function isAssinadoRecebedor(array $transfer): bool
+    {
+        return !empty($transfer['assinatura_image']);
+    }
+    public static function isAssinadoTecnico(array $transfer): bool
+    {
+        return !empty($transfer['assinatura_tecnico_image']);
+    }
     public static function isAssinado(array $transfer): bool
+    {
+        // Completo = ambas assinaturas presentes. Mantém compat: se só recebedor antigo existir, considera assinado? Novo fluxo exige ambas.
+        // Para não reabrir antigos como pendentes, considera assinado se recebedor existe (legado) OU ambas.
+        // Mas precisaAssinatura abaixo exige ambas para pendente, então antigos com só recebedor ficarão como "parcial"
+        // Aqui definimos isAssinado como AMBAS para badge verde completo
+        return !empty($transfer['assinatura_image']) && !empty($transfer['assinatura_tecnico_image']);
+    }
+    // Compat: verifica se tem pelo menos recebedor (legado)
+    public static function isAssinadoLegado(array $transfer): bool
     {
         return !empty($transfer['assinatura_image']);
     }
 
     public static function precisaAssinatura(array $transfer): bool
     {
-        // Apenas Pronto ou Finalizado ainda sem assinatura precisam assinar
         if (in_array($transfer['status'], [self::STATUS_CANCELADA], true)) return false;
         if (!in_array($transfer['status'], [self::STATUS_PRONTO, self::STATUS_FINALIZADO], true)) return false;
-        return empty($transfer['assinatura_image']);
+        // Precisa se FALTAR qualquer uma das duas assinaturas
+        return empty($transfer['assinatura_image']) || empty($transfer['assinatura_tecnico_image']);
     }
 
-    public static function salvarAssinatura(int $transfer_id, string $doc_type, string $doc_number, string $nome, string $image_base64): bool
+    public static function salvarAssinatura(int $transfer_id, string $doc_type, string $doc_number, string $nome, string $image_base64, ?string $tec_doc_type = null, ?string $tec_doc_number = null, ?string $tec_nome = null, ?string $tec_image_base64 = null): bool
     {
         global $DB;
         try {
@@ -1680,38 +1725,68 @@ class Transfer
             }
             $doc_type = strtoupper(trim($doc_type));
             if (!in_array($doc_type, ['RG','CPF'], true)) {
-                self::$last_ticket_error = 'Tipo de documento inválido';
+                self::$last_ticket_error = 'Tipo de documento inválido (recebedor)';
                 return false;
             }
-            // Normaliza documento: só números
             $doc_number = preg_replace('/\D+/', '', $doc_number);
             if ($doc_type === 'CPF' && strlen($doc_number) !== 11) {
-                self::$last_ticket_error = 'CPF deve ter 11 dígitos';
+                self::$last_ticket_error = 'CPF do recebedor deve ter 11 dígitos';
                 return false;
             }
             if ($doc_type === 'RG' && (strlen($doc_number) < 5 || strlen($doc_number) > 12)) {
-                self::$last_ticket_error = 'RG deve ter entre 5 e 12 dígitos';
+                self::$last_ticket_error = 'RG do recebedor deve ter entre 5 e 12 dígitos';
                 return false;
             }
             $nome = trim($nome);
-            // Valida imagem base64: deve começar com data:image/
             if (strpos($image_base64, 'data:image/') !== 0) {
-                self::$last_ticket_error = 'Assinatura inválida (formato)';
+                self::$last_ticket_error = 'Assinatura recebedor inválida (formato)';
                 return false;
             }
             if (strlen($image_base64) < 100) {
-                self::$last_ticket_error = 'Assinatura vazia';
+                self::$last_ticket_error = 'Assinatura recebedor vazia';
                 return false;
             }
             if (strlen($image_base64) > 500000) {
-                self::$last_ticket_error = 'Assinatura muito grande (limite 500kb)';
+                self::$last_ticket_error = 'Assinatura recebedor muito grande (limite 500kb)';
                 return false;
+            }
+            // Validação opcional do técnico (se enviado)
+            $hasTec = $tec_image_base64 !== null && $tec_image_base64 !== '';
+            $tec_doc_type_norm = null; $tec_doc_number_norm = null; $tec_nome_norm = null;
+            if ($hasTec) {
+                $tec_doc_type_norm = strtoupper(trim($tec_doc_type ?? ''));
+                if (!in_array($tec_doc_type_norm, ['RG','CPF'], true)) {
+                    self::$last_ticket_error = 'Tipo de documento inválido (técnico)';
+                    return false;
+                }
+                $tec_doc_number_norm = preg_replace('/\D+/', '', $tec_doc_number ?? '');
+                if ($tec_doc_type_norm === 'CPF' && strlen($tec_doc_number_norm) !== 11) {
+                    self::$last_ticket_error = 'CPF do técnico deve ter 11 dígitos';
+                    return false;
+                }
+                if ($tec_doc_type_norm === 'RG' && (strlen($tec_doc_number_norm) < 5 || strlen($tec_doc_number_norm) > 12)) {
+                    self::$last_ticket_error = 'RG do técnico deve ter entre 5 e 12 dígitos';
+                    return false;
+                }
+                $tec_nome_norm = trim($tec_nome ?? '');
+                if (strpos($tec_image_base64, 'data:image/') !== 0) {
+                    self::$last_ticket_error = 'Assinatura técnico inválida (formato)';
+                    return false;
+                }
+                if (strlen($tec_image_base64) < 100) {
+                    self::$last_ticket_error = 'Assinatura técnico vazia';
+                    return false;
+                }
+                if (strlen($tec_image_base64) > 500000) {
+                    self::$last_ticket_error = 'Assinatura técnico muito grande';
+                    return false;
+                }
             }
             $now = date('Y-m-d H:i:s');
             $ip = $_SERVER['REMOTE_ADDR'] ?? '';
             $uid = Session::getLoginUserID();
 
-            // Garante colunas de assinatura existam (auto-migração se plugin não foi atualizado no banco)
+            // Garante colunas (recebedor + técnico)
             try {
                 $sign = \DBConnection::getDefaultPrimaryKeySignOption();
                 if (function_exists('plugin_assetmgrstatus_add_columns')) {
@@ -1723,21 +1798,66 @@ class Transfer
                         'assinatura_user_id'       => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_user_id` INT {$sign} DEFAULT NULL",
                         'assinatura_ip'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_ip` VARCHAR(45) DEFAULT NULL",
                         'assinatura_image'         => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_image` LONGTEXT DEFAULT NULL",
+                        'assinatura_tecnico_document_type' => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_document_type` VARCHAR(10) DEFAULT NULL",
+                        'assinatura_tecnico_document'      => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_document` VARCHAR(20) DEFAULT NULL",
+                        'assinatura_tecnico_nome'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_nome` VARCHAR(255) DEFAULT NULL",
+                        'assinatura_tecnico_data'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_data` DATETIME DEFAULT NULL",
+                        'assinatura_tecnico_user_id'       => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_user_id` INT {$sign} DEFAULT NULL",
+                        'assinatura_tecnico_ip'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_ip` VARCHAR(45) DEFAULT NULL",
+                        'assinatura_tecnico_image'         => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_image` LONGTEXT DEFAULT NULL",
                     ]);
                 }
             } catch (Throwable $e) {
                 error_log('[assetmgrstatus] ensure assinatura columns: ' . $e->getMessage());
             }
 
-            $ok = $DB->update('glpi_plugin_assetmgrstatus_transfers', [
-                'assinatura_document_type' => $doc_type,
-                'assinatura_document'      => $doc_number,
-                'assinatura_nome'          => $nome !== '' ? mb_substr($nome, 0, 255) : null,
-                'assinatura_data'          => $now,
-                'assinatura_user_id'       => $uid,
-                'assinatura_ip'            => $ip,
-                'assinatura_image'         => $image_base64,
-            ], ['id' => $transfer_id]);
+            // Se já tem recebedor e está tentando salvar só recebedor novamente sem técnico, bloqueia
+            $hasRecAlready = !empty($transfer['assinatura_image']);
+            $hasTecAlready = !empty($transfer['assinatura_tecnico_image']);
+            if ($hasRecAlready && $hasTecAlready) {
+                self::$last_ticket_error = 'Termo já assinado (recebedor + técnico)';
+                return false;
+            }
+            // Se recebedor já existe e estamos enviando dual, considera apenas técnico faltante
+            $update = [];
+            if (!$hasRecAlready) {
+                $update['assinatura_document_type'] = $doc_type;
+                $update['assinatura_document']      = $doc_number;
+                $update['assinatura_nome']          = $nome !== '' ? mb_substr($nome, 0, 255) : null;
+                $update['assinatura_data']          = $now;
+                $update['assinatura_user_id']       = $uid;
+                $update['assinatura_ip']            = $ip;
+                $update['assinatura_image']         = $image_base64;
+            } elseif ($hasTec && !$hasTecAlready) {
+                // Recebedor já assinado, agora só falta técnico — ignora dados recebedor enviados (mantém existente)
+                // mas valida que recebedor enviado coincide? Não necessário
+            } else if (!$hasTec && $hasRecAlready) {
+                self::$last_ticket_error = 'Recebedor já assinado — falta assinatura do técnico';
+                return false;
+            }
+            if ($hasTec && !$hasTecAlready) {
+                $update['assinatura_tecnico_document_type'] = $tec_doc_type_norm;
+                $update['assinatura_tecnico_document']      = $tec_doc_number_norm;
+                $update['assinatura_tecnico_nome']          = $tec_nome_norm !== '' ? mb_substr($tec_nome_norm, 0, 255) : null;
+                $update['assinatura_tecnico_data']          = $now;
+                $update['assinatura_tecnico_user_id']       = $uid;
+                $update['assinatura_tecnico_ip']            = $ip;
+                $update['assinatura_tecnico_image']         = $tec_image_base64;
+            } elseif ($hasRecAlready && !$hasTec) {
+                // Caso legado: se só recebedor e técnico não enviado, mas ainda precisa técnico — erro já retornado acima
+            }
+            // Compatibilidade: se não enviou técnico mas é novo fluxo, exige técnico
+            if (!$hasTec && !$hasTecAlready && !$hasRecAlready) {
+                // Permite salvar só recebedor para compatibilidade antiga, mas avisa que falta técnico
+                // Vamos exigir técnico para novas assinaturas — se não veio técnico, falha com instrução
+                // Porém para não quebrar fluxo antigo, permitimos mas marcará como parcial
+                // Para novo fluxo do modal dual, sempre virá técnico
+            }
+            if (empty($update)) {
+                self::$last_ticket_error = 'Nada a atualizar (já assinado)';
+                return false;
+            }
+            $ok = $DB->update('glpi_plugin_assetmgrstatus_transfers', $update, ['id' => $transfer_id]);
             if (!$ok) {
                 $dbErr = $DB->error();
                 if ($dbErr) {
@@ -1747,13 +1867,21 @@ class Transfer
                 return false;
             }
         // Timeline
-        $label = $nome !== '' ? $nome . ' (' . $doc_type . ' ' . self::maskDocumento($doc_type, $doc_number) . ')' : ($doc_type . ' ' . self::maskDocumento($doc_type, $doc_number));
-        self::logStatus($transfer_id, $transfer['status'], '✍️ Assinado por ' . $label . ' em ' . date('d/m/Y H:i', strtotime($now)));
-        // Followup no chamado se houver
+        $labelRec = $nome !== '' ? $nome . ' (' . $doc_type . ' ' . self::maskDocumento($doc_type, $doc_number) . ')' : ($doc_type . ' ' . self::maskDocumento($doc_type, $doc_number));
+        $labelTec = '';
+        if ($hasTec) {
+            $labelTec = $tec_nome_norm !== '' ? $tec_nome_norm . ' (' . $tec_doc_type_norm . ' ' . self::maskDocumento($tec_doc_type_norm, $tec_doc_number_norm) . ')' : ($tec_doc_type_norm . ' ' . self::maskDocumento($tec_doc_type_norm, $tec_doc_number_norm));
+        }
+        $logMsg = '✍️ Assinado por ' . $labelRec;
+        if ($hasTec) $logMsg .= ' e Técnico ' . $labelTec;
+        $logMsg .= ' em ' . date('d/m/Y H:i', strtotime($now));
+        self::logStatus($transfer_id, $transfer['status'], $logMsg);
         if (!empty($transfer['tickets_id'])) {
             try {
-                self::addTicketFollowup((int)$transfer['tickets_id'],
-                    "✍️ **Termo assinado** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $label . "** em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . ").\nO termo atualizado com assinatura está disponível para impressão.");
+                $follow = "✍️ **Termo assinado** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $labelRec . "**";
+                if ($hasTec) $follow .= " e Técnico **" . $labelTec . "**";
+                $follow .= " em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . ").\nO termo atualizado com assinaturas está disponível para impressão.";
+                self::addTicketFollowup((int)$transfer['tickets_id'], $follow);
             } catch (\Throwable $e) {}
         }
         return true;

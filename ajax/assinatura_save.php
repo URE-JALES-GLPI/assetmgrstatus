@@ -70,25 +70,42 @@ try {
     if (!is_array($data)) $data = [];
 
     $transfer_id = (int)($data['transfer_id'] ?? $data['id'] ?? 0);
-    $doc_type    = strtoupper(trim($data['doc_type'] ?? $data['document_type'] ?? ''));
-    $doc_number  = trim($data['doc_number'] ?? $data['document'] ?? '');
-    $nome        = trim($data['nome'] ?? $data['name'] ?? '');
-    $image       = trim($data['image'] ?? $data['assinatura_image'] ?? '');
+    // Recebedor
+    $doc_type    = strtoupper(trim($data['doc_type'] ?? $data['document_type'] ?? $data['doc_type_rec'] ?? $data['rec_doc_type'] ?? ''));
+    $doc_number  = trim($data['doc_number'] ?? $data['document'] ?? $data['doc_number_rec'] ?? $data['rec_doc_number'] ?? '');
+    $nome        = trim($data['nome'] ?? $data['name'] ?? $data['nome_rec'] ?? $data['rec_nome'] ?? '');
+    $image       = trim($data['image'] ?? $data['assinatura_image'] ?? $data['image_rec'] ?? $data['rec_image'] ?? '');
+    // Técnico (opcional — fluxo dual)
+    $tec_doc_type   = strtoupper(trim($data['tec_doc_type'] ?? $data['tec_document_type'] ?? $data['doc_type_tec'] ?? $data['document_type_tec'] ?? ''));
+    $tec_doc_number = trim($data['tec_doc_number'] ?? $data['tec_document'] ?? $data['doc_number_tec'] ?? $data['document_tec'] ?? '');
+    $tec_nome       = trim($data['tec_nome'] ?? $data['tec_name'] ?? $data['nome_tec'] ?? $data['name_tec'] ?? '');
+    $tec_image      = trim($data['tec_image'] ?? $data['assinatura_tecnico_image'] ?? $data['image_tec'] ?? $data['tec_assinatura_image'] ?? '');
 
-    // FormData multipart pode truncar base64 com + sendo espaço — corrige se necessário
-    if ($image !== '' && strpos($image, ' ') !== false && strpos($image, 'data:image/') === 0) {
-        $image = str_replace(' ', '+', $image);
-    }
+    // FormData multipart pode truncar base64 com + sendo espaço — corrige
+    if ($image !== '' && strpos($image, ' ') !== false && strpos($image, 'data:image/') === 0) $image = str_replace(' ', '+', $image);
+    if ($tec_image !== '' && strpos($tec_image, ' ') !== false && strpos($tec_image, 'data:image/') === 0) $tec_image = str_replace(' ', '+', $tec_image);
 
     if (!$transfer_id || !$doc_type || !$doc_number || !$image) {
-        echo json_encode(['ok' => false, 'error' => 'Dados incompletos (transfer_id/doc/image obrigatórios). Recebido: transfer=' . $transfer_id . ' doc_type=' . $doc_type . ' doc_len=' . strlen($doc_number) . ' img_len=' . strlen($image)]);
+        echo json_encode(['ok' => false, 'error' => 'Dados recebedor incompletos (transfer_id/doc/image obrigatórios). Recebido: transfer=' . $transfer_id . ' doc_type=' . $doc_type . ' doc_len=' . strlen($doc_number) . ' img_len=' . strlen($image)]);
+        exit;
+    }
+    // Se técnico parcialmente preenchido, exige todos os campos
+    $tecProvided = $tec_doc_type !== '' || $tec_doc_number !== '' || $tec_image !== '';
+    if ($tecProvided && (!$tec_doc_type || !$tec_doc_number || !$tec_image)) {
+        echo json_encode(['ok' => false, 'error' => 'Dados técnico incompletos (doc_type/doc_number/image). Se enviar técnico precisa todos.']);
         exit;
     }
 
     $ok = false;
     $errDetail = '';
     try {
-        $ok = \GlpiPlugin\Assetmgrstatus\Transfer::salvarAssinatura($transfer_id, $doc_type, $doc_number, $nome, $image);
+        $ok = \GlpiPlugin\Assetmgrstatus\Transfer::salvarAssinatura(
+            $transfer_id, $doc_type, $doc_number, $nome, $image,
+            $tec_doc_type !== '' ? $tec_doc_type : null,
+            $tec_doc_number !== '' ? $tec_doc_number : null,
+            $tec_nome !== '' ? $tec_nome : null,
+            $tec_image !== '' ? $tec_image : null
+        );
         if (!$ok && \GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error) $errDetail = \GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error;
     } catch (Throwable $e) {
         error_log('[assetmgrstatus] salvarAssinatura exception: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());

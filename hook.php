@@ -110,6 +110,13 @@ function plugin_assetmgrstatus_schema(): bool
                 `assinatura_user_id`         INT {$sign} DEFAULT NULL,
                 `assinatura_ip`              VARCHAR(45)  DEFAULT NULL,
                 `assinatura_image`           LONGTEXT     DEFAULT NULL,
+                `assinatura_tecnico_document_type` VARCHAR(10) DEFAULT NULL,
+                `assinatura_tecnico_document` VARCHAR(20) DEFAULT NULL,
+                `assinatura_tecnico_nome`    VARCHAR(255) DEFAULT NULL,
+                `assinatura_tecnico_data`    DATETIME     DEFAULT NULL,
+                `assinatura_tecnico_user_id` INT {$sign} DEFAULT NULL,
+                `assinatura_tecnico_ip`      VARCHAR(45)  DEFAULT NULL,
+                `assinatura_tecnico_image`   LONGTEXT     DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `entity_dest` (`entity_dest`),
@@ -127,6 +134,13 @@ function plugin_assetmgrstatus_schema(): bool
             'assinatura_user_id'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_user_id` INT {$sign} DEFAULT NULL AFTER `assinatura_data`",
             'assinatura_ip'               => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_ip` VARCHAR(45) DEFAULT NULL AFTER `assinatura_user_id`",
             'assinatura_image'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_image` LONGTEXT DEFAULT NULL AFTER `assinatura_ip`",
+            'assinatura_tecnico_document_type' => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_document_type` VARCHAR(10) DEFAULT NULL AFTER `assinatura_image`",
+            'assinatura_tecnico_document'      => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_document` VARCHAR(20) DEFAULT NULL AFTER `assinatura_tecnico_document_type`",
+            'assinatura_tecnico_nome'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_nome` VARCHAR(255) DEFAULT NULL AFTER `assinatura_tecnico_document`",
+            'assinatura_tecnico_data'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_data` DATETIME DEFAULT NULL AFTER `assinatura_tecnico_nome`",
+            'assinatura_tecnico_user_id'       => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_user_id` INT {$sign} DEFAULT NULL AFTER `assinatura_tecnico_data`",
+            'assinatura_tecnico_ip'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_ip` VARCHAR(45) DEFAULT NULL AFTER `assinatura_tecnico_user_id`",
+            'assinatura_tecnico_image'         => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_tecnico_image` LONGTEXT DEFAULT NULL AFTER `assinatura_tecnico_ip`",
         ]);
     }
 
