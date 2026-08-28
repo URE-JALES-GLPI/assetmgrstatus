@@ -29,6 +29,13 @@ if ($filter === 'pendente') {
 }
 
 Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'assinatura');
+$__am_ids = array_column($transfers, 'id');
+$__am_itemsMap = [];
+if (!empty($__am_ids)) {
+    foreach ($DB->request(['FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $__am_ids]]) as $r) {
+        $__am_itemsMap[(int)$r['transfers_id']][] = $r;
+    }
+}
 ?>
 
 <style>
@@ -38,6 +45,14 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 .am-sig-card:hover{border-color:#4f46e5;transform:translateY(-2px);}
 .am-sig-badge-pend{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
 .am-sig-badge-ok{background:#d1fae5;color:#065f46;border:1px solid #a7f3d0;}
+.am-sig-assets{margin-top:10px;background:#f8f9fb;border:1px solid #e8eaf0;border-radius:10px;overflow:hidden;display:none;}
+.am-sig-assets.open{display:block;animation:amSlideDown .18s ease;}
+.am-sig-assets-head{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f0f2ff;border-bottom:1px solid #e8eaf0;font-size:.75rem;font-weight:700;color:#4f46e5;}
+.am-sig-assets-list{max-height:220px;overflow-y:auto;}
+.am-sig-asset-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f0f2f8;font-size:.82rem;}
+.am-sig-asset-row:last-child{border-bottom:none;}
+.am-sig-asset-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;}
+.am-sig-asset-type{font-size:.70rem;color:#9ca3af;text-transform:uppercase;font-weight:700;}
 /* Modal assinatura */
 #am-modal-assinatura .am-modal{max-width:560px;}
 .am-doc-choice{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;}
@@ -141,14 +156,30 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                         </div>
                     <?php endif; ?>
                     <?php if (!empty($t['reason'])): ?><div class="am-tc-reason"><?= htmlspecialchars(mb_substr($t['reason'],0,90)) ?></div><?php endif; ?>
+                    <div id="am-sig-assets-<?= (int)$t['id'] ?>" class="am-sig-assets">
+                        <div class="am-sig-assets-head"><span><i class="ti ti-box"></i> Ativos vinculados • <?= (int)$t['items_count'] ?></span><button type="button" onclick="event.stopPropagation();amToggleAssets(<?= (int)$t['id'] ?>)" style="background:none;border:none;color:#4f46e5;cursor:pointer;padding:4px;"><i class="ti ti-x"></i></button></div>
+                        <div class="am-sig-assets-list">
+                            <?php $alist = $__am_itemsMap[(int)$t['id']] ?? []; foreach ($alist as $it): ?>
+                            <div class="am-sig-asset-row">
+                                <div class="am-sig-asset-icon"><i class="ti ti-device-laptop"></i></div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="font-weight:700;color:#1e1b4b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($it['item_name']) ?></div>
+                                    <div class="am-sig-asset-type"><?= htmlspecialchars(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype'])) ?> • <?= htmlspecialchars($it['origin_entity_name'] ?: '—') ?></div>
+                                </div>
+                                <span style="font-size:.70rem;color:#9ca3af;flex-shrink:0;">#<?= (int)$it['items_id'] ?></span>
+                            </div>
+                            <?php endforeach; if (empty($alist)): ?><div style="padding:12px;text-align:center;color:#9ca3af;font-size:.82rem;">Nenhum ativo.</div><?php endif; ?>
+                        </div>
+                    </div>
                 </div>
-                <div class="am-tc-card-footer">
+                <div class="am-tc-card-footer" style="flex-wrap:wrap;">
+                    <button type="button" class="am-btn am-btn-secondary" style="padding:8px 12px;" onclick="event.stopPropagation();amToggleAssets(<?= (int)$t['id'] ?>)"><i class="ti ti-eye"></i> Exibir</button>
                     <?php if ($precisa): ?>
                         <button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;flex:1;" onclick="event.stopPropagation();amOpenAssinaturaModal(<?= (int)$t['id'] ?>)"><i class="ti ti-signature"></i> Assinar</button>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="padding:8px 10px;width:auto;" title="Ver termo (ainda sem assinatura)"><i class="ti ti-file-type-pdf"></i></a>
                     <?php elseif ($isAssinado): ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> PDF Assinado</a>
-                        <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;" onclick="window.open('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto','_blank')"><i class="ti ti-printer"></i> Imprimir no PC</button>
+                        <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;" onclick="window.open('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=pronto','_blank')"><i class="ti ti-printer"></i> Imprimir</button>
                     <?php else: ?>
                         <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= (int)$t['id'] ?>&stage=<?= $t['status']==='finalizado'?'pronto':'transfer' ?>" target="_blank" class="am-btn am-btn-secondary" style="flex:1;"><i class="ti ti-file-type-pdf"></i> Ver Termo</a>
                     <?php endif; ?>
@@ -326,6 +357,12 @@ function amOpenAssinaturaModal(transferId) {
     document.body.style.overflow = 'hidden';
     setTimeout(()=>{ document.getElementById('am-sig-nome').focus(); }, 250);
     setTimeout(amSigInitCanvas, 120);
+}
+function amToggleAssets(id){
+    const el=document.getElementById('am-sig-assets-'+id);
+    if(!el) return;
+    const isOpen=el.classList.toggle('open');
+    if(isOpen) setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}), 120);
 }
 function amCloseAssinaturaModal() {
     document.getElementById('am-modal-assinatura').classList.remove('open');
