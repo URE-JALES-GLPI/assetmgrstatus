@@ -391,44 +391,63 @@ async function amSigSave() {
     if (!amSigHasDrawn) return alert('Faça a assinatura com o dedo/caneta no quadro.');
     const nome = document.getElementById('am-sig-nome').value.trim();
     const c = document.getElementById('am-sig-canvas');
-    // exporta PNG base64
     const dataUrl = c.toDataURL('image/png');
     if (!dataUrl || dataUrl.length < 500) return alert('Assinatura vazia — desenhe novamente.');
     const btn = document.getElementById('am-sig-save-btn');
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
+    const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+    // Função interna: tenta salvar usando FormData (igual diario_save.php que funciona) ou JSON como fallback
+    async function trySave(url, useFormData) {
+        const headers = {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'};
+        let body;
+        if (useFormData) {
+            const fd = new FormData();
+            fd.append('_glpi_csrf_token', amCsrfToken);
+            fd.append('transfer_id', String(amSigTransferId));
+            fd.append('doc_type', amSigDocType);
+            fd.append('doc_number', amSigDocNumber);
+            fd.append('nome', nome);
+            fd.append('image', dataUrl);
+            body = fd; // browser define multipart boundary, NÃO setar Content-Type
+        } else {
+            headers['Content-Type'] = 'application/json';
+            body = JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken});
+        }
+        return fetch(url, {method:'POST', credentials:'same-origin', headers: headers, body: body});
+    }
     try {
-        const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
-        // Tenta primeiro via front (mais permissivo para CSRF/GLPI), fallback para ajax se necessário
-        let res = await fetch(base + '/front/assinatura.form.php', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
-            credentials: 'same-origin',
-            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
-        });
-        // Se front der 403/404, tenta ajax como fallback (compatibilidade)
-        if (!res.ok && (res.status===403 || res.status===404)) {
-            console.warn('front 403, tentando ajax fallback');
-            res = await fetch(base + '/ajax/assinatura_save.php', {
-                method: 'POST',
-                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
-                credentials: 'same-origin',
-                body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
-            });
+        // 1) ajax via FormData (padrão que funciona no diario) — mais robusto contra WAF/CSRF
+        let res = await trySave(base + '/ajax/assinatura_save.php', true);
+        let text = await res.text();
+        let j = null; try { j = JSON.parse(text); } catch(e) {}
+        // Se ajax retornou HTML 403, tenta front via FormData
+        if ((!j && res.status===403) || (!j && res.status===404) || (j && !j.ok && /Sem permissão|Sessão expirada/i.test(j.error||'') === false && res.status===403)) {
+            console.warn('ajax 403 HTML, tentando front FormData', text.slice(0,300));
+            res = await trySave(base + '/front/assinatura.form.php', true);
+            text = await res.text();
+            try { j = JSON.parse(text); } catch(e) { j=null; }
         }
-        const text = await res.text();
-        let j;
-        try { j = JSON.parse(text); } catch(parseErr) {
-            console.error('Resposta não-JSON:', text);
-            alert('❌ Erro servidor (resposta não-JSON, HTTP ' + res.status + '):\n' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
-            btn.disabled=false; btn.innerHTML=old;
-            return;
+        // Se ainda não-JSON, tenta JSON puro (fallback legado)
+        if (!j) {
+            try { j = JSON.parse(text); } catch(parseErr) {
+                console.warn('FormData falhou, tentando JSON puro');
+                res = await trySave(base + '/ajax/assinatura_save.php', false);
+                const t2 = await res.text();
+                try { j = JSON.parse(t2); text=t2; res=res; } catch(e2) {
+                    console.error('Resposta não-JSON:', text, t2);
+                    alert('❌ Erro servidor (resposta não-JSON, HTTP ' + res.status + '):\n' + (text||t2).slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,700) + '\n\nDica: teste em nova aba: ' + base + '/ajax/assinatura_save.php?ping=1 (deve retornar JSON). Se der 403, verifique em Administração > Perfis > Manutenção > Assinatura de Termos e faça logout/login.');
+                    btn.disabled=false; btn.innerHTML=old;
+                    return;
+                }
+            }
         }
-        if (j.ok) {
+        if (j && j.ok) {
             alert('✅ Assinatura salva! Termo atualizado. Você já pode imprimir.');
             location.reload();
         } else {
-            alert('❌ ' + (j.error || 'Falha ao salvar.'));
-            console.error(j);
+            const err = (j && j.error) ? j.error : ('HTTP '+res.status+' — '+ text.slice(0,400).replace(/<[^>]*>/g,' ').trim());
+            alert('❌ ' + err);
+            console.error(j, text);
             btn.disabled=false; btn.innerHTML=old;
         }
     } catch(e) {
