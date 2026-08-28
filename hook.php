@@ -90,19 +90,26 @@ function plugin_assetmgrstatus_schema(): bool
     if (!$DB->tableExists('glpi_plugin_assetmgrstatus_transfers')) {
         $DB->doQuery("
             CREATE TABLE `glpi_plugin_assetmgrstatus_transfers` (
-                `id`               INT {$sign} NOT NULL AUTO_INCREMENT,
-                `entity_dest`      INT {$sign} NOT NULL DEFAULT '0',
-                `reason`           LONGTEXT     DEFAULT NULL,
-                `status`           VARCHAR(50)  NOT NULL DEFAULT 'pendente',
-                `users_id_created` INT {$sign} NOT NULL DEFAULT '0',
-                `users_id_tech`    INT {$sign} NOT NULL DEFAULT '0',
-                `tickets_id`       INT {$sign} NOT NULL DEFAULT '0',
-                `date_pending`     DATETIME     DEFAULT NULL,
-                `date_creation`    DATETIME     DEFAULT NULL,
-                `date_manutencao`  DATETIME     DEFAULT NULL,
-                `date_pronto`      DATETIME     DEFAULT NULL,
-                `date_finalizado`  DATETIME     DEFAULT NULL,
-                `date_cancelado`   DATETIME     DEFAULT NULL,
+                `id`                         INT {$sign} NOT NULL AUTO_INCREMENT,
+                `entity_dest`                INT {$sign} NOT NULL DEFAULT '0',
+                `reason`                     LONGTEXT     DEFAULT NULL,
+                `status`                     VARCHAR(50)  NOT NULL DEFAULT 'pendente',
+                `users_id_created`           INT {$sign} NOT NULL DEFAULT '0',
+                `users_id_tech`              INT {$sign} NOT NULL DEFAULT '0',
+                `tickets_id`                 INT {$sign} NOT NULL DEFAULT '0',
+                `date_pending`               DATETIME     DEFAULT NULL,
+                `date_creation`              DATETIME     DEFAULT NULL,
+                `date_manutencao`            DATETIME     DEFAULT NULL,
+                `date_pronto`                DATETIME     DEFAULT NULL,
+                `date_finalizado`            DATETIME     DEFAULT NULL,
+                `date_cancelado`             DATETIME     DEFAULT NULL,
+                `assinatura_document_type`   VARCHAR(10)  DEFAULT NULL,
+                `assinatura_document`        VARCHAR(20)  DEFAULT NULL,
+                `assinatura_nome`            VARCHAR(255) DEFAULT NULL,
+                `assinatura_data`            DATETIME     DEFAULT NULL,
+                `assinatura_user_id`         INT {$sign} DEFAULT NULL,
+                `assinatura_ip`              VARCHAR(45)  DEFAULT NULL,
+                `assinatura_image`           LONGTEXT     DEFAULT NULL,
                 PRIMARY KEY (`id`),
                 KEY `status` (`status`),
                 KEY `entity_dest` (`entity_dest`),
@@ -111,8 +118,15 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     } else {
         plugin_assetmgrstatus_add_columns('glpi_plugin_assetmgrstatus_transfers', [
-            'tickets_id'      => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `tickets_id` INT {$sign} NOT NULL DEFAULT '0' AFTER `users_id_tech`",
-            'date_cancelado'  => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `date_cancelado` DATETIME DEFAULT NULL AFTER `date_finalizado`",
+            'tickets_id'                  => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `tickets_id` INT {$sign} NOT NULL DEFAULT '0' AFTER `users_id_tech`",
+            'date_cancelado'              => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `date_cancelado` DATETIME DEFAULT NULL AFTER `date_finalizado`",
+            'assinatura_document_type'    => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_document_type` VARCHAR(10) DEFAULT NULL AFTER `date_cancelado`",
+            'assinatura_document'         => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_document` VARCHAR(20) DEFAULT NULL AFTER `assinatura_document_type`",
+            'assinatura_nome'             => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_nome` VARCHAR(255) DEFAULT NULL AFTER `assinatura_document`",
+            'assinatura_data'             => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_data` DATETIME DEFAULT NULL AFTER `assinatura_nome`",
+            'assinatura_user_id'          => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_user_id` INT {$sign} DEFAULT NULL AFTER `assinatura_data`",
+            'assinatura_ip'               => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_ip` VARCHAR(45) DEFAULT NULL AFTER `assinatura_user_id`",
+            'assinatura_image'            => "ALTER TABLE `glpi_plugin_assetmgrstatus_transfers` ADD COLUMN `assinatura_image` LONGTEXT DEFAULT NULL AFTER `assinatura_ip`",
         ]);
     }
 

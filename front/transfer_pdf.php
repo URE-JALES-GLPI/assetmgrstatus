@@ -49,6 +49,17 @@ $tech_name = ($transfer['users_id_tech'] && $u->getFromDB($transfer['users_id_te
 $u2 = new User();
 $creator_name = ($transfer['users_id_created'] && $u2->getFromDB($transfer['users_id_created'])) ? $u2->getName() : '—';
 
+// Assinatura digital (RG/CPF + desenho) — coleta via tablet
+$assinatura_image         = $transfer['assinatura_image'] ?? '';
+$assinatura_doc_type      = $transfer['assinatura_document_type'] ?? '';
+$assinatura_doc_raw       = $transfer['assinatura_document'] ?? '';
+$assinatura_nome          = trim($transfer['assinatura_nome'] ?? '');
+$assinatura_data          = $transfer['assinatura_data'] ?? '';
+$assinatura_doc_masked    = $assinatura_doc_raw ? Transfer::maskDocumento($assinatura_doc_type, $assinatura_doc_raw) : '';
+$assinatura_data_fmt      = $assinatura_data ? date('d/m/Y H:i', strtotime($assinatura_data)) : '';
+$assinatura_data_short    = $assinatura_data ? date('d/m/Y', strtotime($assinatura_data)) : '';
+$is_assinado              = !empty($assinatura_image);
+
 // Logo em base64
 $logo_file = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
 $logo_b64  = file_exists($logo_file) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo_file)) : '';
@@ -124,11 +135,13 @@ header('Content-Type: text/html; charset=UTF-8');
   .sign-section { margin-top: 18px; page-break-inside: avoid; break-inside: avoid; }
   .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 6px; }
   .sign-box { }
-  .sign-line-space { height: 34px; border-bottom: 1.5px solid #2d2d2d; margin-bottom: 6px; }
+  .sign-line-space { height: 34px; border-bottom: 1.5px solid #2d2d2d; margin-bottom: 6px; position:relative; }
   .sign-name { font-weight: 700; font-size: 11.5px; color: #1e2333; }
   .sign-sub { font-size: 10px; color: #6b7280; margin-top: 2px; }
   .sign-fields { display:flex; flex-direction:column; gap:4px; margin-top:6px; font-size:10.5px; color:#4b5563; }
   .sign-fields span { border-bottom:1px solid #d1d5db; padding-bottom:3px; }
+  .sign-img { max-height:70px; max-width:100%; object-fit:contain; display:block; margin:0 auto 4px; }
+  .sign-badge { display:inline-block; background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; border-radius:6px; padding:2px 8px; font-size:8.5px; font-weight:700; margin-top:4px; }
 
   /* Footer */
   .doc-footer { margin-top: 14px; padding-top: 8px; border-top: 1px solid #e2e8f0; display:flex; justify-content:space-between; font-size: 8.5px; color: #9ca3af; }
@@ -339,9 +352,9 @@ header('Content-Type: text/html; charset=UTF-8');
     </table>
     <?php endif; ?>
 
-    <!-- Assinaturas -->
+    <!-- Assinaturas — segunda coluna preenchida via tablet (RG/CPF + desenho) -->
     <div class="sign-section">
-        <div class="section-title">Assinaturas</div>
+        <div class="section-title">Assinaturas <?= $is_assinado ? '<span class="sign-badge">✍️ Assinado digitalmente em ' . htmlspecialchars($assinatura_data_fmt) . '</span>' : '' ?></div>
         <div class="sign-grid">
             <div class="sign-box">
                 <div class="sign-line-space"></div>
@@ -352,16 +365,29 @@ header('Content-Type: text/html; charset=UTF-8');
                     <span>Data: _____ / _____ / ___________</span>
                 </div>
             </div>
-            <div class="sign-box">
-                <div class="sign-line-space"></div>
-                <div class="sign-name">Responsável pelo Recebimento</div>
+            <div class="sign-box" style="<?= $is_assinado ? 'background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;' : '' ?>">
+                <?php if ($is_assinado): ?>
+                    <img src="<?= $assinatura_image ?>" alt="Assinatura" class="sign-img">
+                    <div class="sign-line-space" style="height:2px;margin-bottom:6px;border-color:#065f46;"></div>
+                <?php else: ?>
+                    <div class="sign-line-space"></div>
+                <?php endif; ?>
+                <div class="sign-name">Responsável pelo Recebimento <?= $is_assinado ? '<span style="color:#059669;font-size:9px;">● ASSINADO</span>' : '' ?></div>
                 <div class="sign-fields">
-                    <span>Nome: _____________________________________________</span>
-                    <span>Documento de Identidade: _________________________________</span>
-                    <span>Data: _____ / _____ / ___________</span>
+                    <span>Nome: <?= $is_assinado && $assinatura_nome !== '' ? htmlspecialchars($assinatura_nome) : '_____________________________________________' ?></span>
+                    <span>Documento (<?= $is_assinado ? htmlspecialchars($assinatura_doc_type) : 'RG/CPF' ?>): <?= $is_assinado ? htmlspecialchars($assinatura_doc_type . ' ' . $assinatura_doc_masked) : '_________________________________' ?></span>
+                    <span>Data: <?= $is_assinado ? htmlspecialchars($assinatura_data_fmt) : '_____ / _____ / ___________' ?></span>
+                    <?php if ($is_assinado): ?>
+                        <span style="font-size:8px;color:#6b7280;border:none;padding:0;">Assinatura coletada via tablet em <?= htmlspecialchars($assinatura_data_fmt) ?> — IP <?= htmlspecialchars($transfer['assinatura_ip'] ?? '') ?></span>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
+        <?php if (!$is_assinado): ?>
+            <div style="margin-top:10px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:9px;color:#92400e;text-align:center;">
+                ⚠️ Termo ainda não assinado — colete a assinatura na aba <strong>Assinatura</strong> usando tablet/celular (RG/CPF + desenho).
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Rodapé -->

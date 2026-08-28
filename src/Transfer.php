@@ -719,6 +719,16 @@ class Transfer
         $tech_name    = self::getUserName((int)$transfer['users_id_tech']);
         $creator_name = self::getUserName((int)$transfer['users_id_created']);
 
+        // Assinatura digital via tablet
+        $sig_image      = $transfer['assinatura_image'] ?? '';
+        $sig_type       = $transfer['assinatura_document_type'] ?? '';
+        $sig_doc_raw    = $transfer['assinatura_document'] ?? '';
+        $sig_nome       = trim($transfer['assinatura_nome'] ?? '');
+        $sig_data       = $transfer['assinatura_data'] ?? '';
+        $sig_masked     = $sig_doc_raw ? self::maskDocumento($sig_type, $sig_doc_raw) : '';
+        $sig_data_fmt   = $sig_data ? date('d/m/Y H:i', strtotime($sig_data)) : '';
+        $is_assinado    = !empty($sig_image);
+
         $logo_file = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
         $logo_b64  = file_exists($logo_file) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logo_file)) : '';
 
@@ -795,8 +805,19 @@ class Transfer
             $h .= '</table>';
         }
 
-        $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
-            . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>';
+        if ($is_assinado) {
+            $sig_img_html = '<img src="' . $sig_image . '" style="height:55px;max-width:190px;display:block;margin:0 auto 4px;">';
+            $receb_nome = $sig_nome !== '' ? htmlspecialchars($sig_nome) : '________________________________________';
+            $receb_doc  = htmlspecialchars($sig_type . ' ' . $sig_masked);
+            $receb_data = htmlspecialchars($sig_data_fmt);
+            $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
+                . '<td style="background:#f0fdf4;border:1.5px solid #a7f3d0;">' . $sig_img_html . '<div class="line" style="border-color:#065f46;height:2px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td></tr></table>'
+                . '<div style="margin-top:8px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#065f46;">✍️ Assinado digitalmente em ' . htmlspecialchars($sig_data_fmt) . ' — ' . htmlspecialchars($sig_type . ' ' . $sig_masked) . '</div>';
+        } else {
+            $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tech_name : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
+                . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>'
+                . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura).</div>';
+        }
 
         $h .= '<table class="ftr"><tr><td>Unidade Regional de Ensino — Região de Jales | Suporte Técnico</td><td style="text-align:right;">Gerado em ' . date('d/m/Y \à\s H:i') . ' | Transferência #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '</td></tr></table>';
         $h .= '</body></html>';
@@ -1625,5 +1646,92 @@ class Transfer
         } catch (\Throwable $e) {
             error_log('[assetmgrstatus] maybeRunCleanup: ' . $e->getMessage());
         }
+    }
+
+    // -------------------------------------------------------
+    // Assinatura digital (RG/CPF + caneta/dedo)
+    // -------------------------------------------------------
+
+    public static function isAssinado(array $transfer): bool
+    {
+        return !empty($transfer['assinatura_image']);
+    }
+
+    public static function precisaAssinatura(array $transfer): bool
+    {
+        // Apenas Pronto ou Finalizado ainda sem assinatura precisam assinar
+        if (in_array($transfer['status'], [self::STATUS_CANCELADA], true)) return false;
+        if (!in_array($transfer['status'], [self::STATUS_PRONTO, self::STATUS_FINALIZADO], true)) return false;
+        return empty($transfer['assinatura_image']);
+    }
+
+    public static function salvarAssinatura(int $transfer_id, string $doc_type, string $doc_number, string $nome, string $image_base64): bool
+    {
+        global $DB;
+        $transfer = self::getById($transfer_id);
+        if (!$transfer) return false;
+        if (self::isAssinado($transfer)) return false; // já assinado não sobrescreve
+        $doc_type = strtoupper(trim($doc_type));
+        if (!in_array($doc_type, ['RG','CPF'], true)) return false;
+        // Normaliza documento: só números
+        $doc_number = preg_replace('/\D+/', '', $doc_number);
+        if ($doc_type === 'CPF' && strlen($doc_number) !== 11) return false;
+        if ($doc_type === 'RG' && (strlen($doc_number) < 5 || strlen($doc_number) > 12)) return false;
+        $nome = trim($nome);
+        // Valida imagem base64: deve começar com data:image/
+        if (strpos($image_base64, 'data:image/') !== 0) return false;
+        if (strlen($image_base64) < 100) return false; // assinatura vazia é muito curta
+        if (strlen($image_base64) > 500000) return false; // limite ~500kb
+        $now = date('Y-m-d H:i:s');
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $uid = Session::getLoginUserID();
+        $DB->update('glpi_plugin_assetmgrstatus_transfers', [
+            'assinatura_document_type' => $doc_type,
+            'assinatura_document'      => $doc_number,
+            'assinatura_nome'          => $nome !== '' ? mb_substr($nome, 0, 255) : null,
+            'assinatura_data'          => $now,
+            'assinatura_user_id'       => $uid,
+            'assinatura_ip'            => $ip,
+            'assinatura_image'         => $image_base64,
+        ], ['id' => $transfer_id]);
+        // Timeline
+        $label = $nome !== '' ? $nome . ' (' . $doc_type . ' ' . self::maskDocumento($doc_type, $doc_number) . ')' : ($doc_type . ' ' . self::maskDocumento($doc_type, $doc_number));
+        self::logStatus($transfer_id, $transfer['status'], '✍️ Assinado por ' . $label . ' em ' . date('d/m/Y H:i', strtotime($now)));
+        // Followup no chamado se houver
+        if (!empty($transfer['tickets_id'])) {
+            try {
+                self::addTicketFollowup((int)$transfer['tickets_id'],
+                    "✍️ **Termo assinado** da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " por **" . $label . "** em " . date('d/m/Y H:i', strtotime($now)) . " (IP $ip, GLPI user #" . $uid . ").\nO termo atualizado com assinatura está disponível para impressão.");
+            } catch (\Throwable $e) {}
+        }
+        return true;
+    }
+
+    public static function maskDocumento(string $type, string $raw): string
+    {
+        $raw = preg_replace('/\D+/', '', $raw);
+        if ($type === 'CPF' && strlen($raw) === 11) {
+            return substr($raw,0,3) . '.' . substr($raw,3,3) . '.' . substr($raw,6,3) . '-' . substr($raw,9,2);
+        }
+        if ($type === 'RG') {
+            // RG varia por estado; mostra com pontos simples
+            if (strlen($raw) > 7) {
+                return substr($raw,0,2) . '.' . substr($raw,2,3) . '.' . substr($raw,5,3) . '-' . substr($raw,8);
+            }
+            return $raw;
+        }
+        return $raw;
+    }
+
+    public static function getAssinaturasPendentes(): array
+    {
+        $all = self::getAll();
+        return array_values(array_filter($all, fn($t) => self::precisaAssinatura($t)));
+    }
+
+    public static function getAssinaturasConcluidas(): array
+    {
+        $all = self::getAll();
+        return array_values(array_filter($all, fn($t) => self::isAssinado($t)));
     }
 }

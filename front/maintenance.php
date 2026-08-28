@@ -177,6 +177,12 @@ if ($can_admin_entity) {
                 <i class="ti ti-tools"></i> Técnico
             </a>
             <?php endif; ?>
+            <?php if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ)): ?>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/assinatura.php"
+               class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
+                <i class="ti ti-signature"></i> Assinatura
+            </a>
+            <?php endif; ?>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/reports.php"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-report"></i> Relatórios

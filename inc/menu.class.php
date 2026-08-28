@@ -40,6 +40,15 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
                 'links' => ['search' => $base . '/tecnico.php'],
             ];
         }
+        // Assinatura — ao lado de Técnico, só quem tem permissão
+        if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ)) {
+            $options['assinatura'] = [
+                'title' => 'Assinatura',
+                'page'  => $base . '/assinatura.php',
+                'icon'  => 'ti ti-signature',
+                'links' => ['search' => $base . '/assinatura.php'],
+            ];
+        }
         $options['reports'] = [
             'title' => 'Relatórios',
             'page'  => $base . '/reports.php',

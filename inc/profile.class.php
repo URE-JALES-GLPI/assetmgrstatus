@@ -11,6 +11,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
     public const RIGHT_TRANSFER   = 'plugin_assetmgrstatus_transfer';
     public const RIGHT_DELETE     = 'plugin_assetmgrstatus_delete';
     public const RIGHT_ADMIN      = 'plugin_assetmgrstatus_admin';
+    public const RIGHT_ASSINATURA = 'plugin_assetmgrstatus_assinatura';
 
     public static function getAllRights(): array
     {
@@ -20,6 +21,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
             ['field' => self::RIGHT_TRANSFER,   'default' => 0],
             ['field' => self::RIGHT_DELETE,     'default' => 0],
             ['field' => self::RIGHT_ADMIN,      'default' => 0],
+            ['field' => self::RIGHT_ASSINATURA, 'default' => 0],
         ];
     }
 
@@ -97,10 +99,11 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
         $pid = (int)$item->getID();
         self::addDefaultProfileInfos($pid);
 
-        $r_main     = self::getRightValue($pid, self::RIGHT_MANUTENCAO);
-        $r_tecnico  = self::getRightValue($pid, self::RIGHT_TECNICO);
-        $r_transfer = self::getRightValue($pid, self::RIGHT_TRANSFER);
-        $r_delete   = self::getRightValue($pid, self::RIGHT_DELETE);
+        $r_main      = self::getRightValue($pid, self::RIGHT_MANUTENCAO);
+        $r_tecnico   = self::getRightValue($pid, self::RIGHT_TECNICO);
+        $r_transfer  = self::getRightValue($pid, self::RIGHT_TRANSFER);
+        $r_delete    = self::getRightValue($pid, self::RIGHT_DELETE);
+        $r_assinatura = self::getRightValue($pid, self::RIGHT_ASSINATURA);
         $canedit    = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]);
 
         echo "<form name='assetmgrstatus_profile_form' method='post' action='" . $CFG_GLPI['root_doc'] . "/plugins/assetmgrstatus/front/profile.form.php'>";
@@ -193,6 +196,18 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
         } else {
             $r_admin = self::getRightValue($pid, self::RIGHT_ADMIN);
             echo ($r_admin & READ) ? '✅ Permitido (vê todas entidades)' : '❌ Restrito à entidade ativa';
+        }
+        echo "</td></tr>";
+
+        // Assinatura — termo com RG/CPF + caneta touch
+        echo "<tr class='tab_bg_1'><td>
+            <strong>Assinatura de Termos</strong><br>
+            <small style='color:#6b7280;'>Permite acessar a aba <strong>Assinatura</strong> (ao lado de Técnico), visualizar termos pendentes de assinatura, coletar <strong>RG/CPF via teclado numérico</strong> e <strong>assinatura com dedo/caneta</strong> em tablet/celular. Após assinar, o termo já pode ser impresso no PC.</small>
+            </td><td>";
+        if ($canedit) {
+            Dropdown::showYesNo('rights_assinatura', ($r_assinatura & READ) ? 1 : 0);
+        } else {
+            echo ($r_assinatura & READ) ? '✅ Permitido' : '❌ Negado';
         }
         echo "</td></tr>";
 
