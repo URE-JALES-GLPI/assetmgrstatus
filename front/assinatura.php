@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 include('../../../inc/includes.php');
 
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -61,7 +61,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 <div class="container-fluid am-page">
 
     <div class="am-breadcrumb">
-        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">Inventário</a>
+        <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php">InventÃ¡rio</a>
         <i class="ti ti-chevron-right"></i>
         <span>Assinatura</span>
     </div>
@@ -69,8 +69,8 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     <div class="am-page-header">
         <div class="am-page-title"><i class="ti ti-signature"></i><h2>Assinatura de Termos</h2></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-clipboard-list"></i> Inventário</a>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-clipboard-list"></i> InventÃ¡rio</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> TÃ©cnico</a>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/dashboard.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-dashboard"></i> Dashboard</a>
         </div>
     </div>
@@ -78,7 +78,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
         <i class="ti ti-info-circle" style="font-size:1.5rem;color:#1a73b5;"></i>
         <div style="font-size:.85rem;color:#1e3a5f;line-height:1.4;">
-            <strong>Tablet / Celular:</strong> toque no card <strong style="color:#92400e;">Pendente</strong> que falta assinar → escolha <strong>RG ou CPF</strong> → digite no <strong>teclado numérico</strong> → assine com <strong>dedo/caneta touch</strong>. A data/hora é preenchida automaticamente no termo.
+            <strong>Tablet / Celular:</strong> toque no card <strong style="color:#92400e;">Pendente</strong> que falta assinar â†’ escolha <strong>RG ou CPF</strong> â†’ digite no <strong>teclado numÃ©rico</strong> â†’ assine com <strong>dedo/caneta touch</strong>. A data/hora Ã© preenchida automaticamente no termo.
         </div>
     </div>
 
@@ -86,15 +86,15 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <div class="am-filter-group">
             <label>FILTRO</label>
             <div class="am-type-tabs">
-                <a href="?f=pendente" class="am-type-tab <?= $filter==='pendente'?'active':'' ?>">⏳ Pendentes <span class="am-type-count"><?= count($pendentes) ?></span></a>
-                <a href="?f=assinado" class="am-type-tab <?= $filter==='assinado'?'active':'' ?>">✅ Assinados <span class="am-type-count"><?= count($assinados) ?></span></a>
+                <a href="?f=pendente" class="am-type-tab <?= $filter==='pendente'?'active':'' ?>">â³ Pendentes <span class="am-type-count"><?= count($pendentes) ?></span></a>
+                <a href="?f=assinado" class="am-type-tab <?= $filter==='assinado'?'active':'' ?>">âœ… Assinados <span class="am-type-count"><?= count($assinados) ?></span></a>
                 <a href="?f=todos" class="am-type-tab <?= $filter==='todos'?'active':'' ?>">Todos <span class="am-type-count"><?= count($all) ?></span></a>
             </div>
         </div>
     </div>
 
     <?php if (empty($transfers)): ?>
-        <div class="am-empty-state"><i class="ti ti-signature-off"></i><p><?= $filter==='pendente' ? 'Nenhum termo pendente de assinatura. 🎉' : ($filter==='assinado' ? 'Nenhum termo assinado ainda.' : 'Nenhuma transferência encontrada.') ?></p></div>
+        <div class="am-empty-state"><i class="ti ti-signature-off"></i><p><?= $filter==='pendente' ? 'Nenhum termo pendente de assinatura. ðŸŽ‰' : ($filter==='assinado' ? 'Nenhum termo assinado ainda.' : 'Nenhuma transferÃªncia encontrada.') ?></p></div>
     <?php else: ?>
         <div class="am-sig-grid">
             <?php foreach ($transfers as $t):
@@ -102,7 +102,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                 $precisa   = Transfer::precisaAssinatura($t);
                 $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
                 $badgeClass = $isAssinado ? 'am-sig-badge-ok' : ($precisa ? 'am-sig-badge-pend' : Transfer::getStatusBadgeClass($t['status']));
-                $badgeText  = $isAssinado ? '✍️ ASSINADO' : ($precisa ? '⏳ AGUARDANDO ASSINATURA' : $status_label);
+                $badgeText  = $isAssinado ? 'âœï¸ ASSINADO' : ($precisa ? 'â³ AGUARDANDO ASSINATURA' : $status_label);
                 $docMasked = '';
                 if ($isAssinado) {
                     $docMasked = Transfer::maskDocumento($t['assinatura_document_type'] ?? '', $t['assinatura_document'] ?? '');
@@ -111,8 +111,8 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
             <div class="am-tc-card am-sig-card" onclick="<?= $precisa ? "amOpenAssinaturaModal(".(int)$t['id'].")" : "void(0)" ?>" style="<?= $precisa ? 'border-color:#f59e0b;' : '' ?>">
                 <div class="am-tc-card-header" style="border-left:4px solid <?= $isAssinado ? '#10b981' : ($precisa ? '#f59e0b' : Transfer::getStatusColor($t['status'])) ?>;">
                     <div>
-                        <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;">Transferência #<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?></div>
-                        <div style="font-weight:800;font-size:1rem;color:#1e2333;"><?= htmlspecialchars($t['origin_entity_name']) ?> → <?= htmlspecialchars($t['entity_dest_name']) ?></div>
+                        <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;">TransferÃªncia #<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?></div>
+                        <div style="font-weight:800;font-size:1rem;color:#1e2333;"><?= htmlspecialchars($t['origin_entity_name']) ?> â†’ <?= htmlspecialchars($t['entity_dest_name']) ?></div>
                     </div>
                     <span class="am-badge <?= $badgeClass ?>"><?= $badgeText ?></span>
                 </div>
@@ -123,13 +123,13 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                     <?php if (!empty($t['date_finalizado'])): ?><div class="am-tc-info-row"><i class="ti ti-flag-check"></i><span>Finalizada em <?= date('d/m/Y H:i', strtotime($t['date_finalizado'])) ?></span></div><?php endif; ?>
                     <?php if ($isAssinado): ?>
                         <div style="margin-top:8px;background:#f0fdf4;border:1px solid #a7f3d0;border-radius:8px;padding:8px 10px;">
-                            <div style="font-size:.75rem;font-weight:700;color:#065f46;">✍️ Assinado em <?= date('d/m/Y H:i', strtotime($t['assinatura_data'])) ?></div>
-                            <div style="font-size:.78rem;color:#374151;"><?= htmlspecialchars($t['assinatura_nome'] ?: '—') ?> — <?= htmlspecialchars($t['assinatura_document_type'] ?? '') ?> <?= htmlspecialchars($docMasked) ?></div>
-                            <div style="font-size:.70rem;color:#9ca3af;">por <?= htmlspecialchars(Transfer::getUserName((int)($t['assinatura_user_id'] ?? 0))) ?> • IP <?= htmlspecialchars($t['assinatura_ip'] ?? '') ?></div>
+                            <div style="font-size:.75rem;font-weight:700;color:#065f46;">âœï¸ Assinado em <?= date('d/m/Y H:i', strtotime($t['assinatura_data'])) ?></div>
+                            <div style="font-size:.78rem;color:#374151;"><?= htmlspecialchars($t['assinatura_nome'] ?: 'â€”') ?> â€” <?= htmlspecialchars($t['assinatura_document_type'] ?? '') ?> <?= htmlspecialchars($docMasked) ?></div>
+                            <div style="font-size:.70rem;color:#9ca3af;">por <?= htmlspecialchars(Transfer::getUserName((int)($t['assinatura_user_id'] ?? 0))) ?> â€¢ IP <?= htmlspecialchars($t['assinatura_ip'] ?? '') ?></div>
                         </div>
                     <?php elseif ($precisa): ?>
                         <div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:.78rem;color:#92400e;text-align:center;font-weight:600;">
-                            👆 Toque aqui para assinar no tablet
+                            ðŸ‘† Toque aqui para assinar no tablet
                         </div>
                     <?php endif; ?>
                     <?php if (!empty($t['reason'])): ?><div class="am-tc-reason"><?= htmlspecialchars(mb_substr($t['reason'],0,90)) ?></div><?php endif; ?>
@@ -155,7 +155,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 <div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;" onclick="if(event.target===this) amSigConfirmCancel()">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;max-height:92vh;display:flex;flex-direction:column;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#1a73b5,#4f46e5);">
-            <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura — Etapa 1 de 7</span></div>
+            <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura â€” Etapa 1 de 7</span></div>
             <button class="am-modal-close" onclick="amSigConfirmCancel()"><i class="ti ti-x"></i></button>
         </div>
         <div style="height:4px;background:#e8eaf0;"><div id="am-sig-progress" style="height:100%;width:14%;background:linear-gradient(90deg,#10b981,#059669);transition:width .25s;"></div></div>
@@ -163,30 +163,30 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <!-- WIZ 1: Seleciona Tecnico -->
         <div id="am-wiz-1" class="am-modal-body" style="display:block;text-align:center;">
             <div style="width:64px;height:64px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-user-check" style="font-size:1.8rem;color:#fff;"></i></div>
-            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">1. Selecione o Técnico</div>
-            <div style="font-size:.85rem;color:#6b7280;margin:6px 0 14px;">Quem está entregando o equipamento?</div>
+            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">1. Selecione o TÃ©cnico</div>
+            <div style="font-size:.85rem;color:#6b7280;margin:6px 0 14px;">Quem estÃ¡ entregando o equipamento?</div>
             <select id="am-sig-tec-select" class="am-input" style="background:#fff;font-size:1rem;padding:12px;">
-                <option value="">Carregando técnicos...</option>
+                <option value="">Carregando tÃ©cnicos...</option>
             </select>
-            <div id="am-sig-tec-empty" style="display:none;margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
-            <button type="button" class="am-btn" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(1)"><i class="ti ti-arrow-right"></i> Próximo</button>
+            <div id="am-sig-tec-empty" style="display:none;margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;">Nenhum tÃ©cnico cadastrado. Cadastre em Dashboard > TÃ©cnicos.</div>
+            <button type="button" class="am-btn" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(1)"><i class="ti ti-arrow-right"></i> PrÃ³ximo</button>
         </div>
 
         <!-- WIZ 2: Aviso Recebedor -->
         <div id="am-wiz-2" class="am-modal-body" style="display:none;text-align:center;">
             <div style="width:64px;height:64px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-user" style="font-size:1.8rem;color:#fff;"></i></div>
-            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">2. Agora é a vez do Recebedor</div>
-            <div style="font-size:.9rem;color:#6b7280;margin:10px 0 16px;line-height:1.5;">O próximo a assinar é o <strong style="color:#1e1b4b;">responsável da escola</strong> que está recebendo.<br>Tenha o documento dele em mãos.</div>
-            <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;font-size:.85rem;color:#1e3a5f;"><i class="ti ti-info-circle"></i> O técnico <strong id="am-wiz-tec-name">—</strong> já foi selecionado. Agora colete os dados do recebedor.</div>
+            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">2. Agora Ã© a vez do Recebedor</div>
+            <div style="font-size:.9rem;color:#6b7280;margin:10px 0 16px;line-height:1.5;">O prÃ³ximo a assinar Ã© o <strong style="color:#1e1b4b;">responsÃ¡vel da escola</strong> que estÃ¡ recebendo.<br>Tenha o documento dele em mÃ£os.</div>
+            <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;font-size:.85rem;color:#1e3a5f;"><i class="ti ti-info-circle"></i> O tÃ©cnico <strong id="am-wiz-tec-name">â€”</strong> jÃ¡ foi selecionado. Agora colete os dados do recebedor.</div>
             <div style="display:flex;gap:10px;margin-top:16px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(2)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(2)">Continuar <i class="ti ti-arrow-right"></i></button></div>
         </div>
 
         <!-- WIZ 3: Nome Recebedor -->
         <div id="am-wiz-3" class="am-modal-body" style="display:none;">
-            <div style="text-align:center;margin-bottom:14px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">3. Nome do Recebedor</div><div style="font-size:.85rem;color:#6b7280;">Quem está recebendo? (opcional, mas recomendado)</div></div>
+            <div style="text-align:center;margin-bottom:14px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">3. Nome do Recebedor</div><div style="font-size:.85rem;color:#6b7280;">Quem estÃ¡ recebendo? (opcional, mas recomendado)</div></div>
             <label class="am-form-label">Nome completo</label>
-            <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="font-size:1.05rem;padding:14px;">
-            <div style="display:flex;gap:10px;margin-top:16px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(3)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(3)">Próximo <i class="ti ti-arrow-right"></i></button></div>
+            <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: JoÃ£o da Silva" style="font-size:1.05rem;padding:14px;">
+            <div style="display:flex;gap:10px;margin-top:16px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(3)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(3)">PrÃ³ximo <i class="ti ti-arrow-right"></i></button></div>
             <button type="button" class="am-btn am-btn-secondary" style="width:100%;margin-top:8px;background:transparent;border:none;color:#6b7280;" onclick="document.getElementById('am-sig-nome').value=''; amWizNext(3)">Pular (deixar em branco)</button>
         </div>
 
@@ -194,8 +194,8 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <div id="am-wiz-4" class="am-modal-body" style="display:none;">
             <div style="text-align:center;margin-bottom:14px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">4. Tipo de documento</div><div style="font-size:.85rem;color:#6b7280;">RG ou CPF do recebedor?</div></div>
             <div class="am-doc-choice">
-                <button type="button" class="am-doc-btn" data-type="RG" onclick="amWizChooseDoc('RG')"><i class="ti ti-id" style="font-size:1.6rem;"></i> RG<small>5 a 12 dígitos</small></button>
-                <button type="button" class="am-doc-btn" data-type="CPF" onclick="amWizChooseDoc('CPF')"><i class="ti ti-id-badge-2" style="font-size:1.6rem;"></i> CPF<small>11 dígitos</small></button>
+                <button type="button" class="am-doc-btn" data-type="RG" onclick="amWizChooseDoc('RG')"><i class="ti ti-id" style="font-size:1.6rem;"></i> RG<small>5 a 12 dÃ­gitos</small></button>
+                <button type="button" class="am-doc-btn" data-type="CPF" onclick="amWizChooseDoc('CPF')"><i class="ti ti-id-badge-2" style="font-size:1.6rem;"></i> CPF<small>11 dÃ­gitos</small></button>
             </div>
             <button type="button" class="am-btn am-btn-secondary" style="width:100%;margin-top:14px;" onclick="amWizPrev(4)"><i class="ti ti-arrow-left"></i> Voltar</button>
         </div>
@@ -203,7 +203,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <!-- WIZ 5: Digita documento -->
         <div id="am-wiz-5" class="am-modal-body" style="display:none;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amWizPrev(5)"><i class="ti ti-arrow-left"></i> Voltar</button><span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span></div>
-            <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
+            <label class="am-form-label">NÃºmero do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dÃ­gitos</span>)</small></label>
             <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
             <input type="hidden" id="am-sig-doc-value">
             <div class="am-numpad">
@@ -218,7 +218,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <!-- WIZ 6: Assina -->
         <div id="am-wiz-6" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
             <div style="text-align:center;margin-bottom:10px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">6. Assinatura do recebedor</div><div style="font-size:.85rem;color:#6b7280;">Use o dedo ou caneta touch no quadro abaixo</div></div>
-            <div id="am-sig-already-receiver" style="display:none;margin-bottom:10px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor já assinado</div>
+            <div id="am-sig-already-receiver" style="display:none;margin-bottom:10px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor jÃ¡ assinado</div>
             <div class="am-sig-canvas-wrap">
                 <canvas id="am-sig-canvas" class="am-sig-canvas"></canvas>
             </div>
@@ -234,7 +234,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         <div id="am-wiz-7" class="am-modal-body" style="display:none;text-align:center;">
             <div style="width:80px;height:80px;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:16px auto;"><i class="ti ti-check" style="font-size:2.4rem;color:#fff;"></i></div>
             <div style="font-weight:800;font-size:1.3rem;color:#065f46;">Deu certo!</div>
-            <div style="font-size:.9rem;color:#6b7280;margin:8px 0 16px;">Assinatura salva com sucesso.<br>O termo foi atualizado e já pode ser impresso.</div>
+            <div style="font-size:.9rem;color:#6b7280;margin:8px 0 16px;">Assinatura salva com sucesso.<br>O termo foi atualizado e jÃ¡ pode ser impresso.</div>
             <div id="am-wiz-7-info" style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px;font-size:.85rem;color:#065f46;margin-bottom:16px;"></div>
             <button type="button" class="am-btn" style="width:100%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="location.reload()"><i class="ti ti-refresh"></i> Fechar e atualizar</button>
         </div>
@@ -250,8 +250,8 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-alert-triangle" style="font-size:1.8rem;color:#dc2626;"></i></div>
         <div style="font-weight:800;font-size:1.1rem;color:#991b1b;">Tem certeza que deseja cancelar?</div>
-        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Todo o progresso da assinatura será perdido.</div>
-        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;margin:12px 0;">Etapa 1 de 2 — Confirme para continuar</div>
+        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Todo o progresso da assinatura serÃ¡ perdido.</div>
+        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;margin:12px 0;">Etapa 1 de 2 â€” Confirme para continuar</div>
         <div style="display:flex;gap:10px;padding:16px;">
             <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigCancelClose()"><i class="ti ti-arrow-left"></i> Voltar</button>
             <button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;" onclick="amSigCancelStep2()"><i class="ti ti-alert-circle"></i> Sim, cancelar</button>
@@ -261,9 +261,9 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 <div id="am-sig-cancel-confirm2" class="am-modal-overlay" style="z-index:10003;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="if(event.target===this) amSigCancelClose2()">
     <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-x" style="font-size:1.8rem;color:#fff;"></i></div>
-        <div style="font-weight:800;font-size:1.1rem;color:#dc2626;">Última confirmação</div>
-        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Tem <strong>certeza mesmo</strong>? Essa ação não pode ser desfeita.</div>
-        <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:10px;font-size:.85rem;color:#991b1b;margin:12px 0;">Etapa 2 de 2 — Confirmação final</div>
+        <div style="font-weight:800;font-size:1.1rem;color:#dc2626;">Ãšltima confirmaÃ§Ã£o</div>
+        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Tem <strong>certeza mesmo</strong>? Essa aÃ§Ã£o nÃ£o pode ser desfeita.</div>
+        <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:10px;font-size:.85rem;color:#991b1b;margin:12px 0;">Etapa 2 de 2 â€” ConfirmaÃ§Ã£o final</div>
         <div style="display:flex;gap:10px;padding:16px;">
             <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigCancelClose2()"><i class="ti ti-arrow-left"></i> Voltar</button>
             <button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;" onclick="amSigCancelFinal()"><i class="ti ti-trash"></i> Sim, cancelar tudo</button>
@@ -304,7 +304,7 @@ async function amLoadTecnicos(){
       amSigTecnicosCache=j.data;
       populateTecSelect(j.data);
     } else {
-      sel.innerHTML='<option value="">Nenhum técnico cadastrado</option>';
+      sel.innerHTML='<option value="">Nenhum tÃ©cnico cadastrado</option>';
       document.getElementById('am-sig-tec-empty').style.display='block';
       sel.style.display='none';
     }
@@ -312,7 +312,7 @@ async function amLoadTecnicos(){
     sel.innerHTML='<option value="">Erro ao carregar</option>';
   }
   function populateTecSelect(list){
-    sel.innerHTML='<option value="">Selecione o técnico...</option>';
+    sel.innerHTML='<option value="">Selecione o tÃ©cnico...</option>';
     list.forEach(function(te){
       var o=document.createElement('option');
       o.value=te.id;
@@ -335,7 +335,7 @@ async function amOpenAssinaturaModal(transferId) {
     amSigHasDrawn = false;
     amSigHasReceiver = false;
     amSigHasTecnico = false;
-    // tenta descobrir se já tem recebedor/tecnico para ajustar UI
+    // tenta descobrir se jÃ¡ tem recebedor/tecnico para ajustar UI
     try{
         var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
         var r=await fetch(base+'/ajax/card_details.php?type=transfer&id='+encodeURIComponent(transferId), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
@@ -352,7 +352,7 @@ async function amOpenAssinaturaModal(transferId) {
     var w1=document.getElementById('am-wiz-1'); if(w1) w1.style.display = 'block';
     for(var i=2;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display='none'; }
     var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width='14%';
-    var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura — Etapa 1 de 7';
+    var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura â€” Etapa 1 de 7';
     // mostra/esconde secao recebedor dentro do step2
     var recSec=document.getElementById('am-sig-receiver-section');
     var already=document.getElementById('am-sig-already-receiver');
@@ -364,7 +364,7 @@ async function amOpenAssinaturaModal(transferId) {
         if(canvasLabel) canvasLabel.style.display='none';
         var tecW2=document.getElementById('am-sig-tec-wrap'); if(tecW2) tecW2.style.display='block';
         document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-        var hint1=document.getElementById('am-sig-step1-hint'); if(hint1){ hint1.textContent='Recebedor já assinado — selecione o técnico'; hint1.style.color='#059669'; }
+        var hint1=document.getElementById('am-sig-step1-hint'); if(hint1){ hint1.textContent='Recebedor jÃ¡ assinado â€” selecione o tÃ©cnico'; hint1.style.color='#059669'; }
     } else {
         if(recSec) recSec.style.display='block';
         if(already) already.style.display='none';
@@ -377,7 +377,7 @@ async function amOpenAssinaturaModal(transferId) {
             if(tecWrap) tecWrap.style.display='block';
         }
     }
-    var ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Assinatura — Transferência #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (técnico)' : '');
+    var ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Assinatura â€” TransferÃªncia #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (tÃ©cnico)' : '');
     // limpa step2
     var dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
     var nm=document.getElementById('am-sig-nome'); if(nm) nm.value='';
@@ -400,28 +400,28 @@ function amCloseAssinaturaModal() {
 function amWizGo(n){
   for(var i=1;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display = (i===n?'block':'none'); }
   var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width = Math.round(n/7*100)+'%';
-  var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura — Etapa '+n+' de 7';
+  var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura â€” Etapa '+n+' de 7';
   if(n===6) setTimeout(amSigInitCanvas, 120);
   if(n===5){
     var b=document.getElementById('am-sig-doc-badge'); if(b){ b.textContent=amSigDocType||'CPF'; b.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }
-    var h=document.getElementById('am-sig-doc-hint'); if(h) h.textContent=amSigDocType==='CPF'?'11 dígitos':'5 a 12 dígitos';
+    var h=document.getElementById('am-sig-doc-hint'); if(h) h.textContent=amSigDocType==='CPF'?'11 dÃ­gitos':'5 a 12 dÃ­gitos';
   }
 }
 function amWizNext(n){
   if(n===1){
-    var sel=document.getElementById('am-sig-tec-select'); if(!sel || !sel.value){ amSigToast('Selecione o técnico.'); return; }
+    var sel=document.getElementById('am-sig-tec-select'); if(!sel || !sel.value){ amSigToast('Selecione o tÃ©cnico.'); return; }
     var opt=sel.options[sel.selectedIndex]; var nameEl=document.getElementById('am-wiz-tec-name'); if(nameEl && opt) nameEl.textContent=opt.textContent;
     amWizGo(2);
   } else if(n===2){ amWizGo(3); setTimeout(function(){ var e=document.getElementById('am-sig-nome'); if(e) e.focus(); },150); }
   else if(n===3){ amWizGo(4); }
   else if(n===5){
-    if(amSigDocType==='CPF' && amSigDocNumber.length!==11){ amSigToast('CPF precisa de 11 d�gitos.'); return; }
-    if(amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)){ amSigToast('CPF inv�lido � d�gito verificador n�o confere.'); return; }
-    if(amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)){ amSigToast('RG precisa de 5 a 12 dígitos.'); return; }
+    if(amSigDocType==='CPF' && amSigDocNumber.length!==11){ amSigToast('CPF precisa de 11 dígitos.'); return; }
+    if(amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)){ amSigToast('CPF invalido - digito verificador nao confere.'); return; }
+    if(amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)){ amSigToast('RG precisa de 5 a 12 dÃ­gitos.'); return; }
     amWizGo(6);
   } else if(n===6){
     // valida assinatura antes de salvar
-    if(!amSigHasDrawn){ amSigToast('Faça a assinatura do recebedor.'); return; }
+    if(!amSigHasDrawn){ amSigToast('FaÃ§a a assinatura do recebedor.'); return; }
     amSigSave();
   }
 }
@@ -478,7 +478,7 @@ function amSigUpdateDisplay() {
     }
     el.classList.remove('empty');
     el.textContent = amSigMaskDoc(amSigDocNumber, amSigDocType) || amSigDocNumber;
-    // validação visual
+    // validaÃ§Ã£o visual
     const need = amSigDocType==='CPF' ? 11 : 5;
     const max = amSigDocType==='CPF' ? 11 : 12;
     if (amSigDocNumber.length < need) el.style.borderColor = '#f59e0b';
@@ -497,14 +497,14 @@ async function amValidaCPFExiste(cpf){
     var r=await fetch('https://brasilapi.com.br/api/cpf/v1/'+encodeURIComponent(cpf), {method:'GET'});
     if(r.ok) return true;
     if(r.status===404) return false;
-    // se API fora do ar, considera válido pelo dígito (fallback)
+    // se API fora do ar, considera vÃ¡lido pelo dÃ­gito (fallback)
     return null;
   }catch(e){ return null; }
 }
 function amSigCheckDocComplete() {
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { amSigToast('CPF precisa de 11 dígitos.'); return; }
-    if (amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)) { amSigToast('CPF inválido — dígito verificador não confere.'); return; }
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { amSigToast('RG precisa de 5 a 12 dígitos.'); return; }
+    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { amSigToast('CPF precisa de 11 dÃ­gitos.'); return; }
+    if (amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)) { amSigToast('CPF invalido - digito verificador nao confere.'); return; }
+    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { amSigToast('RG precisa de 5 a 12 dÃ­gitos.'); return; }
     document.getElementById('am-sig-nome').focus();
 }
 function amSigInitCanvas() {
@@ -552,20 +552,20 @@ function amSigClearCanvas() {
     amSigHasDrawn = false;
 }
 async function amSigSave() {
-    if (!amSigTransferId) return amSigToast('Transferência inválida.');
-    // Validação condicional: se já tem recebedor, não precisa validar doc/imagem do recebedor de novo
+    if (!amSigTransferId) return amSigToast('TransferÃªncia invÃ¡lida.');
+    // ValidaÃ§Ã£o condicional: se jÃ¡ tem recebedor, nÃ£o precisa validar doc/imagem do recebedor de novo
     if (!amSigHasReceiver) {
-        if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dígitos.');
-        if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dígitos.');
-        if (!amSigHasDrawn) return amSigToast('Faça a assinatura do recebedor com o dedo/caneta no quadro.');
+        if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dÃ­gitos.');
+        if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dÃ­gitos.');
+        if (!amSigHasDrawn) return amSigToast('FaÃ§a a assinatura do recebedor com o dedo/caneta no quadro.');
     }
-    // Técnico é obrigatório se ainda não tem técnico assinado
+    // TÃ©cnico Ã© obrigatÃ³rio se ainda nÃ£o tem tÃ©cnico assinado
     var tecSel=document.getElementById('am-sig-tec-select');
     var tecId=tecSel?tecSel.value:'';
     var tecOpt=tecSel && tecSel.selectedIndex>=0 ? tecSel.options[tecSel.selectedIndex] : null;
     var needTec = !amSigHasTecnico;
     if(needTec && !tecId){
-        amSigToast('Selecione o técnico responsável.');
+        amSigToast('Selecione o tÃ©cnico responsÃ¡vel.');
         if(tecSel) tecSel.focus();
         return;
     }
@@ -581,12 +581,12 @@ async function amSigSave() {
     var dataUrl='';
     if(!amSigHasReceiver){
         dataUrl = c.toDataURL('image/png');
-        if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia — desenhe novamente.');
+        if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia â€” desenhe novamente.');
     } else {
-        // já tem recebedor, não precisa nova imagem (backend vai usar a existente), mas manda vazio que o backend preenche
+        // jÃ¡ tem recebedor, nÃ£o precisa nova imagem (backend vai usar a existente), mas manda vazio que o backend preenche
         dataUrl='';
-        // se já tem recebedor, garante que não vai validar imagem vazia no backend (backend já trata)
-        // mas precisa mandar algo para não falhar no check de imagem quando hasRecAlready? o backend já permite vazio nesse caso
+        // se jÃ¡ tem recebedor, garante que nÃ£o vai validar imagem vazia no backend (backend jÃ¡ trata)
+        // mas precisa mandar algo para nÃ£o falhar no check de imagem quando hasRecAlready? o backend jÃ¡ permite vazio nesse caso
     }
     const btn = document.getElementById('am-sig-save-btn');
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
@@ -597,7 +597,7 @@ async function amSigSave() {
         if(!amSigHasReceiver){
             payload.doc_type=amSigDocType; payload.doc_number=amSigDocNumber; payload.nome=nome; payload.image=dataUrl;
         } else {
-            // já tem recebedor, manda dummy que o backend vai ignorar e preencher com existente
+            // jÃ¡ tem recebedor, manda dummy que o backend vai ignorar e preencher com existente
             payload.doc_type='RG'; payload.doc_number='0'; payload.nome=''; payload.image='';
         }
         if(needTec){
@@ -621,16 +621,16 @@ async function amSigSave() {
         const text = await res.text();
         let j;
         try { j = JSON.parse(text); } catch(parseErr) {
-            console.error('Resposta não-JSON:', text);
-            amSigToast('❌ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
+            console.error('Resposta nÃ£o-JSON:', text);
+            amSigToast('âŒ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
             btn.disabled=false; btn.innerHTML=old;
             return;
         }
         if (j.ok) {
-            amSigToast('✅ Assinatura salva! Termo atualizado.', true);
+            amSigToast('âœ… Assinatura salva! Termo atualizado.', true);
             setTimeout(function(){ location.reload(); }, 900);
         } else {
-            amSigToast('❌ ' + (j.error || 'Falha ao salvar.'));
+            amSigToast('âŒ ' + (j.error || 'Falha ao salvar.'));
             console.error(j);
             btn.disabled=false; btn.innerHTML=old;
         }
@@ -648,12 +648,12 @@ function amSigCancelFinal(){
     var m1=document.getElementById('am-sig-cancel-confirm'); if(m1) m1.style.display='none';
     var m2=document.getElementById('am-sig-cancel-confirm2'); if(m2) m2.style.display='none';
     amCloseAssinaturaModal();
-    amSigToast('Cancelado — progresso perdido.', false);
+    amSigToast('Cancelado â€” progresso perdido.', false);
 }
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (1-2 páginas, A4, 1 cópia).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressÃ£o na HP?\n\nSerÃ¡ impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (1-2 pÃ¡ginas, A4, 1 cÃ³pia).\nO PDF Ã© gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrÃ£o.')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
@@ -675,7 +675,7 @@ async function amPrintHP(transferId) {
             });
         }
         if (!res.ok && (res.status===403 || res.status===404)) {
-            // último fallback via GET (bypass CSRF POST)
+            // Ãºltimo fallback via GET (bypass CSRF POST)
             res = await fetch(base + '/front/print_hp.form.php?transfer_id=' + encodeURIComponent(String(transferId)) + '&stage=pronto&_glpi_csrf_token=' + encodeURIComponent(amCsrfToken), {
                 credentials: 'same-origin',
                 headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'}
@@ -684,24 +684,24 @@ async function amPrintHP(transferId) {
         const text = await res.text();
         let j;
         try { j = JSON.parse(text); } catch(e) {
-            console.error('Resposta não-JSON:', text);
-            alert('❌ Erro no servidor (HTTP ' + res.status + '):\n' + text.slice(0,1200).replace(/<[^>]*>/g,' ').trim().substring(0,500));
+            console.error('Resposta nÃ£o-JSON:', text);
+            alert('âŒ Erro no servidor (HTTP ' + res.status + '):\n' + text.slice(0,1200).replace(/<[^>]*>/g,' ').trim().substring(0,500));
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
             return;
         }
         if (j.ok) {
-            const audit = j.audit || ('Transferência #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Impressora: ' + (j.printer || '-') + (j.request_id ? ' | Job: ' + j.request_id : ''));
+            const audit = j.audit || ('TransferÃªncia #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Impressora: ' + (j.printer || '-') + (j.request_id ? ' | Job: ' + j.request_id : ''));
             try { navigator.clipboard.writeText(audit); } catch(e) {}
-            alert('✅ Impressão enviada!\n' + audit + '\n\n1 cópia, A4, 1-2 páginas.\nSe não sair, abra "PDF Assinado" (Ctrl+P).\n\n[Log auditoria copiado]');
+            alert('âœ… ImpressÃ£o enviada!\n' + audit + '\n\n1 cÃ³pia, A4, 1-2 pÃ¡ginas.\nSe nÃ£o sair, abra "PDF Assinado" (Ctrl+P).\n\n[Log auditoria copiado]');
             console.log('[AUDIT OK]', audit, j);
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         } else {
             console.error(j);
             const basePdf = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
             const pdfUrl = basePdf + '/front/transfer_pdf.php?id=' + encodeURIComponent(String(transferId)) + '&stage=pronto';
-            const audit = j.audit || ('Transferência #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Erro: ' + (j.error || 'desconhecido'));
+            const audit = j.audit || ('TransferÃªncia #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Erro: ' + (j.error || 'desconhecido'));
             try { navigator.clipboard.writeText(audit + ' | ' + (j.error||'')); } catch(e) {}
-            alert('❌ Falha ao imprimir\n' + (j.error || 'Erro desconhecido') + '\n\nLog auditoria:\n' + audit + '\n\nSolução: abra o PDF manualmente:\n' + pdfUrl);
+            alert('âŒ Falha ao imprimir\n' + (j.error || 'Erro desconhecido') + '\n\nLog auditoria:\n' + audit + '\n\nSoluÃ§Ã£o: abra o PDF manualmente:\n' + pdfUrl);
             console.log('[AUDIT FAIL]', audit, j);
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         }
