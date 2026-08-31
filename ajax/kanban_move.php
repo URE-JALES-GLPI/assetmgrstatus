@@ -115,9 +115,7 @@ try {
             $DB->update('glpi_plugin_assetmgrstatus_transfers', ['status' => \GlpiPlugin\Assetmgrstatus\Transfer::STATUS_PRONTO, 'date_pronto' => date('Y-m-d H:i:s')], ['id' => $id]);
             \GlpiPlugin\Assetmgrstatus\Transfer::logStatus($id, \GlpiPlugin\Assetmgrstatus\Transfer::STATUS_PRONTO, 'Movido via Kanban para RETIRADA por '. \GlpiPlugin\Assetmgrstatus\Transfer::getUserName(Session::getLoginUserID()));
         } elseif ($to === 'concluido' && $transfer['status'] === \GlpiPlugin\Assetmgrstatus\Transfer::STATUS_PRONTO) {
-            // Finalizar (requer assinatura, mas permite via kanban — mantém validação original)
-            $ok = \GlpiPlugin\Assetmgrstatus\Transfer::finalizar($id);
-            if (!$ok) throw new Exception(\GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error ?: 'Falha ao finalizar - verifique assinatura');
+            throw new Exception('Transferência em RETIRADA só pode ser concluída via aba Assinatura após assinatura');
         } elseif ($to === 'pendente' && $transfer['status'] !== \GlpiPlugin\Assetmgrstatus\Transfer::STATUS_PENDENTE) {
             throw new Exception('Não é permitido voltar para Pendente via Kanban');
         } else {
