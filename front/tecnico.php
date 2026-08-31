@@ -127,10 +127,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 .am-kanban-header{padding:14px 16px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
 .am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
 .am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
-/* Overlay maximizado ocupa quase tela toda para evitar barrinhas */
-#am-kanban-maximized-overlay{padding:8px !important;align-items:stretch !important;}
-#am-kanban-maximized-overlay .am-modal{width:98vw !important;max-width:98vw !important;height:96vh !important;max-height:96vh !important;margin:4px auto !important;}
-#am-kanban-maximized-overlay .am-modal-body{padding:16px !important;}
+/* Overlay maximizado ocupa tela toda sem barra branca */
+#am-kanban-maximized-overlay{padding:0 !important;align-items:stretch !important;background:rgba(15,23,42,.88) !important;}
+#am-kanban-maximized-overlay .am-modal{width:100vw !important;max-width:100vw !important;height:100vh !important;max-height:100vh !important;margin:0 !important;border-radius:0 !important;overflow:hidden !important;}
+#am-kanban-maximized-overlay .am-modal-body{padding:16px !important;flex:1 !important;overflow-y:auto !important;}
+#am-kanban-maximized-overlay .am-modal-header{border-radius:0 !important;}
+#am-kanban-maximized-overlay .am-modal-footer{border-radius:0 !important;}
 #am-max-grid{grid-template-columns:repeat(auto-fill,minmax(340px,1fr)) !important;gap:16px !important;}
 .am-kanban-empty{text-align:center;color:#9ca3af;padding:24px 12px;font-size:.85rem;border:1.5px dashed #e8eaf0;border-radius:10px;background:#fff;}
 .am-kanban .am-tc-card{margin:0;flex-shrink:0;}
@@ -600,7 +602,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             ?>
             <div class="am-kanban-column" data-stage="<?= $stageKey ?>">
                 <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;cursor:pointer;" onclick="if(event.target.closest('button')) return; amKanbanMaximize('<?= $stageKey ?>')" title="Clique para maximizar">
-                    <span style="display:flex;align-items:center;gap:6px;"><?= htmlspecialchars($sLabel) ?><?php if (!empty($stage['desc'])): ?><small style="font-weight:400;color:#9ca3af;font-size:.7rem;margin-left:6px;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?> <i class="ti ti-maximize" style="font-size:.85rem;color:#9ca3af;opacity:.7;"></i></span>
+                    <span style="display:flex;align-items:center;gap:8px;"><span><?= htmlspecialchars($sLabel) ?></span><?php if (!empty($stage['desc'])): ?><small style="font-weight:600;color:#6b7280;font-size:.68rem;background:#f3f4f6;border-radius:20px;padding:2px 7px;letter-spacing:.02em;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?><i class="ti ti-maximize" style="font-size:.85rem;color:#9ca3af;opacity:.7;"></i></span>
                     <div style="display:flex;align-items:center;gap:6px;">
                         <span class="am-kanban-count" id="am-kanban-count-<?= $stageKey ?>"><?= count($colCards) ?></span>
                         <button onclick="amKanbanMaximize('<?= $stageKey ?>')" title="Maximizar <?= htmlspecialchars($sLabel) ?>" style="background:#fff;border:1px solid #e8eaf0;border-radius:6px;padding:4px 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;"><i class="ti ti-maximize" style="font-size:.8rem;"></i></button>
