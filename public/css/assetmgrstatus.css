@@ -595,15 +595,23 @@ body.am-dark-mode {
     .am-page-title h2 { font-size: 1.1rem; }
     .am-page-header > div:last-child {
         width: 100%;
-        flex-wrap: wrap;
-        gap: 6px !important;
+        display:flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        flex-direction: row !important;
     }
     .am-page-header .am-btn {
-        flex: 1;
-        min-width: 0;
+        flex: 1 1 calc(50% - 8px) !important;
+        min-width: 130px !important;
+        max-width: calc(50% - 4px);
         justify-content: center;
-        padding: 8px 10px !important;
-        font-size: .76rem !important;
+        padding: 10px 12px !important;
+        font-size: .82rem !important;
+        white-space: nowrap;
+    }
+    .am-page-header .am-btn:nth-child(5) {
+        flex: 1 1 100% !important;
+        max-width: 100%;
     }
 
     /* ---- Breadcrumb ---- */
