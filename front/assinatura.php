@@ -183,13 +183,22 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 
         <!-- Step 2: Teclado numérico + Nome + Assinatura -->
         <div id="am-sig-step2" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
+            <div id="am-sig-tec-wrap" style="margin-bottom:16px;background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:12px;">
+                <label class="am-form-label" style="color:#3730a3;"><i class="ti ti-user-check"></i> Técnico responsável <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(assinatura já cadastrada)</small></label>
+                <select id="am-sig-tec-select" class="am-input" style="background:#fff;">
+                    <option value="">Carregando técnicos...</option>
+                </select>
+                <small style="font-size:.75rem;color:#6b7280;display:block;margin-top:4px;">Selecione o técnico que está entregando — a assinatura dele do cadastro será usada.</small>
+                <div id="am-sig-tec-empty" style="display:none;margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:.78rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
+            </div>
+
             <div id="am-sig-receiver-section">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
                     <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button>
                     <span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
                 </div>
 
-                <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
+                <label class="am-form-label">Documento do recebedor <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
                 <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
                 <input type="hidden" id="am-sig-doc-value">
 
@@ -212,19 +221,10 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                     <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button>
                 </div>
 
-                <label class="am-form-label">Nome do responsável (opcional)</label>
+                <label class="am-form-label">Nome do recebedor (opcional)</label>
                 <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="margin-bottom:14px;">
 
                 <div id="am-sig-already-receiver" style="display:none;margin-bottom:14px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px 14px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor já assinado — agora só falta o técnico</div>
-            </div>
-
-            <div id="am-sig-tec-wrap" style="margin-bottom:14px;">
-                <label class="am-form-label">Técnico responsável <span class="am-required">*</span></label>
-                <select id="am-sig-tec-select" class="am-input" style="background:#fff;">
-                    <option value="">Carregando técnicos...</option>
-                </select>
-                <small style="font-size:.75rem;color:#6b7280;display:block;margin-top:4px;">Selecione o técnico que está entregando. A assinatura dele será usada do cadastro.</small>
-                <div id="am-sig-tec-empty" style="display:none;margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:.78rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
             </div>
 
             <label id="am-sig-canvas-label" class="am-form-label">Assinatura do recebedor <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use o dedo ou caneta touch</small></label>
