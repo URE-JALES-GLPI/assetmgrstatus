@@ -125,7 +125,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 #am-kanban-view{margin-bottom:0;}
 .am-page > .am-filters-bar:last-of-type{margin-bottom:12px;}
 .am-kanban-header{padding:12px 14px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;overflow:hidden;}
-.am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
+.am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;white-space:nowrap;line-height:1.3;display:inline-flex;align-items:center;flex-shrink:0;}
 .am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
 /* Overlay maximizado - altura auto sem retangulo branco em baixo */
 #am-kanban-maximized-overlay{padding:16px !important;align-items:center !important;justify-content:center !important;background:rgba(15,23,42,.88) !important;}
@@ -1452,8 +1452,7 @@ function amLimitConcluido() {
         more.innerHTML='<button onclick="amKanbanMaximize(\'concluido\')" style="background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:8px 14px;font-size:.82rem;font-weight:700;color:#3b82f6;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);"><i class="ti ti-eye"></i> Ver todos ('+cards.length+') — maximizado com filtros</button><div style="font-size:.70rem;color:#9ca3af;margin-top:6px;">Mostrando 10 de '+cards.length+' · clique para ver com filtro por ano</div>';
         body.appendChild(more);
         var cnt = document.getElementById('am-kanban-count-concluido');
-        if (cnt) cnt.textContent = cards.length + ' (10 visíveis)';
-        cnt.title = cards.length+' total — clique no cabeçalho para maximizar e filtrar por 2025, etc';
+        if (cnt) { cnt.textContent = cards.length; cnt.title = cards.length+' total — 10 visíveis, clique no cabeçalho para maximizar e filtrar por 2025 etc'; }
     }
 }
 document.addEventListener('DOMContentLoaded', function(){ try{ amLimitConcluido(); }catch(e){} });
