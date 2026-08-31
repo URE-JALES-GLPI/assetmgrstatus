@@ -124,7 +124,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 .am-kanban-body{min-height:220px;}
 #am-kanban-view{margin-bottom:0;}
 .am-page > .am-filters-bar:last-of-type{margin-bottom:12px;}
-.am-kanban-header{padding:14px 16px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;}
+.am-kanban-header{padding:12px 14px;font-weight:800;font-size:.9rem;color:#1e2333;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;border-bottom:1.5px solid #e8eaf0;background:#fff;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:1;overflow:hidden;}
 .am-kanban-count{background:#eef2ff;color:#4f46e5;border-radius:20px;padding:2px 8px;font-size:.72rem;font-weight:700;}
 .am-kanban-body{padding:12px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;flex:1;}
 /* Overlay maximizado - altura auto sem retangulo branco em baixo */
@@ -601,9 +601,9 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     }
             ?>
             <div class="am-kanban-column" data-stage="<?= $stageKey ?>">
-                <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;cursor:pointer;" onclick="if(event.target.closest('button')) return; amKanbanMaximize('<?= $stageKey ?>')" title="Clique para maximizar">
-                    <span style="display:flex;align-items:center;gap:8px;"><span><?= htmlspecialchars($sLabel) ?></span><?php if (!empty($stage['desc'])): ?><small style="font-weight:600;color:#6b7280;font-size:.68rem;background:#f3f4f6;border-radius:20px;padding:2px 7px;letter-spacing:.02em;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?><i class="ti ti-maximize" style="font-size:.85rem;color:#9ca3af;opacity:.7;"></i></span>
-                    <div style="display:flex;align-items:center;gap:6px;">
+                <div class="am-kanban-header" style="border-top:4px solid <?= $sColor ?>;cursor:pointer;flex-wrap:wrap;" onclick="if(event.target.closest('button')) return; amKanbanMaximize('<?= $stageKey ?>')" title="Clique para maximizar">
+                    <span style="display:flex;align-items:center;gap:8px;flex:1;min-width:140px;"><span><?= htmlspecialchars($sLabel) ?></span><?php if (!empty($stage['desc'])): ?><small style="font-weight:600;color:#6b7280;font-size:.68rem;background:#f3f4f6;border-radius:20px;padding:2px 7px;letter-spacing:.02em;white-space:nowrap;"><?= htmlspecialchars($stage['desc']) ?></small><?php endif; ?><i class="ti ti-maximize" style="font-size:.85rem;color:#9ca3af;opacity:.7;flex-shrink:0;"></i></span>
+                    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:100%;">
                         <span class="am-kanban-count" id="am-kanban-count-<?= $stageKey ?>"><?= count($colCards) ?></span>
                         <button onclick="amKanbanMaximize('<?= $stageKey ?>')" title="Maximizar <?= htmlspecialchars($sLabel) ?>" style="background:#fff;border:1px solid #e8eaf0;border-radius:6px;padding:4px 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6b7280;"><i class="ti ti-maximize" style="font-size:.8rem;"></i></button>
                         <?php if ($stageKey==='emandamento'):
