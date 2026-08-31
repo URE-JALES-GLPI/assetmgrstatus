@@ -152,11 +152,11 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 </div>
 
 <!-- Modal Assinatura Wizard 7 telas -->
-<div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;">
+<div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;" onclick="if(event.target===this) amSigConfirmCancel()">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;max-height:92vh;display:flex;flex-direction:column;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#1a73b5,#4f46e5);">
             <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura — Etapa 1 de 7</span></div>
-            <button class="am-modal-close" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i></button>
+            <button class="am-modal-close" onclick="amSigConfirmCancel()"><i class="ti ti-x"></i></button>
         </div>
         <div style="height:4px;background:#e8eaf0;"><div id="am-sig-progress" style="height:100%;width:14%;background:linear-gradient(90deg,#10b981,#059669);transition:width .25s;"></div></div>
 
@@ -225,7 +225,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
             <div class="am-sig-hint">Desenhe acima com o dedo/caneta. Use Limpar para refazer.</div>
             <div style="display:flex;gap:8px;margin-top:10px;">
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClearCanvas()"><i class="ti ti-eraser"></i> Limpar assinatura</button>
-                <button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i> Cancelar</button>
+                <button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amSigConfirmCancel()"><i class="ti ti-x"></i> Cancelar</button>
             </div>
             <div style="display:flex;gap:10px;margin-top:14px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(6)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;" onclick="amWizNext(6)"><i class="ti ti-check"></i> Assinar</button></div>
         </div>
@@ -245,6 +245,31 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     </div>
 </div>
 
+<!-- Confirmacao 2 etapas para Cancelar -->
+<div id="am-sig-cancel-confirm" class="am-modal-overlay" style="z-index:10002;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="if(event.target===this) amSigCancelClose()">
+    <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-alert-triangle" style="font-size:1.8rem;color:#dc2626;"></i></div>
+        <div style="font-weight:800;font-size:1.1rem;color:#991b1b;">Tem certeza que deseja cancelar?</div>
+        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Todo o progresso da assinatura será perdido.</div>
+        <div style="background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;margin:12px 0;">Etapa 1 de 2 — Confirme para continuar</div>
+        <div style="display:flex;gap:10px;padding:16px;">
+            <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigCancelClose()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;" onclick="amSigCancelStep2()"><i class="ti ti-alert-circle"></i> Sim, cancelar</button>
+        </div>
+    </div>
+</div>
+<div id="am-sig-cancel-confirm2" class="am-modal-overlay" style="z-index:10003;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="if(event.target===this) amSigCancelClose2()">
+    <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
+        <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-x" style="font-size:1.8rem;color:#fff;"></i></div>
+        <div style="font-weight:800;font-size:1.1rem;color:#dc2626;">Última confirmação</div>
+        <div style="font-size:.9rem;color:#6b7280;margin:8px 0 4px;">Tem <strong>certeza mesmo</strong>? Essa ação não pode ser desfeita.</div>
+        <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:8px;padding:10px;font-size:.85rem;color:#991b1b;margin:12px 0;">Etapa 2 de 2 — Confirmação final</div>
+        <div style="display:flex;gap:10px;padding:16px;">
+            <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigCancelClose2()"><i class="ti ti-arrow-left"></i> Voltar</button>
+            <button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;" onclick="amSigCancelFinal()"><i class="ti ti-trash"></i> Sim, cancelar tudo</button>
+        </div>
+    </div>
+</div>
 <style>#am-sig-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10006;background:#fff;border:2px solid #fecaca;color:#991b1b;padding:16px 20px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);font-weight:700;max-width:90vw;text-align:center;display:none;}#am-sig-toast.ok{border-color:#a7f3d0;color:#065f46;background:#f0fdf4;}</style>
 <div id="am-sig-toast"></div>
 <script>
@@ -597,6 +622,16 @@ async function amSigSave() {
         console.error(e);
         btn.disabled=false; btn.innerHTML=old;
     }
+}
+function amSigConfirmCancel(){ var m=document.getElementById('am-sig-cancel-confirm'); if(m){ m.style.display='flex'; } }
+function amSigCancelClose(){ var m=document.getElementById('am-sig-cancel-confirm'); if(m) m.style.display='none'; }
+function amSigCancelStep2(){ var m1=document.getElementById('am-sig-cancel-confirm'); if(m1) m1.style.display='none'; var m2=document.getElementById('am-sig-cancel-confirm2'); if(m2) m2.style.display='flex'; }
+function amSigCancelClose2(){ var m=document.getElementById('am-sig-cancel-confirm2'); if(m) m.style.display='none'; }
+function amSigCancelFinal(){
+    var m1=document.getElementById('am-sig-cancel-confirm'); if(m1) m1.style.display='none';
+    var m2=document.getElementById('am-sig-cancel-confirm2'); if(m2) m2.style.display='none';
+    amCloseAssinaturaModal();
+    amSigToast('Cancelado — progresso perdido.', false);
 }
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
