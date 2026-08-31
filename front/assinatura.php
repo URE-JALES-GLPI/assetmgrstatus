@@ -241,6 +241,15 @@ function amSigToast(msg, ok){
   window._amSigToastT=setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(function(){ t.style.display='none'; },300); }, ok?2500:3500);
 }
 const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
+function amGetCsrfAssinatura(){
+  try{
+    var el=document.querySelector('#am-modal-assinatura input[name="_glpi_csrf_token"]')||document.querySelector('input[name="_glpi_csrf_token"]');
+    if(el && el.value) return el.value;
+    var m=document.querySelector('meta[name="glpi_csrf_token"]'); if(m && m.content) return m.content;
+    if(window.CFG_GLPI && window.CFG_GLPI.csrf_token) return window.CFG_GLPI.csrf_token;
+  }catch(e){}
+  return amCsrfToken;
+}
 let amSigTransferId = 0;
 let amSigDocType = '';
 let amSigDocNumber = '';
@@ -406,21 +415,22 @@ async function amSigSave() {
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+        const tok = amGetCsrfAssinatura();
         // Tenta primeiro via front (mais permissivo para CSRF/GLPI), fallback para ajax se necessário
         let res = await fetch(base + '/front/assinatura.form.php', {
             method: 'POST',
-            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+            headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
             credentials: 'same-origin',
-            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
+            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: tok})
         });
         // Se front der 403/404, tenta ajax como fallback (compatibilidade)
         if (!res.ok && (res.status===403 || res.status===404)) {
-            console.warn('front 403, tentando ajax fallback');
+            console.warn('front 403, tentando ajax fallback', await res.clone().text().then(t=>t.slice(0,500)));
             res = await fetch(base + '/ajax/assinatura_save.php', {
                 method: 'POST',
-                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': amCsrfToken},
+                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
                 credentials: 'same-origin',
-                body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: amCsrfToken})
+                body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: tok})
             });
         }
         const text = await res.text();
