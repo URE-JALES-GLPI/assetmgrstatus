@@ -973,6 +973,34 @@ class Transfer
             }
             $pdf->Ln(6);
         }
+        // Controle de Tempo (igual ao PDF Assinado - transfer_pdf.php)
+        $time_pending = ($transfer['date_pending'] && $transfer['date_manutencao']) ? self::getElapsedTime($transfer['date_pending'], $transfer['date_manutencao']) : null;
+        $time_manut = ($transfer['date_manutencao'] && $transfer['date_pronto']) ? self::getElapsedTime($transfer['date_manutencao'], $transfer['date_pronto']) : null;
+        $time_total = self::getElapsedTime($transfer['date_creation'], $transfer['date_finalizado'] ?: ($transfer['date_pronto'] ?: null));
+        if ($time_pending || $time_manut) {
+            $pdf->SetFont('Helvetica', 'B', 7);
+            $pdf->SetTextColor(26, 115, 181);
+            $pdf->Cell(0, 5, $toIso('CONTROLE DE TEMPO'), 0, 1, 'L');
+            $pdf->SetDrawColor(226, 232, 240);
+            $pdf->Line(10, $pdf->GetY(), 200, $pdf->GetY());
+            $pdf->Ln(2);
+            $pdf->SetFont('Helvetica', '', 7);
+            $pdf->SetFillColor(240, 247, 255);
+            $pdf->SetDrawColor(191, 219, 254);
+            $pdf->SetTextColor(26, 115, 181);
+            if ($time_pending) {
+                $pdf->Cell(63, 8, $toIso('Pendente: ' . $time_pending['label']), 1, 0, 'C', true);
+            } else {
+                $pdf->Cell(63, 8, '', 0, 0, 'C');
+            }
+            if ($time_manut) {
+                $pdf->Cell(64, 8, $toIso('Manutencao: ' . $time_manut['label']), 1, 0, 'C', true);
+            } else {
+                $pdf->Cell(64, 8, '', 0, 0, 'C');
+            }
+            $pdf->Cell(63, 8, $toIso('Total: ' . $time_total['label']), 1, 1, 'C', true);
+            $pdf->Ln(3);
+        }
         // Tabela equipamentos
         $pdf->SetFont('Helvetica', 'B', 7);
         $pdf->SetFillColor(26, 115, 181);
