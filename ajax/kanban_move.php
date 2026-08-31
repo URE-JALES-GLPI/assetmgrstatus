@@ -49,38 +49,13 @@ if (!$hasTecnico && !$hasAdmin) {
     exit;
 }
 
-// Validação CSRF opcional — se token enviado, valida sem morrer com HTML; se inválido, retorna JSON 403
+// Validação CSRF: deixa o GLPI (CheckCsrfListener) validar via header X-Glpi-Csrf-Token.
+// Não bloqueia aqui — apenas loga se token presente/ausente para debug, evitando 403 duplo após consumo do token.
+// O JS já envia token via FormData _glpi_csrf_token + header X-Glpi-Csrf-Token (GLPI 11 exige header).
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $token = $_POST['_glpi_csrf_token'] ?? $_GET['_glpi_csrf_token'] ?? null;
-    if (!$token && !empty($_SERVER['HTTP_X_GLPI_CSRF_TOKEN'])) {
-        $token = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
-    }
-    // Também tenta header X-Glpi-Csrf-Token com underline variations (alguns proxies)
-    if (!$token && !empty($_SERVER['HTTP_X_GLPI_CSRF_TOKEN'])) $token = $_SERVER['HTTP_X_GLPI_CSRF_TOKEN'];
-    // Se token foi enviado, valida; se não enviado, não bloqueia (compatibilidade com diario_save que não envia)
-    if ($token !== null && $token !== '') {
-        $valid = null;
-        try {
-            if (method_exists('Session','validateCSRF')) {
-                $valid = Session::validateCSRF($token);
-            } elseif (method_exists('Session','checkCSRF')) {
-                // checkCSRF em algumas versões morre com HTML; tenta capturar
-                try {
-                    Session::checkCSRF(['_glpi_csrf_token'=>$token]);
-                    $valid = true;
-                } catch (Throwable $e) {
-                    $valid = false;
-                }
-            }
-        } catch (Throwable $e) {
-            $valid = false;
-        }
-        if ($valid === false) {
-            http_response_code(403);
-            echo json_encode(['success'=>false,'message'=>'Token CSRF inválido ou expirado — recarregue a página (F5) e tente novamente. Se persistir, limpe o cache do navegador.']);
-            exit;
-        }
-    }
+    $tokDbg = $_POST['_glpi_csrf_token'] ?? $_GET['_glpi_csrf_token'] ?? ($_SERVER['HTTP_X_GLPI_CSRF_TOKEN'] ?? '');
+    // Log silencioso para diagnóstico (não bloqueia)
+    // error_log('[assetmgrstatus] kanban_move csrf dbg token_len='.strlen($tokDbg).' hasSession='. (isset($_SESSION['glpicsrftokens'])?count($_SESSION['glpicsrftokens']):'0'));
 }
 
 // Lê parâmetros: suporta FormData (POST), x-www-form-urlencoded e JSON (application/json)
