@@ -337,38 +337,34 @@ async function amOpenAssinaturaModal(transferId) {
         if(recSec) recSec.style.display='none';
         if(already) already.style.display='block';
         if(canvasLabel) canvasLabel.style.display='none';
-        document.getElementById('am-sig-tec-wrap').style.display='block';
-        // pula direto pro tecnico, sem precisar escolher RG/CPF do recebedor
+        var tecW2=document.getElementById('am-sig-tec-wrap'); if(tecW2) tecW2.style.display='block';
         document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-        document.getElementById('am-sig-step1-hint').textContent = 'Recebedor já assinado — selecione o técnico';
-        document.getElementById('am-sig-step1-hint').style.color = '#059669';
+        var hint1=document.getElementById('am-sig-step1-hint'); if(hint1){ hint1.textContent='Recebedor já assinado — selecione o técnico'; hint1.style.color='#059669'; }
     } else {
         if(recSec) recSec.style.display='block';
         if(already) already.style.display='none';
         if(canvasLabel) canvasLabel.style.display='block';
         document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-        document.getElementById('am-sig-step1-hint').textContent = 'Selecione RG ou CPF para continuar';
-        document.getElementById('am-sig-step1-hint').style.color = '#9ca3af';
+        var hint2=document.getElementById('am-sig-step1-hint'); if(hint2){ hint2.textContent='Selecione RG ou CPF para continuar'; hint2.style.color='#9ca3af'; }
         if(amSigHasTecnico){
             if(tecWrap) tecWrap.style.display='none';
         } else {
             if(tecWrap) tecWrap.style.display='block';
         }
     }
-    document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (técnico)' : '');
+    var ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Assinatura — Transferência #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (técnico)' : '');
     // limpa step2
-    document.getElementById('am-sig-doc-value').value = '';
-    document.getElementById('am-sig-nome').value = '';
+    var dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
+    var nm=document.getElementById('am-sig-nome'); if(nm) nm.value='';
     amSigUpdateDisplay();
     setTimeout(()=>amSigClearCanvas(), 80);
-    document.getElementById('am-modal-assinatura').classList.add('open');
+    var mod=document.getElementById('am-modal-assinatura'); if(mod) mod.classList.add('open');
     document.body.style.overflow = 'hidden';
     setTimeout(amSigInitCanvas, 120);
     amLoadTecnicos();
-    // se já tem recebedor, já mostra footer e foca no select tecnico
     if(amSigHasReceiver){
-        document.getElementById('am-sig-step2').style.display='block';
-        document.getElementById('am-sig-footer').style.display='flex';
+        var s2b=document.getElementById('am-sig-step2'); if(s2b) s2b.style.display='block';
+        var footb=document.getElementById('am-sig-footer'); if(footb) footb.style.display='flex';
         setTimeout(function(){ var s=document.getElementById('am-sig-tec-select'); if(s) s.focus(); }, 150);
     }
 }
