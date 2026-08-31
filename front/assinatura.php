@@ -490,6 +490,16 @@ function amIsValidCPF(cpf){
   var d1=0; for(var i=0;i<9;i++) d1+=parseInt(cpf.charAt(i))*(10-i); var r1=(d1*10)%11; if(r1===10) r1=0; if(r1!==parseInt(cpf.charAt(9))) return false;
   var d2=0; for(var i=0;i<10;i++) d2+=parseInt(cpf.charAt(i))*(11-i); var r2=(d2*10)%11; if(r2===10) r2=0; return r2===parseInt(cpf.charAt(10));
 }
+async function amValidaCPFExiste(cpf){
+  cpf=(cpf||'').replace(/\D/g,'');
+  try{
+    var r=await fetch('https://brasilapi.com.br/api/cpf/v1/'+encodeURIComponent(cpf), {method:'GET'});
+    if(r.ok) return true;
+    if(r.status===404) return false;
+    // se API fora do ar, considera válido pelo dígito (fallback)
+    return null;
+  }catch(e){ return null; }
+}
 function amSigCheckDocComplete() {
     if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { amSigToast('CPF precisa de 11 dígitos.'); return; }
     if (amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)) { amSigToast('CPF inválido — dígito verificador não confere.'); return; }
