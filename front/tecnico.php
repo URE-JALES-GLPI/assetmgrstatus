@@ -1310,8 +1310,8 @@ function amKanbanMaximize(stage) {
     var col = document.querySelector('.am-kanban-column[data-stage="'+stage+'"]');
     if (!col) return;
     var headerColor = col.querySelector('.am-kanban-header') ? col.querySelector('.am-kanban-header').style.borderTopColor || col.querySelector('.am-kanban-header').style.borderTop : '#1e293b';
-    var labelEl = col.querySelector('.am-kanban-header span');
-    var label = labelEl ? labelEl.textContent.trim().split('\n')[0] : stage.toUpperCase();
+    var labelEl = col.querySelector('.am-kanban-header span span') || col.querySelector('.am-kanban-header span');
+    var label = labelEl ? labelEl.textContent.trim() : stage.toUpperCase();
     // pega todos cards da coluna (incluindo hidden por limite)
     var body = document.getElementById('am-kanban-body-'+stage);
     if (!body) return;
