@@ -640,7 +640,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                                 ($item['type']==='ticket' && (int)($item['data']['assigned_users_id'] ?? 0) !== $currentUserId)
                             ));
                             $isTicket = $item['type']==='ticket';
-                            $canDrag = !($isTicket && $stageKey==='retirada');
+                            // Retirada e Concluido nao arrastam - Concluido so via Assinatura
+                            $canDrag = !in_array($stageKey, ['retirada','concluido'], true) && !($isTicket && $stageKey==='retirada');
                             if ($item['type']==='transfer') {
                                 $t = $item['data'];
                                 $endForElapsed = $t['date_finalizado'] ?? $t['date_cancelado'] ?? null;
@@ -673,13 +674,13 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_diario.php?id=<?= $t['id'] ?>" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-clipboard-text"></i> Diário</a>
                             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_pronto.php?id=<?= $t['id'] ?>" class="am-btn" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-check"></i> Pronto</a>
                             <?php elseif ($t['status']===Transfer::STATUS_PRONTO): ?>
-                            <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenFinalizarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['entity_dest_name'])) ?>')"><i class="ti ti-flag-check"></i> Finalizar</button>
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/assinatura.php" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;background:#fffbeb;border-color:#fde68a;color:#92400e;"><i class="ti ti-signature"></i> Assinar</a>
                             <?php else: ?>
                             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer_pdf.php?id=<?= $t['id'] ?>&stage=pronto" target="_blank" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-file-type-pdf"></i> PDF</a>
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; $canDragTicket = !($stageKey==='retirada'); $isTicketPendente = (int)$tk['status']===1; ?>
+                    <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; $canDragTicket = !in_array($stageKey, ['retirada','concluido'], true); $isTicketPendente = (int)$tk['status']===1; ?>
                     <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDragTicket ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="ticket" data-id="<?= $tk['id'] ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid #2563eb;<?= $canDragTicket ? 'cursor:pointer;' : 'opacity:.6;cursor:not-allowed;' ?>;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('ticket', <?= (int)$tk['id'] ?>)" data-mine="<?= $isHiddenPego ? '0' : '1' ?>" data-status="<?= (int)$tk['status'] ?>" data-date="<?= htmlspecialchars($tk['date_creation']) ?>">
                         <div class="am-tc-card-header" style="border-left:4px solid #2563eb;padding:12px 14px;gap:10px;">
                             <div style="min-width:0;flex:1;">
@@ -1728,6 +1729,21 @@ function amKanbanDrop(e){
     else alert('Chamados não podem ir para RETIRADA (apenas Transferências)');
     return;
   }
+  // Bloqueia arraste de Retirada/Concluido (so via Assinatura)
+  try{
+    var cardEl = document.querySelector('.am-tc-card[data-type="'+obj.type+'"][data-id="'+obj.id+'"]');
+    var from = cardEl ? (cardEl.closest('.am-kanban-column') ? cardEl.closest('.am-kanban-column').dataset.stage : (cardEl.closest('.am-kanban-body') ? cardEl.closest('.am-kanban-body').dataset.stage : '')) : '';
+    if(obj.type==='transfer' && from==='retirada' && col.dataset.stage==='concluido'){
+      if(window.amKanbanToast) amKanbanToast('Retirada só conclui via aba Assinatura', 'error');
+      else alert('Transferência em RETIRADA só pode ir para CONCLUÍDO após assinatura na aba Assinatura');
+      return;
+    }
+    if(from==='retirada' || from==='concluido'){
+      if(window.amKanbanToast) amKanbanToast('Card em '+from.toUpperCase()+' não pode ser arrastado', 'error');
+      else alert('Card em '+from+' não pode ser movido por arraste');
+      return;
+    }
+  }catch(err){}
   var to = col.dataset.stage;
   if(!to || !obj.type || !obj.id) return;
   amKanbanPending = {type: obj.type, id: obj.id, to: to};
@@ -1812,8 +1828,10 @@ function amKanbanToast(msg, type){
 }
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.am-kanban-column .am-tc-card').forEach(function(card){
-    // Pendente não tem botão Pegar, mas pode arrastar
-    card.setAttribute('draggable','true');
+    // Respeita draggable=false de Retirada/Concluido (bloqueia arraste desses)
+    if(card.getAttribute('draggable') !== 'false'){
+      card.setAttribute('draggable','true');
+    }
     card.addEventListener('dragstart', amKanbanDragStart);
     card.addEventListener('dragend', amKanbanDragEnd);
   });
