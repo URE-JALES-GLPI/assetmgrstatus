@@ -891,6 +891,19 @@ class Transfer
 
     private static function generateSimpleFallbackPdf(int $transfer_id, string $stage, string $outPath): bool
     {
+        // Tenta FPDF bonito (com logo e assinatura) se lib/fpdf disponível, senão cai para texto puro
+        $fpdfPath = __DIR__ . '/../lib/fpdf/fpdf.php';
+        if (file_exists($fpdfPath)) {
+            try {
+                require_once $fpdfPath;
+                if (class_exists('FPDF')) {
+                    return self::generateFpdfBonito($transfer_id, $stage, $outPath);
+                }
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] FPDF fallback fail: ' . $e->getMessage());
+            }
+        }
+        // Fallback texto puro (sem logo/assinatura imagem) — garante 1-2 páginas mesmo sem libs
         try {
             $transfer = self::getById($transfer_id);
             if (!$transfer) return false;
@@ -902,8 +915,6 @@ class Transfer
             if (!empty($items)) { $first = reset($items); $origin_name = $first['origin_entity_name'] ?? ''; if ($origin_name === '' && !empty($first['origin_entity_id'])) { $eo = new \Entity(); if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName(); } }
             $tech_name = self::getUserName((int)($transfer['users_id_tech'] ?? 0));
             $creator_name = self::getUserName((int)($transfer['users_id_created'] ?? 0));
-            $sig_ok = !empty($transfer['assinatura_image']) && !empty($transfer['assinatura_tecnico_image'] ?? '');
-            // Fallback usa apenas nomes/docs, sem imagem
             $lines = [];
             $lines[] = 'UNIDADE REGIONAL DE ENSINO - REGIAO DE JALES';
             $lines[] = $title . '  -  #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '  -  ' . date('d/m/Y H:i');
@@ -935,7 +946,6 @@ class Transfer
                 foreach ($items as $i => $it) {
                     $lines[] = ($i+1) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']  Status: ' . ($it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-') ;
                     if (!empty($it['final_reason'])) $lines[] = '   Motivo: ' . $it['final_reason'];
-                    // work_log
                     global $DB;
                     try {
                         $wrow = $DB->request(['SELECT'=>['work_log'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$it['items_id']],'LIMIT'=>1])->current();
@@ -946,22 +956,191 @@ class Transfer
             }
             $lines[] = '';
             $lines[] = str_repeat('-', 85);
-            $lines[] = 'Assinaturas:';
-            if ($sig_ok) {
-                $lines[] = 'Entrega (Tecnico): ' . $tech_name . '  |  Recebimento: ' . ($transfer['assinatura_nome'] ?? '-') . ' (' . ($transfer['assinatura_document_type'] ?? '') . ' ' . self::maskDocumento($transfer['assinatura_document_type'] ?? '', $transfer['assinatura_document'] ?? '') . ') em ' . ($transfer['assinatura_data'] ? date('d/m/Y H:i', strtotime($transfer['assinatura_data'])) : '-');
-                $lines[] = 'Tecnico: ' . ($transfer['assinatura_tecnico_nome'] ?? '-') . ' (' . ($transfer['assinatura_tecnico_document_type'] ?? '') . ' ' . self::maskDocumento($transfer['assinatura_tecnico_document_type'] ?? '', $transfer['assinatura_tecnico_document'] ?? '') . ')';
-            } else {
-                $lines[] = 'Entrega: ___________________________      Recebimento: ___________________________';
-                $lines[] = 'Documento: ___________________  Data: ____/____/______';
-            }
-            $lines[] = '';
-            $lines[] = 'Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales - Suporte Tecnico';
-            $lines[] = 'Obs: PDF simples gerado sem mPDF (fallback). Para PDF completo com logo/assinatura imagem, instale: composer install';
+            $lines[] = 'Assinaturas: ___________________________      Recebimento: ___________________________';
+            $lines[] = 'Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales';
             return self::buildSimplePdfFromLines($lines, $outPath);
         } catch (\Throwable $e) {
             error_log('[assetmgrstatus] simple fallback exception: ' . $e->getMessage());
             return false;
         }
+    }
+
+    private static function generateFpdfBonito(int $transfer_id, string $stage, string $outPath): bool
+    {
+        $transfer = self::getById($transfer_id);
+        if (!$transfer) return false;
+        $items = self::getItems($transfer_id);
+        $is_pronto = in_array($stage, ['pronto','final'], true);
+        $title = $is_pronto ? 'Termo de Devolucao de Equipamento' : 'Termo de Retirada de Equipamento';
+        $dest_name = ($transfer['entity_dest'] && (new \Entity())->getFromDB((int)$transfer['entity_dest'])) ? (new \Entity())->getName() : 'URE Jales';
+        $origin_name = '';
+        if (!empty($items)) { $first = reset($items); $origin_name = $first['origin_entity_name'] ?? ''; if ($origin_name === '' && !empty($first['origin_entity_id'])) { $eo = new \Entity(); if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName(); } }
+        $tech_name = self::getUserName((int)($transfer['users_id_tech'] ?? 0));
+        $creator_name = self::getUserName((int)($transfer['users_id_created'] ?? 0));
+        $logoFile = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
+        // dados assinatura
+        $sigImage = $transfer['assinatura_image'] ?? '';
+        $sigTecImage = $transfer['assinatura_tecnico_image'] ?? '';
+        $sigNome = trim($transfer['assinatura_nome'] ?? '');
+        $sigDoc = self::maskDocumento($transfer['assinatura_document_type'] ?? '', $transfer['assinatura_document'] ?? '');
+        $sigData = !empty($transfer['assinatura_data']) ? date('d/m/Y H:i', strtotime($transfer['assinatura_data'])) : '';
+        $tecNome = trim($transfer['assinatura_tecnico_nome'] ?? '');
+        $tecDoc = self::maskDocumento($transfer['assinatura_tecnico_document_type'] ?? '', $transfer['assinatura_tecnico_document'] ?? '');
+        $tecData = !empty($transfer['assinatura_tecnico_data']) ? date('d/m/Y H:i', strtotime($transfer['assinatura_tecnico_data'])) : '';
+
+        $toIso = fn($s) => @iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $s) ?: $s;
+
+        $pdf = new \FPDF('P', 'mm', 'A4');
+        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->AddPage();
+        // Header com logo
+        if (file_exists($logoFile)) {
+            try { $pdf->Image($logoFile, 10, 8, 28); } catch (\Throwable $e) {}
+        }
+        $pdf->SetFont('Helvetica', 'B', 10);
+        $pdf->SetTextColor(26, 115, 181);
+        $pdf->SetXY(42, 10);
+        $pdf->Cell(0, 5, $toIso('UNIDADE REGIONAL DE ENSINO - REGIAO DE JALES'), 0, 1, 'L');
+        $pdf->SetFont('Helvetica', 'B', 13);
+        $pdf->SetXY(42, 16);
+        $pdf->Cell(0, 6, $toIso($title), 0, 1, 'L');
+        $pdf->SetFont('Helvetica', '', 7);
+        $pdf->SetTextColor(156, 163, 175);
+        $pdf->SetXY(42, 22);
+        $pdf->Cell(0, 4, $toIso('N ' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i')), 0, 1, 'L');
+        $pdf->SetDrawColor(26, 115, 181);
+        $pdf->Line(10, 28, 200, 28);
+        $pdf->Ln(8);
+        // Declaracao
+        $pdf->SetFillColor(240, 247, 255);
+        $pdf->SetDrawColor(26, 115, 181);
+        $pdf->SetTextColor(30, 58, 95);
+        $pdf->SetFont('Helvetica', '', 7);
+        $decl = $is_pronto
+            ? 'A Unidade Regional de Ensino - Regiao de Jales declara que os equipamentos abaixo foram devolvidos apos manutencao. O responsavel pelo recebimento esta ciente das condicoes e do novo status de cada equipamento.'
+            : 'A Unidade Regional de Ensino - Regiao de Jales declara que os equipamentos abaixo foram retirados pelo responsavel. Retirada verificada no suporte tecnico.';
+        $pdf->Cell(0, 6, $toIso($decl), 1, 1, 'L', true);
+        $pdf->Ln(3);
+        // Corpo
+        $pdf->SetTextColor(45, 45, 45);
+        $pdf->SetFont('Helvetica', '', 8);
+        $who = $is_pronto ? $tech_name : $creator_name;
+        $body = 'Eu, ' . $who . ', declaro ' . ($is_pronto ? 'devolucao' : 'retirada') . ' dos equipamentos abaixo:';
+        $pdf->MultiCell(0, 4, $toIso($body), 0, 'L');
+        $pdf->Ln(2);
+        // Info grid
+        $pdf->SetFont('Helvetica', 'B', 6);
+        $pdf->SetTextColor(156, 163, 175);
+        $pdf->SetFillColor(248, 249, 251);
+        $pdf->SetDrawColor(226, 232, 240);
+        $info = [
+            [$is_pronto ? 'Data Devolucao' : 'Data Retirada', date('d/m/Y', strtotime($is_pronto ? ($transfer['date_pronto'] ?: $transfer['date_creation']) : $transfer['date_creation']))],
+            ['Destino', $dest_name],
+        ];
+        if ($is_pronto) {
+            $info[] = ['Tecnico', $tech_name];
+            $info[] = ['Solicitante', $creator_name];
+            $info[] = ['Origem', $origin_name ?: 'Nao informada'];
+            $info[] = ['Retornando para', $origin_name ?: 'Escola de origem'];
+        }
+        if (!empty($transfer['reason'])) $info[] = ['Motivo', mb_substr($transfer['reason'], 0, 120)];
+        foreach (array_chunk($info, 2) as $row) {
+            $x = $pdf->GetX(); $y = $pdf->GetY();
+            foreach ($row as $col) {
+                $pdf->SetFont('Helvetica', 'B', 6);
+                $pdf->Cell(95, 4, $toIso($col[0]), 1, 0, 'L', true);
+            }
+            $pdf->Ln();
+            foreach ($row as $col) {
+                $pdf->SetFont('Helvetica', '', 7);
+                $pdf->Cell(95, 5, $toIso(mb_substr($col[1], 0, 60)), 1, 0, 'L');
+            }
+            $pdf->Ln(6);
+        }
+        // Tabela equipamentos
+        $pdf->SetFont('Helvetica', 'B', 7);
+        $pdf->SetFillColor(26, 115, 181);
+        $pdf->SetTextColor(255, 255, 255);
+        if (!$is_pronto) {
+            $pdf->Cell(10, 6, '#', 1, 0, 'C', true);
+            $pdf->Cell(110, 6, 'Equipamento', 1, 0, 'L', true);
+            $pdf->Cell(70, 6, 'Tipo', 1, 1, 'L', true);
+            $pdf->SetTextColor(45, 45, 45);
+            $pdf->SetFont('Helvetica', '', 7);
+            foreach ($items as $i => $it) {
+                $pdf->Cell(10, 5, (string)($i+1), 1, 0, 'C');
+                $pdf->Cell(110, 5, $toIso(mb_substr($it['item_name'], 0, 50)), 1, 0, 'L');
+                $pdf->Cell(70, 5, $toIso(mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,30)), 1, 1, 'L');
+            }
+        } else {
+            $pdf->Cell(8, 6, '#', 1, 0, 'C', true);
+            $pdf->Cell(52, 6, 'Equipamento', 1, 0, 'L', true);
+            $pdf->Cell(28, 6, 'Tipo', 1, 0, 'L', true);
+            $pdf->Cell(28, 6, 'Status', 1, 0, 'L', true);
+            $pdf->Cell(74, 6, 'Motivo / Feito', 1, 1, 'L', true);
+            $pdf->SetTextColor(45, 45, 45);
+            $pdf->SetFont('Helvetica', '', 6);
+            foreach ($items as $i => $it) {
+                $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,15);
+                $statusLabel = $it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-';
+                $reason = mb_substr($it['final_reason'] ?? '-',0,40);
+                $pdf->Cell(8, 5, (string)($i+1), 1, 0, 'C');
+                $pdf->Cell(52, 5, $toIso(mb_substr($it['item_name'],0,35)), 1, 0, 'L');
+                $pdf->Cell(28, 5, $toIso($typeShort), 1, 0, 'L');
+                $pdf->Cell(28, 5, $toIso(mb_substr($statusLabel,0,15)), 1, 0, 'L');
+                $pdf->Cell(74, 5, $toIso($reason), 1, 1, 'L');
+            }
+        }
+        $pdf->Ln(4);
+        // Assinaturas com imagem
+        $pdf->SetFont('Helvetica', 'B', 7);
+        $pdf->SetTextColor(30, 58, 95);
+        $ySig = $pdf->GetY();
+        if ($pdf->GetY() > 240) { $pdf->AddPage(); $ySig = $pdf->GetY(); }
+        // Caixa entrega (tecnico)
+        $pdf->SetDrawColor(180, 180, 180);
+        $pdf->Rect(10, $ySig, 92, 35);
+        $pdf->SetXY(10, $ySig+2);
+        $pdf->SetFont('Helvetica', '', 6);
+        $pdf->Cell(92, 4, $toIso('Entrega (Tecnico): ' . $tech_name), 0, 1, 'C');
+        // tenta imagem tecnico
+        $tmpTec = null;
+        if (!empty($sigTecImage) && strpos($sigTecImage, 'data:image') === 0) {
+            try {
+                $parts = explode(',', $sigTecImage, 2);
+                $data = base64_decode($parts[1] ?? '');
+                if ($data) { $tmpTec = sys_get_temp_dir() . '/sigtec_' . uniqid() . '.png'; file_put_contents($tmpTec, $data); $pdf->Image($tmpTec, 22, $ySig+8, 68, 14); }
+            } catch (\Throwable $e) {}
+        }
+        $pdf->Line(15, $ySig+24, 97, $ySig+24);
+        $pdf->SetXY(10, $ySig+26);
+        $pdf->Cell(92, 4, $toIso($tecNome ? $tecNome . ' - ' . $tecDoc : 'Documento: __________________'), 0, 1, 'C');
+        // Caixa recebimento
+        $pdf->Rect(108, $ySig, 92, 35);
+        $pdf->SetXY(108, $ySig+2);
+        $pdf->Cell(92, 4, $toIso('Recebimento: ' . ($sigNome ?: '__________________')), 0, 1, 'C');
+        $tmpRec = null;
+        if (!empty($sigImage) && strpos($sigImage, 'data:image') === 0) {
+            try {
+                $parts = explode(',', $sigImage, 2);
+                $data = base64_decode($parts[1] ?? '');
+                if ($data) { $tmpRec = sys_get_temp_dir() . '/sigrec_' . uniqid() . '.png'; file_put_contents($tmpRec, $data); $pdf->Image($tmpRec, 120, $ySig+8, 68, 14); }
+            } catch (\Throwable $e) {}
+        }
+        $pdf->Line(113, $ySig+24, 195, $ySig+24);
+        $pdf->SetXY(108, $ySig+26);
+        $pdf->Cell(92, 4, $toIso($sigNome ? $sigNome . ' - ' . $sigDoc : 'Documento: __________________'), 0, 1, 'C');
+        $pdf->SetXY(108, $ySig+30);
+        $pdf->SetFont('Helvetica', '', 5);
+        $pdf->Cell(92, 3, $toIso($sigData ? $sigData : 'Data: ____/____/______'), 0, 1, 'C');
+        $pdf->Ln(6);
+        // Rodape
+        $pdf->SetFont('Helvetica', '', 6);
+        $pdf->SetTextColor(156, 163, 175);
+        $pdf->Cell(0, 4, $toIso('Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales - Suporte Tecnico'), 0, 1, 'C');
+        if ($tmpTec && file_exists($tmpTec)) @unlink($tmpTec);
+        if ($tmpRec && file_exists($tmpRec)) @unlink($tmpRec);
+        try { $pdf->Output('F', $outPath); return file_exists($outPath) && filesize($outPath) > 800; } catch (\Throwable $e) { error_log('[assetmgrstatus] FPDF Output fail: ' . $e->getMessage()); return false; }
     }
 
     private static function buildSimplePdfFromLines(array $lines, string $outPath): bool
