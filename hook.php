@@ -259,6 +259,24 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     }
 
+    // -------------------------------------------------------
+    // 9. user_filters — persiste filtro por entidade por usuário (ADMIN)
+    // -------------------------------------------------------
+    if (!$DB->tableExists('glpi_plugin_assetmgrstatus_user_filters')) {
+        $DB->doQuery("
+            CREATE TABLE `glpi_plugin_assetmgrstatus_user_filters` (
+                `id`               INT {$sign} NOT NULL AUTO_INCREMENT,
+                `users_id`         INT {$sign} NOT NULL,
+                `entity_filter`    TEXT DEFAULT NULL,
+                `entity_recursive` TINYINT NOT NULL DEFAULT 0,
+                `date_creation`    DATETIME DEFAULT NULL,
+                `date_mod`         DATETIME DEFAULT NULL,
+                PRIMARY KEY (`id`),
+                UNIQUE KEY `users_id` (`users_id`)
+            ) ENGINE=InnoDB DEFAULT CHARSET={$charset} COLLATE={$collation}
+        ") or die($DB->error());
+    }
+
     return true;
 }
 
@@ -336,6 +354,7 @@ function plugin_assetmgrstatus_uninstall(): bool
         'glpi_plugin_assetmgrstatus_transfer_history',
         'glpi_plugin_assetmgrstatus_tecnicos',
         'glpi_plugin_assetmgrstatus_assinatura_history',
+        'glpi_plugin_assetmgrstatus_user_filters',
     ] as $table) {
         if ($DB->tableExists($table)) {
             $DB->doQuery("DROP TABLE `{$table}`");
