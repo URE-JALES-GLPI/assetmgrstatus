@@ -85,12 +85,28 @@ try {
     if ($image !== '' && strpos($image, ' ') !== false && strpos($image, 'data:image/') === 0) $image = str_replace(' ', '+', $image);
     if ($tec_image !== '' && strpos($tec_image, ' ') !== false && strpos($tec_image, 'data:image/') === 0) $tec_image = str_replace(' ', '+', $tec_image);
 
-    if (!$transfer_id || !$doc_type || !$doc_number || !$image) {
-        echo json_encode(['ok' => false, 'error' => 'Dados recebedor incompletos (transfer_id/doc/image obrigatórios). Recebido: transfer=' . $transfer_id . ' doc_type=' . $doc_type . ' doc_len=' . strlen($doc_number) . ' img_len=' . strlen($image)]);
+    // Verifica se já tem recebedor para permitir salvar só técnico
+    $hasRecAlready = false; $needsTec = false;
+    if ($transfer_id) {
+        try { $tmpTr = \GlpiPlugin\Assetmgrstatus\Transfer::getById($transfer_id); if($tmpTr){ $hasRecAlready = !empty($tmpTr['assinatura_image']); $needsTec = empty($tmpTr['assinatura_tecnico_image']); } } catch(Throwable $e) {}
+    }
+    if (!$hasRecAlready) {
+        if (!$transfer_id || !$doc_type || !$doc_number || !$image) {
+            echo json_encode(['ok' => false, 'error' => 'Dados recebedor incompletos (transfer_id/doc/image obrigatórios). Recebido: transfer=' . $transfer_id . ' doc_type=' . $doc_type . ' doc_len=' . strlen($doc_number) . ' img_len=' . strlen($image)]);
+            exit;
+        }
+    } else {
+        if (!$transfer_id) { echo json_encode(['ok'=>false,'error'=>'transfer_id obrigatório']); exit; }
+        // preenche com dados existentes se vier vazio (evita falhar no salvarAssinatura)
+        if (empty($doc_type) || empty($image)) {
+            try { $ex=\GlpiPlugin\Assetmgrstatus\Transfer::getById($transfer_id); if($ex){ if(empty($doc_type)) $doc_type=$ex['assinatura_document_type']??'RG'; if(empty($doc_number)) $doc_number=$ex['assinatura_document']??'0'; if(empty($nome)) $nome=$ex['assinatura_nome']??''; if(empty($image)) $image=$ex['assinatura_image']??''; } } catch(Throwable $e){}
+        }
+    }
+    $tecProvided = $tec_doc_type !== '' || $tec_doc_number !== '' || $tec_image !== '' || $tec_nome !== '';
+    if ($hasRecAlready && $needsTec && !$tecProvided) {
+        echo json_encode(['ok'=>false,'error'=>'Selecione o técnico responsável (assinatura do técnico obrigatória).']);
         exit;
     }
-    // Se técnico parcialmente preenchido, exige todos os campos
-    $tecProvided = $tec_doc_type !== '' || $tec_doc_number !== '' || $tec_image !== '';
     if ($tecProvided && (!$tec_doc_type || !$tec_doc_number || !$tec_image)) {
         echo json_encode(['ok' => false, 'error' => 'Dados técnico incompletos (doc_type/doc_number/image). Se enviar técnico precisa todos.']);
         exit;

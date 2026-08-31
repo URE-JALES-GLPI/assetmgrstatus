@@ -183,38 +183,51 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 
         <!-- Step 2: Teclado numérico + Nome + Assinatura -->
         <div id="am-sig-step2" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button>
-                <span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
+            <div id="am-sig-receiver-section">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button>
+                    <span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
+                </div>
+
+                <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
+                <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
+                <input type="hidden" id="am-sig-doc-value">
+
+                <div class="am-numpad">
+                    <button type="button" onclick="amSigPress('1')">1</button>
+                    <button type="button" onclick="amSigPress('2')">2</button>
+                    <button type="button" onclick="amSigPress('3')">3</button>
+                    <button type="button" onclick="amSigPress('4')">4</button>
+                    <button type="button" onclick="amSigPress('5')">5</button>
+                    <button type="button" onclick="amSigPress('6')">6</button>
+                    <button type="button" onclick="amSigPress('7')">7</button>
+                    <button type="button" onclick="amSigPress('8')">8</button>
+                    <button type="button" onclick="amSigPress('9')">9</button>
+                    <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button>
+                    <button type="button" onclick="amSigPress('0')">0</button>
+                    <button type="button" class="am-numpad-action" onclick="amSigPress('ok')"><i class="ti ti-check"></i></button>
+                </div>
+                <div style="display:flex;gap:8px;margin-bottom:14px;">
+                    <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button>
+                    <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button>
+                </div>
+
+                <label class="am-form-label">Nome do responsável (opcional)</label>
+                <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="margin-bottom:14px;">
+
+                <div id="am-sig-already-receiver" style="display:none;margin-bottom:14px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px 14px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor já assinado — agora só falta o técnico</div>
             </div>
 
-            <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
-            <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
-            <input type="hidden" id="am-sig-doc-value">
-
-            <div class="am-numpad">
-                <button type="button" onclick="amSigPress('1')">1</button>
-                <button type="button" onclick="amSigPress('2')">2</button>
-                <button type="button" onclick="amSigPress('3')">3</button>
-                <button type="button" onclick="amSigPress('4')">4</button>
-                <button type="button" onclick="amSigPress('5')">5</button>
-                <button type="button" onclick="amSigPress('6')">6</button>
-                <button type="button" onclick="amSigPress('7')">7</button>
-                <button type="button" onclick="amSigPress('8')">8</button>
-                <button type="button" onclick="amSigPress('9')">9</button>
-                <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button>
-                <button type="button" onclick="amSigPress('0')">0</button>
-                <button type="button" class="am-numpad-action" onclick="amSigPress('ok')"><i class="ti ti-check"></i></button>
-            </div>
-            <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button>
-                <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button>
+            <div id="am-sig-tec-wrap" style="margin-bottom:14px;">
+                <label class="am-form-label">Técnico responsável <span class="am-required">*</span></label>
+                <select id="am-sig-tec-select" class="am-input" style="background:#fff;">
+                    <option value="">Carregando técnicos...</option>
+                </select>
+                <small style="font-size:.75rem;color:#6b7280;display:block;margin-top:4px;">Selecione o técnico que está entregando. A assinatura dele será usada do cadastro.</small>
+                <div id="am-sig-tec-empty" style="display:none;margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:.78rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
             </div>
 
-            <label class="am-form-label">Nome do responsável (opcional)</label>
-            <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="margin-bottom:14px;">
-
-            <label class="am-form-label">Assinatura <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use o dedo ou caneta touch</small></label>
+            <label id="am-sig-canvas-label" class="am-form-label">Assinatura do recebedor <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use o dedo ou caneta touch</small></label>
             <div class="am-sig-canvas-wrap">
                 <canvas id="am-sig-canvas" class="am-sig-canvas"></canvas>
             </div>
@@ -251,22 +264,92 @@ function amGetCsrfAssinatura(){
   return amCsrfToken;
 }
 let amSigTransferId = 0;
+let amSigHasReceiver = false;
+let amSigHasTecnico = false;
+let amSigTecnicosCache = null;
+async function amLoadTecnicos(){
+  var sel=document.getElementById('am-sig-tec-select'); if(!sel) return;
+  if(amSigTecnicosCache && amSigTecnicosCache.length){ populateTecSelect(amSigTecnicosCache); return; }
+  try{
+    var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+    var r=await fetch(base+'/ajax/tecnico_signature.php?action=list', {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
+    var t=await r.text(); var j; try{j=JSON.parse(t);}catch(e){ j={ok:false};}
+    if(j.ok && Array.isArray(j.data) && j.data.length){
+      amSigTecnicosCache=j.data;
+      populateTecSelect(j.data);
+    } else {
+      sel.innerHTML='<option value="">Nenhum técnico cadastrado</option>';
+      document.getElementById('am-sig-tec-empty').style.display='block';
+      sel.style.display='none';
+    }
+  }catch(e){
+    sel.innerHTML='<option value="">Erro ao carregar</option>';
+  }
+  function populateTecSelect(list){
+    sel.innerHTML='<option value="">Selecione o técnico...</option>';
+    list.forEach(function(te){
+      var o=document.createElement('option');
+      o.value=te.id;
+      o.textContent=te.name + ' (' + te.document_type + ' ' + te.doc_masked + ')';
+      o.dataset.docType=te.document_type; o.dataset.doc=te.document; o.dataset.name=te.name; o.dataset.image=te.image;
+      sel.appendChild(o);
+    });
+    sel.style.display='block';
+    document.getElementById('am-sig-tec-empty').style.display='none';
+  }
+}
 let amSigDocType = '';
 let amSigDocNumber = '';
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
-function amOpenAssinaturaModal(transferId) {
+async function amOpenAssinaturaModal(transferId) {
     amSigTransferId = transferId;
     amSigDocType = '';
     amSigDocNumber = '';
     amSigHasDrawn = false;
-    document.getElementById('am-sig-step1').style.display = 'block';
-    document.getElementById('am-sig-step2').style.display = 'none';
-    document.getElementById('am-sig-footer').style.display = 'none';
-    document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
-    document.getElementById('am-sig-step1-hint').textContent = 'Selecione RG ou CPF para continuar';
-    document.getElementById('am-sig-step1-hint').style.color = '#9ca3af';
-    document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0');
+    amSigHasReceiver = false;
+    amSigHasTecnico = false;
+    // tenta descobrir se já tem recebedor/tecnico para ajustar UI
+    try{
+        var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+        var r=await fetch(base+'/ajax/card_details.php?type=transfer&id='+encodeURIComponent(transferId), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
+        var j=await r.json();
+        if(j.success && j.data){
+            amSigHasReceiver = !!j.data.has_receiver;
+            amSigHasTecnico = !!j.data.has_tecnico;
+        }
+    }catch(e){}
+    document.getElementById('am-sig-step1').style.display = amSigHasReceiver ? 'none' : 'block';
+    document.getElementById('am-sig-step2').style.display = amSigHasReceiver ? 'block' : 'none';
+    document.getElementById('am-sig-footer').style.display = amSigHasReceiver ? 'flex' : 'none';
+    // mostra/esconde secao recebedor dentro do step2
+    var recSec=document.getElementById('am-sig-receiver-section');
+    var already=document.getElementById('am-sig-already-receiver');
+    var tecWrap=document.getElementById('am-sig-tec-wrap');
+    var canvasLabel=document.getElementById('am-sig-canvas-label');
+    if(amSigHasReceiver){
+        if(recSec) recSec.style.display='none';
+        if(already) already.style.display='block';
+        if(canvasLabel) canvasLabel.style.display='none';
+        document.getElementById('am-sig-tec-wrap').style.display='block';
+        // pula direto pro tecnico, sem precisar escolher RG/CPF do recebedor
+        document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
+        document.getElementById('am-sig-step1-hint').textContent = 'Recebedor já assinado — selecione o técnico';
+        document.getElementById('am-sig-step1-hint').style.color = '#059669';
+    } else {
+        if(recSec) recSec.style.display='block';
+        if(already) already.style.display='none';
+        if(canvasLabel) canvasLabel.style.display='block';
+        document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.remove('active'));
+        document.getElementById('am-sig-step1-hint').textContent = 'Selecione RG ou CPF para continuar';
+        document.getElementById('am-sig-step1-hint').style.color = '#9ca3af';
+        if(amSigHasTecnico){
+            if(tecWrap) tecWrap.style.display='none';
+        } else {
+            if(tecWrap) tecWrap.style.display='block';
+        }
+    }
+    document.getElementById('am-sig-modal-title').textContent = 'Assinatura — Transferência #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (técnico)' : '');
     // limpa step2
     document.getElementById('am-sig-doc-value').value = '';
     document.getElementById('am-sig-nome').value = '';
@@ -275,6 +358,13 @@ function amOpenAssinaturaModal(transferId) {
     document.getElementById('am-modal-assinatura').classList.add('open');
     document.body.style.overflow = 'hidden';
     setTimeout(amSigInitCanvas, 120);
+    amLoadTecnicos();
+    // se já tem recebedor, já mostra footer e foca no select tecnico
+    if(amSigHasReceiver){
+        document.getElementById('am-sig-step2').style.display='block';
+        document.getElementById('am-sig-footer').style.display='flex';
+        setTimeout(function(){ var s=document.getElementById('am-sig-tec-select'); if(s) s.focus(); }, 150);
+    }
 }
 function amCloseAssinaturaModal() {
     document.getElementById('am-modal-assinatura').classList.remove('open');
@@ -403,34 +493,69 @@ function amSigClearCanvas() {
 }
 async function amSigSave() {
     if (!amSigTransferId) return amSigToast('Transferência inválida.');
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dígitos.');
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dígitos.');
-    if (!amSigHasDrawn) return amSigToast('Faça a assinatura com o dedo/caneta no quadro.');
+    // Validação condicional: se já tem recebedor, não precisa validar doc/imagem do recebedor de novo
+    if (!amSigHasReceiver) {
+        if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dígitos.');
+        if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dígitos.');
+        if (!amSigHasDrawn) return amSigToast('Faça a assinatura do recebedor com o dedo/caneta no quadro.');
+    }
+    // Técnico é obrigatório se ainda não tem técnico assinado
+    var tecSel=document.getElementById('am-sig-tec-select');
+    var tecId=tecSel?tecSel.value:'';
+    var tecOpt=tecSel && tecSel.selectedIndex>=0 ? tecSel.options[tecSel.selectedIndex] : null;
+    var needTec = !amSigHasTecnico;
+    if(needTec && !tecId){
+        amSigToast('Selecione o técnico responsável.');
+        if(tecSel) tecSel.focus();
+        return;
+    }
+    var tecDocType='', tecDoc='', tecNome='', tecImage='';
+    if(tecId && tecOpt && tecOpt.dataset.docType){
+        tecDocType=tecOpt.dataset.docType||'';
+        tecDoc=tecOpt.dataset.doc||'';
+        tecNome=tecOpt.dataset.name||'';
+        tecImage=tecOpt.dataset.image||'';
+    }
     const nome = document.getElementById('am-sig-nome').value.trim();
     const c = document.getElementById('am-sig-canvas');
-    // exporta PNG base64
-    const dataUrl = c.toDataURL('image/png');
-    if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia — desenhe novamente.');
+    var dataUrl='';
+    if(!amSigHasReceiver){
+        dataUrl = c.toDataURL('image/png');
+        if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia — desenhe novamente.');
+    } else {
+        // já tem recebedor, não precisa nova imagem (backend vai usar a existente), mas manda vazio que o backend preenche
+        dataUrl='';
+        // se já tem recebedor, garante que não vai validar imagem vazia no backend (backend já trata)
+        // mas precisa mandar algo para não falhar no check de imagem quando hasRecAlready? o backend já permite vazio nesse caso
+    }
     const btn = document.getElementById('am-sig-save-btn');
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
         const tok = amGetCsrfAssinatura();
-        // Tenta primeiro via front (mais permissivo para CSRF/GLPI), fallback para ajax se necessário
+        var payload={transfer_id: amSigTransferId, _glpi_csrf_token: tok};
+        if(!amSigHasReceiver){
+            payload.doc_type=amSigDocType; payload.doc_number=amSigDocNumber; payload.nome=nome; payload.image=dataUrl;
+        } else {
+            // já tem recebedor, manda dummy que o backend vai ignorar e preencher com existente
+            payload.doc_type='RG'; payload.doc_number='0'; payload.nome=''; payload.image='';
+        }
+        if(needTec){
+            payload.tec_doc_type=tecDocType; payload.tec_doc_number=tecDoc; payload.tec_nome=tecNome; payload.tec_image=tecImage;
+        }
         let res = await fetch(base + '/front/assinatura.form.php', {
             method: 'POST',
             headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
             credentials: 'same-origin',
-            body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: tok})
+            body: JSON.stringify(payload)
         });
-        // Se front der 403/404, tenta ajax como fallback (compatibilidade)
         if (!res.ok && (res.status===403 || res.status===404)) {
             console.warn('front 403, tentando ajax fallback', await res.clone().text().then(t=>t.slice(0,500)));
             res = await fetch(base + '/ajax/assinatura_save.php', {
                 method: 'POST',
                 headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
                 credentials: 'same-origin',
-                body: JSON.stringify({transfer_id: amSigTransferId, doc_type: amSigDocType, doc_number: amSigDocNumber, nome: nome, image: dataUrl, _glpi_csrf_token: tok})
+                body: JSON.stringify(payload)
             });
         }
         const text = await res.text();
