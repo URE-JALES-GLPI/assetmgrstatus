@@ -1433,17 +1433,19 @@ async function amPrintHP(transferId) {
             return;
         }
         if (j.ok) {
-            const printer = j.printer ? ' (' + j.printer + ')' : '';
-            const job = j.request_id ? '\nJob: ' + j.request_id : (j.output ? '\n' + j.output.substring(0,200) : '');
-            alert('✅ Enviado para impressão na HP' + printer + '!\nTermo #' + String(transferId).padStart(4,'0') + ' entrou na fila CUPS do servidor.\n\nImpressão: 1 cópia, A4, 1-2 páginas (bloqueio anti-60 folhas ativo).' + job + '\n\nSe sair em branco, abra "PDF Assinado" e use Ctrl+P no navegador.');
+            const audit = j.audit || ('Transferência #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Impressora: ' + (j.printer || '-') + (j.request_id ? ' | Job: ' + j.request_id : ''));
+            try { navigator.clipboard.writeText(audit); } catch(e) {}
+            alert('✅ Impressão enviada!\n' + audit + '\n\n1 cópia, A4, 1-2 páginas.\nSe não sair, abra "PDF Assinado" (Ctrl+P).\n\n[Log auditoria copiado]');
+            console.log('[AUDIT OK]', audit, j);
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         } else {
             console.error(j);
             const basePdf = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
             const pdfUrl = basePdf + '/front/transfer_pdf.php?id=' + encodeURIComponent(String(transferId)) + '&stage=pronto';
-            const msg = '❌ Falha ao imprimir na HP:\n' + (j.error || 'Erro desconhecido') + (j.output ? '\n\nDetalhe: ' + j.output.substring(0,400) : '') + '\n\n[CORREÇÃO 60 folhas: o botão agora NUNCA imprime HTML puro — só PDF válido de 1-2 páginas. Se o PDF não for gerado, este erro aparece em vez de 60 folhas.]\n\nSolução imediata: abra o "PDF Assinado" e imprima manualmente (Ctrl+P):\n' + pdfUrl;
-            alert(msg);
-            if (confirm('Abrir "PDF Assinado" agora para impressão manual (Ctrl+P)?')) { window.open(pdfUrl, '_blank'); }
+            const audit = j.audit || ('Transferência #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Erro: ' + (j.error || 'desconhecido'));
+            try { navigator.clipboard.writeText(audit + ' | ' + (j.error||'')); } catch(e) {}
+            alert('❌ Falha ao imprimir\n' + (j.error || 'Erro desconhecido') + '\n\nLog auditoria:\n' + audit + '\n\nSolução: abra o PDF manualmente:\n' + pdfUrl);
+            console.log('[AUDIT FAIL]', audit, j);
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         }
     } catch(e) {
