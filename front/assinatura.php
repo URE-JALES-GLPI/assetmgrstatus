@@ -320,9 +320,14 @@ async function amOpenAssinaturaModal(transferId) {
             amSigHasTecnico = !!j.data.has_tecnico;
         }
     }catch(e){}
-    document.getElementById('am-sig-step1').style.display = amSigHasReceiver ? 'none' : 'block';
-    document.getElementById('am-sig-step2').style.display = amSigHasReceiver ? 'block' : 'none';
-    document.getElementById('am-sig-footer').style.display = amSigHasReceiver ? 'flex' : 'none';
+    var s1=document.getElementById('am-sig-step1'); if(s1) s1.style.display = amSigHasReceiver ? 'none' : 'block';
+    var s2=document.getElementById('am-sig-step2'); if(s2) s2.style.display = amSigHasReceiver ? 'block' : 'none';
+    var foot=document.getElementById('am-sig-footer'); if(foot) foot.style.display = amSigHasReceiver ? 'flex' : 'none';
+    // wizard 7 telas
+    var w1=document.getElementById('am-wiz-1'); if(w1) w1.style.display = 'block';
+    for(var i=2;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display='none'; }
+    var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width='14%';
+    var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura — Etapa 1 de 7';
     // mostra/esconde secao recebedor dentro do step2
     var recSec=document.getElementById('am-sig-receiver-section');
     var already=document.getElementById('am-sig-already-receiver');
@@ -371,32 +376,48 @@ function amCloseAssinaturaModal() {
     document.getElementById('am-modal-assinatura').classList.remove('open');
     document.body.style.overflow = '';
 }
-function amSigChooseDoc(type) {
-    amSigDocType = type;
-    document.querySelectorAll('.am-doc-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===type));
-    document.getElementById('am-sig-step1-hint').textContent = type + ' selecionado — abrindo teclado numérico...';
-    document.getElementById('am-sig-step1-hint').style.color = '#059669';
-    setTimeout(()=>amSigGoToKeypad(), 220);
+function amWizGo(n){
+  for(var i=1;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display = (i===n?'block':'none'); }
+  var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width = Math.round(n/7*100)+'%';
+  var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura — Etapa '+n+' de 7';
+  if(n===6) setTimeout(amSigInitCanvas, 120);
+  if(n===5){
+    var b=document.getElementById('am-sig-doc-badge'); if(b){ b.textContent=amSigDocType||'CPF'; b.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }
+    var h=document.getElementById('am-sig-doc-hint'); if(h) h.textContent=amSigDocType==='CPF'?'11 dígitos':'5 a 12 dígitos';
+  }
 }
-function amSigGoToKeypad() {
-    if (!amSigDocType) return;
-    document.getElementById('am-sig-step1').style.display = 'none';
-    document.getElementById('am-sig-step2').style.display = 'block';
-    document.getElementById('am-sig-footer').style.display = 'flex';
-    document.getElementById('am-sig-doc-badge').textContent = amSigDocType;
-    document.getElementById('am-sig-doc-badge').style.background = amSigDocType==='CPF' ? '#4f46e5' : '#059669';
-    document.getElementById('am-sig-doc-hint').textContent = amSigDocType==='CPF' ? '11 dígitos' : '5 a 12 dígitos';
-    amSigDocNumber = '';
-    document.getElementById('am-sig-doc-value').value = '';
-    amSigUpdateDisplay();
-    amSigClearCanvas();
-    setTimeout(amSigInitCanvas, 100);
+function amWizNext(n){
+  if(n===1){
+    var sel=document.getElementById('am-sig-tec-select'); if(!sel || !sel.value){ amSigToast('Selecione o técnico.'); return; }
+    var opt=sel.options[sel.selectedIndex]; var nameEl=document.getElementById('am-wiz-tec-name'); if(nameEl && opt) nameEl.textContent=opt.textContent;
+    amWizGo(2);
+  } else if(n===2){ amWizGo(3); setTimeout(function(){ var e=document.getElementById('am-sig-nome'); if(e) e.focus(); },150); }
+  else if(n===3){ amWizGo(4); }
+  else if(n===5){
+    if(amSigDocType==='CPF' && amSigDocNumber.length!==11){ amSigToast('CPF precisa de 11 dígitos.'); return; }
+    if(amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)){ amSigToast('RG precisa de 5 a 12 dígitos.'); return; }
+    amWizGo(6);
+  } else if(n===6){
+    // valida assinatura antes de salvar
+    if(!amSigHasDrawn){ amSigToast('Faça a assinatura do recebedor.'); return; }
+    amSigSave();
+  }
 }
-function amSigBackToDoc() {
-    document.getElementById('am-sig-step2').style.display = 'none';
-    document.getElementById('am-sig-footer').style.display = 'none';
-    document.getElementById('am-sig-step1').style.display = 'block';
+function amWizPrev(n){
+  if(n===2) amWizGo(1);
+  else if(n===3) amWizGo(2);
+  else if(n===4) amWizGo(3);
+  else if(n===5) amWizGo(4);
+  else if(n===6) amWizGo(5);
 }
+function amWizChooseDoc(type){
+  amSigDocType=type;
+  document.querySelectorAll('#am-wiz-4 .am-doc-btn').forEach(b=>b.classList.toggle('active', b.dataset.type===type));
+  setTimeout(function(){ amWizGo(5); amSigDocNumber=''; var v=document.getElementById('am-sig-doc-value'); if(v) v.value=''; amSigUpdateDisplay(); }, 180);
+}
+function amSigChooseDoc(type) { amWizChooseDoc(type); }
+function amSigGoToKeypad() { amWizGo(5); }
+function amSigBackToDoc() { amWizGo(4); }
 function amSigPress(k) {
     if (k==='del') { amSigBackspace(); return; }
     if (k==='ok')  { amSigCheckDocComplete(); return; }
