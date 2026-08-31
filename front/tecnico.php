@@ -1082,6 +1082,30 @@ function amTogglePegarTicketBtn() {
     if (!b) return;
     b.disabled = !ok; b.style.opacity = ok?'1':'.4'; b.style.cursor = ok?'pointer':'not-allowed';
 }
+function amGetCsrfToken(){
+    try{
+        var el = document.querySelector('#am-pegar-form input[name="_glpi_csrf_token"]') || document.querySelector('#am-pegar-ticket-form input[name="_glpi_csrf_token"]') || document.querySelector('input[name="_glpi_csrf_token"]');
+        if(el && el.value) return el.value;
+        if(window.CFG_GLPI && window.CFG_GLPI.csrf_token) return window.CFG_GLPI.csrf_token;
+        if(window.glpi_csrf_token) return window.glpi_csrf_token;
+        var m=document.querySelector('meta[name="glpi_csrf_token"]'); if(m && m.content) return m.content;
+    }catch(e){}
+    return '';
+}
+function amParseKanbanResponse(r){
+    // Lê como texto e tenta JSON; se vier HTML (ex: 403 página GLPI), extrai mensagem útil
+    return r.text().then(function(t){
+        var j=null; try{ j=JSON.parse(t); }catch(e){
+            var msg = (t||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,400);
+            if(!msg) msg = 'Resposta inválida do servidor (HTTP '+r.status+')';
+            // Detecta sessão expirada vs permissão
+            if(r.status===401 || /login|entrar|autentica/i.test((t||'').slice(0,2000))) msg='Sessão expirada — faça login no GLPI e recarregue a página (F5).';
+            else if(r.status===403) msg = msg.slice(0,250) || 'Sem permissão (403) — verifique perfil em Administração > Perfis > Manutenção';
+            j={success:false, message: msg, _raw: t.slice(0,500), _status:r.status};
+        }
+        return {ok:r.ok, status:r.status, j:j};
+    });
+}
 function amSubmitPegar(e){
     if(e) e.preventDefault();
     var idEl = document.getElementById('am-pegar-id');
@@ -1090,9 +1114,9 @@ function amSubmitPegar(e){
     if(!id){ alert('ID inválido'); return false; }
     if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Pegando...'; }
     var fd=new FormData(); fd.append('type','transfer'); fd.append('id', id); fd.append('to','emandamento');
-    var csrf=(document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value||''; if(csrf) fd.append('_glpi_csrf_token', csrf);
+    var csrf=amGetCsrfToken(); if(csrf) fd.append('_glpi_csrf_token', csrf);
     fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j};});})
+        .then(amParseKanbanResponse)
         .then(function(res){
             if(res.ok && res.j.success){
                 amClosePegarModal();
@@ -1127,10 +1151,11 @@ function amSubmitPegar(e){
                     }
                 }catch(err){ setTimeout(function(){ window.location.reload(); }, 600); }
             } else {
-                alert(res.j.message||'Falha ao pegar transferência');
+                var msg = (res.j && res.j.message) ? res.j.message : ('Falha ao pegar transferência (HTTP '+res.status+')');
+                alert(msg);
                 if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; }
             }
-        }).catch(function(err){ alert('Erro: '+err.message); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; } });
+        }).catch(function(err){ alert('Erro: '+(err.message||err)); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; } });
     return false;
 }
 function amSubmitPegarTicket(e){
@@ -1141,9 +1166,9 @@ function amSubmitPegarTicket(e){
     if(!id){ alert('ID inválido'); return false; }
     if(btn){ btn.disabled=true; btn.innerHTML='<i class=\"ti ti-loader-2\" style=\"animation:amSpin .8s linear infinite;display:inline-block;\"></i> Pegando...'; }
     var fd=new FormData(); fd.append('type','ticket'); fd.append('id', id); fd.append('to','emandamento');
-    var csrf=(document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value||''; if(csrf) fd.append('_glpi_csrf_token', csrf);
+    var csrf=amGetCsrfToken(); if(csrf) fd.append('_glpi_csrf_token', csrf);
     fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
-        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j};});})
+        .then(amParseKanbanResponse)
         .then(function(res){
             if(res.ok && res.j.success){
                 amClosePegarTicketModal();
@@ -1171,10 +1196,11 @@ function amSubmitPegarTicket(e){
                     }
                 }catch(err){ setTimeout(function(){ window.location.reload(); }, 600); }
             } else {
-                alert(res.j.message||'Falha ao pegar chamado');
+                var msg = (res.j && res.j.message) ? res.j.message : ('Falha ao pegar chamado (HTTP '+res.status+')');
+                alert(msg);
                 if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; }
             }
-        }).catch(function(err){ alert('Erro: '+err.message); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; } });
+        }).catch(function(err){ alert('Erro: '+(err.message||err)); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-hand-grab\"></i> Pegar'; } });
     return false;
 }
 function amOpenCardModal(type, id) {
@@ -1717,9 +1743,9 @@ function amKanbanConfirmGo(){
   fd.append('type', pending.type);
   fd.append('id', pending.id);
   fd.append('to', pending.to);
-  fd.append('_glpi_csrf_token', (document.querySelector('input[name=\"_glpi_csrf_token\"]')||{}).value || '<?= Session::getNewCSRFToken() ?>');
+  fd.append('_glpi_csrf_token', amGetCsrfToken() || '<?= Session::getNewCSRFToken() ?>');
   fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
-    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j};});})
+    .then(amParseKanbanResponse)
     .then(function(res){
       if(res.ok && res.j.success){
         amKanbanConfirmClose();
@@ -1767,8 +1793,8 @@ function amKanbanConfirmGo(){
         }catch(err){ setTimeout(function(){ window.location.reload(); }, 400); }
         if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; }
       }
-      else { alert(res.j.message||'Falha ao mover'); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } }
-    }).catch(function(err){ alert('Erro: '+err.message); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } });
+      else { var msg=(res.j && res.j.message)?res.j.message:('Falha ao mover (HTTP '+res.status+')'); alert(msg); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } }
+    }).catch(function(err){ alert('Erro: '+(err.message||err)); amKanbanConfirmClose(); if(btn){ btn.disabled=false; btn.innerHTML='<i class=\"ti ti-arrows-move\"></i> Confirmar'; } });
 }
 function amKanbanToast(msg, type){
   var c=document.createElement('div');
