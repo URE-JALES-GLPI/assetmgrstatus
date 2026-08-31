@@ -485,8 +485,14 @@ function amSigUpdateDisplay() {
     else el.style.borderColor = '#e8eaf0';
     if (amSigDocType==='CPF') el.style.borderColor = amSigDocNumber.length===11 ? '#10b981' : '#f59e0b';
 }
+function amIsValidCPF(cpf){
+  cpf=(cpf||'').replace(/\D/g,''); if(cpf.length!==11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  var d1=0; for(var i=0;i<9;i++) d1+=parseInt(cpf.charAt(i))*(10-i); var r1=(d1*10)%11; if(r1===10) r1=0; if(r1!==parseInt(cpf.charAt(9))) return false;
+  var d2=0; for(var i=0;i<10;i++) d2+=parseInt(cpf.charAt(i))*(11-i); var r2=(d2*10)%11; if(r2===10) r2=0; return r2===parseInt(cpf.charAt(10));
+}
 function amSigCheckDocComplete() {
     if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { amSigToast('CPF precisa de 11 dígitos.'); return; }
+    if (amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)) { amSigToast('CPF inválido — dígito verificador não confere.'); return; }
     if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { amSigToast('RG precisa de 5 a 12 dígitos.'); return; }
     document.getElementById('am-sig-nome').focus();
 }
