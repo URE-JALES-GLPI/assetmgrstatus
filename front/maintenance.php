@@ -24,11 +24,22 @@ $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
 // ADMIN — filtro por entidade independente da ativa (multi-checkbox)
 $can_admin_entity = Session::haveRight('plugin_assetmgrstatus_admin', READ);
 $filter_entity_recursive = !empty($_GET['entity_recursive']);
+// ADMIN: persiste ultima entidade selecionada em SESSION + localStorage (via JS) para ficar fixa entre telas/logout
 if ($can_admin_entity) {
+    $hasGetEntity = array_key_exists('entity', $_GET);
     $raw_entity = $_GET['entity'] ?? [];
     if (is_string($raw_entity)) $raw_entity = $raw_entity !== '' ? [$raw_entity] : [];
     if (!is_array($raw_entity)) $raw_entity = [];
     $filter_entity = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v >= 0));
+    // Se veio via GET, salva na SESSION (inclui vazio = Todas)
+    if ($hasGetEntity) {
+        $_SESSION['plugin_assetmgrstatus_entity'] = $filter_entity;
+        $_SESSION['plugin_assetmgrstatus_entity_recursive'] = $filter_entity_recursive ? 1 : 0;
+    } else if (isset($_SESSION['plugin_assetmgrstatus_entity']) && is_array($_SESSION['plugin_assetmgrstatus_entity'])) {
+        // Restaura da SESSION quando trocar de tela sem param entity na URL
+        $filter_entity = $_SESSION['plugin_assetmgrstatus_entity'];
+        $filter_entity_recursive = !empty($_SESSION['plugin_assetmgrstatus_entity_recursive']);
+    }
     // vazio = Todas as entidades (0 é válido para URE Jales)
 } else {
     $filter_entity = Session::getActiveEntity();
@@ -1489,5 +1500,61 @@ document.addEventListener('click', function(e){
     if (tab.href !== url.toString()) tab.href = url.toString();
   } catch(err){}
 });
+// ADMIN entidade fixa: persiste em localStorage e restaura entre telas/logout
+(function(){
+  try{
+    var isAdmin = <?= $can_admin_entity ? 'true' : 'false' ?>;
+    if(!isAdmin) return;
+    var urlParams = new URLSearchParams(window.location.search);
+    var hasEntityInUrl = urlParams.has('entity');
+    // Salva quando tem entity na URL (inclui Todas = sem entity)
+    if(hasEntityInUrl){
+      var vals=[]; urlParams.getAll('entity[]').forEach(function(v){ vals.push(v); });
+      // fallback para entity sem []
+      if(vals.length===0) urlParams.forEach(function(v,k){ if(k==='entity' || k==='entity[]') vals.push(v); });
+      // pega do form também
+      var formVals=[]; document.querySelectorAll('#am-entity-filter-form input[name="entity[]"]:checked').forEach(function(cb){ formVals.push(cb.value); });
+      if(formVals.length) vals=formVals;
+      localStorage.setItem('am_admin_entity', JSON.stringify(vals));
+      var rec=urlParams.get('entity_recursive') ? '1' : (document.querySelector('#am-entity-filter-form input[name="entity_recursive"]')?.checked ? '1':'0');
+      localStorage.setItem('am_admin_entity_recursive', rec);
+    } else {
+      // Restaura de localStorage se SESSION não tem e URL não tem
+      var stored = localStorage.getItem('am_admin_entity');
+      if(stored){
+        try{
+          var arr=JSON.parse(stored);
+          if(Array.isArray(arr) && arr.length){
+            // só restaura se não veio de um link que explicitamente limpou (ex: ?entity= sem valor)
+            var curHasEntity = urlParams.has('entity');
+            if(!curHasEntity){
+              var newUrl=new URL(window.location.href);
+              arr.forEach(function(v){ newUrl.searchParams.append('entity[]', v); });
+              var recStored=localStorage.getItem('am_admin_entity_recursive');
+              if(recStored==='1') newUrl.searchParams.set('entity_recursive','1');
+              // evita loop infinito: só redireciona uma vez
+              if(newUrl.toString()!==window.location.href && !sessionStorage.getItem('am_entity_restored')){
+                sessionStorage.setItem('am_entity_restored','1');
+                window.location.replace(newUrl.toString());
+              }
+            }
+          }
+        }catch(e){}
+      }
+    }
+    // Limpa flag de restauração quando já tem entity na URL
+    if(hasEntityInUrl) sessionStorage.removeItem('am_entity_restored');
+    // Ao submeter o filtro de entidade, salva no localStorage
+    var form=document.getElementById('am-entity-filter-form');
+    if(form){
+      form.addEventListener('submit', function(){
+        var vals=[]; form.querySelectorAll('input[name="entity[]"]:checked').forEach(function(cb){ vals.push(cb.value); });
+        localStorage.setItem('am_admin_entity', JSON.stringify(vals));
+        var rec=form.querySelector('input[name="entity_recursive"]')?.checked ? '1':'0';
+        localStorage.setItem('am_admin_entity_recursive', rec);
+      });
+    }
+  }catch(e){}
+})();
 </script>
 <?php Html::footer(); ?>
