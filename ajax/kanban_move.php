@@ -74,17 +74,47 @@ try {
         $ticket = new Ticket();
         if (!$ticket->getFromDB($id)) throw new Exception('Chamado não encontrado');
 
-        $update = ['id' => $id, 'status' => $newStatus];
-        // Ao mover para Em Andamento, vincula o técnico logado no chamado padrão GLPI
+        // Ao mover para Em Andamento, primeiro garante atribuição correta (mesmo fix de Transfer::assignTicket)
         if ($to === 'emandamento') {
-            $update['_itil_assign'] = [['users_id' => Session::getLoginUserID()]];
-            // Também atribui como técnico se o campo existir
+            $uid = Session::getLoginUserID();
+            $currentStatus = (int)($ticket->fields['status'] ?? 0);
+            // Usa helper robusto de atribuição para garantir campo Atribuído
+            \GlpiPlugin\Assetmgrstatus\Transfer::assignTicket($id, $uid);
+            // Também tenta atribuir via campo direto se existir
             if (isset($ticket->fields['users_id_tech'])) {
-                $update['users_id_tech'] = Session::getLoginUserID();
+                try { $ticket->update(['id'=>$id,'users_id_tech'=>$uid]); } catch(\Throwable $e){}
             }
+            $errAssign = \GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error;
+            if ($errAssign !== '' && strpos($errAssign,'Falha ao atribuir')!==false) {
+                throw new Exception($errAssign);
+            }
+            // Atualiza status para Em Atendimento se ainda Novo
+            if ($currentStatus === 1) {
+                $okS = $ticket->update(['id'=>$id,'status'=>$newStatus]);
+                if (!$okS) {
+                    // Tenta via Transfer::setTicketStatus como fallback
+                    \GlpiPlugin\Assetmgrstatus\Transfer::setTicketStatus($id, $newStatus);
+                }
+            }
+            // Adiciona acompanhamento de quem pegou
+            try {
+                \GlpiPlugin\Assetmgrstatus\Transfer::addTicketFollowup($id, "🔧 Chamado #".str_pad($id,6,'0',STR_PAD_LEFT)." assumido pelo técnico ".\GlpiPlugin\Assetmgrstatus\Transfer::getUserName($uid)." em ".date('d/m/Y H:i')." via Kanban.");
+            } catch(\Throwable $e){}
+            echo json_encode(['success'=>true]);
+            exit;
         }
+
+        $update = ['id' => $id, 'status' => $newStatus];
         $ok = $ticket->update($update);
-        if (!$ok) throw new Exception('Falha ao atualizar chamado: ' . ($ticket->getError() ?? ''));
+        if (!$ok) {
+            // Fallback via Transfer helper para Solucionado
+            if ($newStatus === 5) {
+                \GlpiPlugin\Assetmgrstatus\Transfer::setTicketStatus($id, $newStatus);
+                $fallbackOk = \GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error === '';
+                if ($fallbackOk) { echo json_encode(['success'=>true]); exit; }
+            }
+            throw new Exception('Falha ao atualizar chamado: ' . ($ticket->getError() ?? \GlpiPlugin\Assetmgrstatus\Transfer::$last_ticket_error));
+        }
 
         echo json_encode(['success'=>true]);
         exit;

@@ -431,12 +431,96 @@ class Transfer
     {
         if ($tickets_id <= 0 || $users_id <= 0) return;
         try {
+            global $DB;
+            // Evita duplicado
+            $exists = $DB->request([
+                'FROM'  => 'glpi_tickets_users',
+                'WHERE' => ['tickets_id' => $tickets_id, 'users_id' => $users_id, 'type' => 2],
+                'LIMIT' => 1,
+            ])->count() > 0;
+            if ($exists) return;
+
             $ticket = new Ticket();
-            $ok = $ticket->update([
-                'id'          => $tickets_id,
-                '_itil_assign' => [['users_id' => $users_id]],
-            ]);
-            if (!$ok) {
+            $ok = false;
+            $errMsg = '';
+            if ($ticket->getFromDB($tickets_id)) {
+                // Tenta via API oficial com _type correto (GLPI 10/11)
+                try {
+                    $ok = $ticket->update([
+                        'id'           => $tickets_id,
+                        '_itil_assign' => ['_type' => 'user', 'users_id' => $users_id],
+                        '_auto_update' => true,
+                    ]);
+                } catch (\Throwable $e2) {
+                    $errMsg = $e2->getMessage();
+                    $ok = false;
+                }
+                if (!$ok) {
+                    $err = self::getItemError($ticket);
+                    if ($err !== '' && $errMsg === '') $errMsg = $err;
+                }
+                // Verifica se inseriu
+                $stillMissing = $DB->request([
+                    'FROM'  => 'glpi_tickets_users',
+                    'WHERE' => ['tickets_id' => $tickets_id, 'users_id' => $users_id, 'type' => 2],
+                    'LIMIT' => 1,
+                ])->count() === 0;
+
+                if ($stillMissing) {
+                    // Fallback: inserção direta via Ticket_User ou SQL
+                    $inserted = false;
+                    if (class_exists('Ticket_User')) {
+                        try {
+                            $tu = new \Ticket_User();
+                            // Checa duplicado novamente antes
+                            if ($DB->request(['FROM'=>'glpi_tickets_users','WHERE'=>['tickets_id'=>$tickets_id,'users_id'=>$users_id,'type'=>2]])->count()===0) {
+                                $tid = $tu->add([
+                                    'tickets_id'      => $tickets_id,
+                                    'users_id'        => $users_id,
+                                    'type'            => 2,
+                                    'use_notification'=> 1,
+                                ]);
+                                if ($tid) $inserted = true;
+                                else {
+                                    $err2 = self::getItemError($tu);
+                                    if ($err2 !== '') $errMsg = $err2;
+                                }
+                            } else {
+                                $inserted = true;
+                            }
+                        } catch (\Throwable $e3) {
+                            $errMsg = $e3->getMessage();
+                        }
+                    }
+                    if (!$inserted) {
+                        // Último fallback SQL direto
+                        try {
+                            $DB->insert('glpi_tickets_users', [
+                                'tickets_id'       => $tickets_id,
+                                'users_id'         => $users_id,
+                                'type'             => 2,
+                                'use_notification' => 1,
+                            ]);
+                            $inserted = true;
+                        } catch (\Throwable $e4) {
+                            if ($errMsg === '') $errMsg = $e4->getMessage();
+                        }
+                    }
+                    if ($inserted) $ok = true;
+                } else {
+                    $ok = true;
+                }
+
+                // Garante status Em Atendimento se ainda Novo
+                if ($ok && isset($ticket->fields['status']) && (int)$ticket->fields['status'] === 1) {
+                    $t2 = new Ticket();
+                    $t2->update(['id' => $tickets_id, 'status' => defined('Ticket::ASSIGNED') ? Ticket::ASSIGNED : 2]);
+                }
+            }
+
+            if (!$ok && $errMsg !== '') {
+                self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $errMsg;
+            } elseif (!$ok) {
                 $err = self::getItemError($ticket);
                 if ($err !== '') self::$last_ticket_error = 'Falha ao atribuir técnico no chamado: ' . $err;
             }
