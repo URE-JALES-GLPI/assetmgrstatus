@@ -21,9 +21,9 @@ if ($filter === 'pendente') $transfers = $pendentes;
 elseif ($filter === 'assinado') $transfers = $assinados;
 else $transfers = $all;
 
-// Ordena pendentes por data criação mais antigos primeiro (fila)
+// Ordena por Mais recente (pedido: Assinatura filtrado por Mais recente)
 if ($filter === 'pendente') {
-    usort($transfers, fn($a,$b) => strtotime($a['date_creation']) <=> strtotime($b['date_creation']));
+    usort($transfers, fn($a,$b) => strtotime($b['date_creation']) <=> strtotime($a['date_creation']));
 } else {
     usort($transfers, fn($a,$b) => strtotime($b['assinatura_data'] ?? $b['date_creation']) <=> strtotime($a['assinatura_data'] ?? $a['date_creation']));
 }
