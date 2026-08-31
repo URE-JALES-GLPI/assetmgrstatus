@@ -1466,12 +1466,12 @@ class Transfer
         $lastOut = '';
         $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
 
-        // Tenta lp primeiro — com opções explícitas de página (evita 60 cópias/páginas por padrão CUPS)
+        // Tenta lp primeiro — com opções explícitas de página e alta resolução (evita 60 cópias e baixa resolução)
         if ($hasLp) {
             $cmd = 'lp';
             if ($printer) $cmd .= ' -d ' . escapeshellarg($printer);
             $cmd .= ' -t ' . escapeshellarg($title);
-            $cmd .= ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided';
+            $cmd .= ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5 -o ColorModel=Color';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
@@ -1482,7 +1482,7 @@ class Transfer
                 if (stripos($lastOut, 'Unknown destination') !== false || stripos($lastOut, 'unknown printer') !== false) {
                     $out2 = [];
                     $ret2 = -1;
-                    $cmd2 = 'lp -t ' . escapeshellarg($title) . ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd2 = 'lp -t ' . escapeshellarg($title) . ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5 ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd2, $out2, $ret2);
                     if ($ret2 === 0) {
                         $printed = true;
@@ -1503,12 +1503,12 @@ class Transfer
             }
         }
 
-        // Se ainda não imprimiu e lpr disponível, tenta lpr com 1 cópia
+        // Se ainda não imprimiu e lpr disponível, tenta lpr com 1 cópia e alta resolução
         if (!$printed && $hasLpr) {
             $output = [];
             $cmd = 'lpr';
             if ($printer) $cmd .= ' -P ' . escapeshellarg($printer);
-            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=one-sided';
+            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);

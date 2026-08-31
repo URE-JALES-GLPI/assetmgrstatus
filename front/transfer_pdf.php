@@ -186,7 +186,7 @@ async function amPrintHP() {
     try {
         const pageEl = document.querySelector('.page');
         if (pageEl && window.html2pdf) {
-            const opt = { margin: [10, 10, 10, 10], filename: 'Termo-' + String(amTransferIdPdf).padStart(6,'0') + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            const opt = { margin: [10, 10, 10, 10], filename: 'Termo-' + String(amTransferIdPdf).padStart(6,'0') + '.pdf', image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 3, useCORS: true, scrollY: 0, logging: false, letterRendering: true, dpi: 300 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
             const dataUri = await html2pdf().set(opt).from(pageEl).outputPdf('datauristring');
             const parts = dataUri.split(','); pdfBase64 = parts[1] || null;
             if (pdfBase64) console.log('[amPrintHP] PDF cliente gerado', pdfBase64.length);
