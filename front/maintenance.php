@@ -5,6 +5,7 @@ include('../../../inc/includes.php');
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Stats;
 use GlpiPlugin\Assetmgrstatus\Transfer;
+use GlpiPlugin\Assetmgrstatus\UserEntityFilter;
 
 Session::checkLoginUser();
 Session::checkRight('plugin_assetmgrstatus', READ);
@@ -22,25 +23,46 @@ if (is_string($raw_fab)) $raw_fab = $raw_fab !== '' ? [$raw_fab] : [];
 if (!is_array($raw_fab)) $raw_fab = [];
 $filter_fabricante = array_values(array_filter(array_map('intval', $raw_fab)));
 // ADMIN — filtro por entidade independente da ativa (multi-checkbox)
+// Persiste em 3 camadas: GET > SESSION > DB (sobrevive a F5 e relogin) + localStorage via JS
 $can_admin_entity = Session::haveRight('plugin_assetmgrstatus_admin', READ);
 $filter_entity_recursive = !empty($_GET['entity_recursive']);
-// ADMIN: persiste ultima entidade selecionada em SESSION + localStorage (via JS) para ficar fixa entre telas/logout
 if ($can_admin_entity) {
-    $hasGetEntity = array_key_exists('entity', $_GET);
+    // am_entity_filter indica submissão explícita do form (mesmo quando vazio = Todas)
+    $hasGetEntity = array_key_exists('entity', $_GET) || array_key_exists('am_entity_filter', $_GET);
     $raw_entity = $_GET['entity'] ?? [];
     if (is_string($raw_entity)) $raw_entity = $raw_entity !== '' ? [$raw_entity] : [];
     if (!is_array($raw_entity)) $raw_entity = [];
     $filter_entity = array_values(array_filter(array_map('intval', $raw_entity), fn($v) => $v >= 0));
-    // Se veio via GET, salva na SESSION (inclui vazio = Todas)
     if ($hasGetEntity) {
+        // Veio via URL: salva em SESSION e em DB (persiste após logout)
         $_SESSION['plugin_assetmgrstatus_entity'] = $filter_entity;
         $_SESSION['plugin_assetmgrstatus_entity_recursive'] = $filter_entity_recursive ? 1 : 0;
+        try {
+            UserEntityFilter::save(Session::getLoginUserID(), $filter_entity, $filter_entity_recursive);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] save entity filter: ' . $e->getMessage());
+        }
     } else if (isset($_SESSION['plugin_assetmgrstatus_entity']) && is_array($_SESSION['plugin_assetmgrstatus_entity'])) {
         // Restaura da SESSION quando trocar de tela sem param entity na URL
         $filter_entity = $_SESSION['plugin_assetmgrstatus_entity'];
         $filter_entity_recursive = !empty($_SESSION['plugin_assetmgrstatus_entity_recursive']);
+    } else {
+        // Tenta restaurar do DB (sobrevive a logout/relogin)
+        try {
+            $saved = UserEntityFilter::load(Session::getLoginUserID());
+            if ($saved !== null) {
+                $filter_entity = $saved['entities'] ?? [];
+                $filter_entity_recursive = !empty($saved['recursive']);
+                $_SESSION['plugin_assetmgrstatus_entity'] = $filter_entity;
+                $_SESSION['plugin_assetmgrstatus_entity_recursive'] = $filter_entity_recursive ? 1 : 0;
+            } else {
+                // Nenhum salvo: mantém o que veio (vazio = Todas)
+            }
+        } catch (\Throwable $e) {
+            // fallback silencioso
+        }
     }
-    // vazio = Todas as entidades (0 é válido para URE Jales)
+    // vazio = Todas as entidades (0 é id válido para URE Jales)
 } else {
     $filter_entity = Session::getActiveEntity();
 }
@@ -49,7 +71,8 @@ $view_mode     = $_GET['view']   ?? ($is_mobile_ua ? 'grid' : 'list');
 if ($is_mobile_ua && $view_mode === 'list') $view_mode = 'grid'; // força grade no mobile mesmo se view=list na URL
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
-// Helper para montar querystring preservando o array comp[] e fabricante — lê direto de $_GET para evitar perda de filtro
+// Helper para montar querystring preservando o array comp[] e fabricante
+// Agora também preserva filtro de entidade persistido (SESSION/DB) mesmo quando URL não tem entity — corrige F5 e navegação entre telas
 function am_qs(array $overrides = []): string {
     $cur_type   = $_GET['type']   ?? '';
     $cur_search = $_GET['search'] ?? '';
@@ -69,10 +92,24 @@ function am_qs(array $overrides = []): string {
     $cur_entity = [];
     $cur_entity_rec = !empty($_GET['entity_recursive']);
     if ($can_admin_qs) {
-        $raw_e = $_GET['entity'] ?? [];
-        if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
-        if (!is_array($raw_e)) $raw_e = [];
-        $cur_entity = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v >= 0));
+        $has_e_qs = array_key_exists('entity', $_GET);
+        if ($has_e_qs) {
+            $raw_e = $_GET['entity'] ?? [];
+            if (is_string($raw_e)) $raw_e = $raw_e !== '' ? [$raw_e] : [];
+            if (!is_array($raw_e)) $raw_e = [];
+            $cur_entity = array_values(array_filter(array_map('intval', $raw_e), fn($v) => $v >= 0));
+        } else if (isset($_SESSION['plugin_assetmgrstatus_entity']) && is_array($_SESSION['plugin_assetmgrstatus_entity'])) {
+            $cur_entity = $_SESSION['plugin_assetmgrstatus_entity'];
+            $cur_entity_rec = !empty($_SESSION['plugin_assetmgrstatus_entity_recursive']);
+        } else {
+            try {
+                $saved_qs = \GlpiPlugin\Assetmgrstatus\UserEntityFilter::load(Session::getLoginUserID());
+                if ($saved_qs !== null) {
+                    $cur_entity = $saved_qs['entities'] ?? [];
+                    $cur_entity_rec = !empty($saved_qs['recursive']);
+                }
+            } catch (\Throwable $e) {}
+        }
     }
 
     // Usa override se a chave existir no array (permite '' para "Todos"), senão usa valor atual da URL
@@ -296,6 +333,7 @@ if ($can_admin_entity) {
                 </button>
                 <div id="am-entity-panel" class="am-comp-panel">
                     <form method="GET" action="" id="am-entity-filter-form">
+                        <input type="hidden" name="am_entity_filter" value="1">
                         <input type="hidden" name="type"   value="<?= htmlspecialchars($filter_type) ?>">
                         <input type="hidden" name="search" value="<?= htmlspecialchars($filter_search) ?>">
                         <input type="hidden" name="status" value="<?= htmlspecialchars($filter_status) ?>">
@@ -1500,51 +1538,82 @@ document.addEventListener('click', function(e){
     if (tab.href !== url.toString()) tab.href = url.toString();
   } catch(err){}
 });
-// ADMIN entidade fixa: persiste em localStorage e restaura entre telas/logout
+// ADMIN entidade fixa: persiste em localStorage + DB e restaura entre telas/logout (corrigido para entity[] e F5/relogin)
 (function(){
   try{
     var isAdmin = <?= $can_admin_entity ? 'true' : 'false' ?>;
     if(!isAdmin) return;
     var urlParams = new URLSearchParams(window.location.search);
-    var hasEntityInUrl = urlParams.has('entity');
-    // Salva quando tem entity na URL (inclui Todas = sem entity)
+    // Detecta entity em URL corretamente (entity ou entity[])
+    var hasEntityInUrl = urlParams.has('entity') || urlParams.has('entity[]') || urlParams.has('am_entity_filter');
+    // Helper: extrai valores de entity independente de entity ou entity[]
+    function getEntityVals(params){
+      var vals=[];
+      params.getAll('entity').forEach(function(v){ if(v!=='' ) vals.push(v); });
+      params.getAll('entity[]').forEach(function(v){ vals.push(v); });
+      // fallback iterando todas as chaves caso codificação diferente
+      if(vals.length===0){
+        params.forEach(function(v,k){ if(k==='entity' || k==='entity[]') vals.push(v); });
+      }
+      // dedup e normaliza
+      var uniq={}; var out=[];
+      vals.forEach(function(v){ var iv=String(parseInt(v,10)); if(iv!=='NaN' && !uniq[iv]){ uniq[iv]=1; out.push(iv);} });
+      return out;
+    }
+    // Salva quando URL indica filtro explícito (am_entity_filter ou entity presente)
     if(hasEntityInUrl){
-      var vals=[]; urlParams.getAll('entity[]').forEach(function(v){ vals.push(v); });
-      // fallback para entity sem []
-      if(vals.length===0) urlParams.forEach(function(v,k){ if(k==='entity' || k==='entity[]') vals.push(v); });
-      // pega do form também
+      var vals=getEntityVals(urlParams);
+      // Se veio do form, confere checkboxes marcados para prevalecer
       var formVals=[]; document.querySelectorAll('#am-entity-filter-form input[name="entity[]"]:checked').forEach(function(cb){ formVals.push(cb.value); });
-      if(formVals.length) vals=formVals;
+      // Se form tem valores e URL foi via submit do form, usa formVals (inclui vazio = Todas)
+      var isFormSubmit = urlParams.has('am_entity_filter');
+      if(isFormSubmit) vals=formVals;
+      else if(formVals.length && vals.length===0) vals=formVals;
       localStorage.setItem('am_admin_entity', JSON.stringify(vals));
       var rec=urlParams.get('entity_recursive') ? '1' : (document.querySelector('#am-entity-filter-form input[name="entity_recursive"]')?.checked ? '1':'0');
       localStorage.setItem('am_admin_entity_recursive', rec);
+      // Também persiste no servidor via AJAX para sobreviver a logout em qualquer navegador
+      try{
+        var base = (window.location.pathname.split('/plugins/assetmgrstatus/')[0] || '') + '/plugins/assetmgrstatus';
+        var scripts = document.querySelectorAll('script[src*="assetmgrstatus"]');
+        if(scripts.length){ base = scripts[scripts.length-1].src.split('/public/js/')[0]; }
+        var csrf = document.querySelector('input[name="_glpi_csrf_token"]')?.value || '';
+        fetch(base + '/ajax/save_entity_filter.php', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: 'entities=' + encodeURIComponent(JSON.stringify(vals)) + '&recursive=' + rec + (csrf ? '&_glpi_csrf_token=' + encodeURIComponent(csrf) : '')
+        }).catch(function(){});
+      }catch(e){}
+      sessionStorage.removeItem('am_entity_restored');
     } else {
-      // Restaura de localStorage se SESSION não tem e URL não tem
+      // Restaura de localStorage se URL não tem filtro explícito (navegação via menu ou F5 sem params)
       var stored = localStorage.getItem('am_admin_entity');
-      if(stored){
+      if(stored !== null){
         try{
           var arr=JSON.parse(stored);
-          if(Array.isArray(arr) && arr.length){
-            // só restaura se não veio de um link que explicitamente limpou (ex: ?entity= sem valor)
-            var curHasEntity = urlParams.has('entity');
-            if(!curHasEntity){
-              var newUrl=new URL(window.location.href);
-              arr.forEach(function(v){ newUrl.searchParams.append('entity[]', v); });
-              var recStored=localStorage.getItem('am_admin_entity_recursive');
-              if(recStored==='1') newUrl.searchParams.set('entity_recursive','1');
-              // evita loop infinito: só redireciona uma vez
-              if(newUrl.toString()!==window.location.href && !sessionStorage.getItem('am_entity_restored')){
-                sessionStorage.setItem('am_entity_restored','1');
-                window.location.replace(newUrl.toString());
+          if(Array.isArray(arr)){
+            if(arr.length){
+              var curHas = urlParams.has('entity') || urlParams.has('entity[]');
+              if(!curHas){
+                var newUrl=new URL(window.location.href);
+                arr.forEach(function(v){ newUrl.searchParams.append('entity[]', v); });
+                newUrl.searchParams.set('am_entity_filter','1');
+                var recStored=localStorage.getItem('am_admin_entity_recursive');
+                if(recStored==='1') newUrl.searchParams.set('entity_recursive','1');
+                if(newUrl.toString()!==window.location.href && !sessionStorage.getItem('am_entity_restored')){
+                  sessionStorage.setItem('am_entity_restored','1');
+                  window.location.replace(newUrl.toString());
+                }
               }
+            } else {
+              // arr vazio = Todas: não redireciona, apenas garante flag limpa
+              sessionStorage.removeItem('am_entity_restored');
             }
           }
         }catch(e){}
       }
     }
-    // Limpa flag de restauração quando já tem entity na URL
-    if(hasEntityInUrl) sessionStorage.removeItem('am_entity_restored');
-    // Ao submeter o filtro de entidade, salva no localStorage
+    // Ao submeter o filtro de entidade, salva no localStorage imediatamente
     var form=document.getElementById('am-entity-filter-form');
     if(form){
       form.addEventListener('submit', function(){
@@ -1554,6 +1623,7 @@ document.addEventListener('click', function(e){
         localStorage.setItem('am_admin_entity_recursive', rec);
       });
     }
+    // Limpa filtro ao clicar em "Limpar" + Aplicar com vazio: já tratado via am_entity_filter
   }catch(e){}
 })();
 </script>
