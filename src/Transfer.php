@@ -2888,6 +2888,13 @@ class Transfer
                 self::addTicketFollowup((int)$transfer['tickets_id'], $follow);
             } catch (\Throwable $e) {}
         }
+        // Auto-finaliza se já tem as duas assinaturas e ainda está em Retirada (pronto)
+        try {
+            $fresh = self::getById($transfer_id);
+            if ($fresh && $fresh['status'] === self::STATUS_PRONTO && !empty($fresh['assinatura_image']) && !empty($fresh['assinatura_tecnico_image'])) {
+                self::finalizar($transfer_id);
+            }
+        } catch (\Throwable $e) { error_log('[assetmgrstatus] auto-finaliza após assinatura: '.$e->getMessage()); }
         return true;
         } catch (Throwable $e) {
             error_log('[assetmgrstatus] salvarAssinatura: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
