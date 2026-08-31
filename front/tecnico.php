@@ -670,7 +670,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                             <button class="am-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenPegarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>',<?= $t['items_count'] ?>)"><i class="ti ti-hand-grab"></i> Pegar</button>
                             <span style="font-size:.68rem;color:#9ca3af;display:flex;align-items:center;gap:4px;"><i class="ti ti-arrows-move"></i> ou arraste</span>
                             <?php elseif ($t['status']===Transfer::STATUS_MANUTENCAO): ?>
-                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_diario.php?id=<?= $t['id'] ?>" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;">Diário</a>
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_diario.php?id=<?= $t['id'] ?>" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-clipboard-text"></i> Diário</a>
+                            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_pronto.php?id=<?= $t['id'] ?>" class="am-btn" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-check"></i> Pronto</a>
                             <?php elseif ($t['status']===Transfer::STATUS_PRONTO): ?>
                             <button class="am-btn" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;" onclick="amOpenFinalizarModal(<?= $t['id'] ?>,'<?= htmlspecialchars(addslashes($t['entity_dest_name'])) ?>')"><i class="ti ti-flag-check"></i> Finalizar</button>
                             <?php else: ?>
