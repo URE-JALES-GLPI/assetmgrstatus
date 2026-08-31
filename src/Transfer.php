@@ -1101,22 +1101,61 @@ class Transfer
                 $pdf->Cell(70, 5, $toIso(mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,30)), 1, 1, 'L');
             }
         } else {
-            $pdf->Cell(8, 6, '#', 1, 0, 'C', true);
-            $pdf->Cell(52, 6, 'Equipamento', 1, 0, 'L', true);
-            $pdf->Cell(28, 6, 'Tipo', 1, 0, 'L', true);
-            $pdf->Cell(28, 6, 'Status', 1, 0, 'L', true);
-            $pdf->Cell(74, 6, 'Motivo / Feito', 1, 1, 'L', true);
+            // 7 colunas idênticas ao transfer_pdf.php (pronto): #, Nome, Tipo, Status, Motivo, Componentes, Feito
+            $pdf->Cell(7, 6, '#', 1, 0, 'C', true);
+            $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
+            $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
+            $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
+            $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
+            $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
+            $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
             $pdf->SetTextColor(45, 45, 45);
-            $pdf->SetFont('Helvetica', '', 6);
+            $pdf->SetFont('Helvetica', '', 5);
+            $compList = \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getComponents();
             foreach ($items as $i => $it) {
-                $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,15);
+                $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,12);
                 $statusLabel = $it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-';
-                $reason = mb_substr($it['final_reason'] ?? '-',0,40);
-                $pdf->Cell(8, 5, (string)($i+1), 1, 0, 'C');
-                $pdf->Cell(52, 5, $toIso(mb_substr($it['item_name'],0,35)), 1, 0, 'L');
-                $pdf->Cell(28, 5, $toIso($typeShort), 1, 0, 'L');
-                $pdf->Cell(28, 5, $toIso(mb_substr($statusLabel,0,15)), 1, 0, 'L');
-                $pdf->Cell(74, 5, $toIso($reason), 1, 1, 'L');
+                $reason = mb_substr($it['final_reason'] ?? '-',0,28);
+                // Componentes: final_components + work_components resolved
+                global $DB;
+                $wrow = null; $wlog = ''; $wcomps = [];
+                try {
+                    $witer = $DB->request(['SELECT'=>['work_log','work_components'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$it['items_id']],'LIMIT'=>1]);
+                    $wrow = $witer->count() > 0 ? $witer->current() : null;
+                    $wlog = trim($wrow['work_log'] ?? '');
+                    $wcomps = !empty($wrow['work_components']) ? json_decode($wrow['work_components'], true) : [];
+                    if (!is_array($wcomps)) $wcomps = [];
+                } catch (\Throwable $e) {}
+                $resolved = [];
+                foreach ($wcomps as $ck => $cs) { if ($cs === 'resolved') $resolved[] = $compList[$ck] ?? $ck; }
+                $fcomps = !empty($it['final_components']) ? json_decode($it['final_components'], true) : [];
+                if (!is_array($fcomps)) $fcomps = [];
+                $compTxt = [];
+                foreach ($fcomps as $ckey => $cdesc) { $clabel = $compList[$ckey] ?? $ckey; $compTxt[] = $clabel . ($cdesc ? ':'.mb_substr($cdesc,0,12) : ''); }
+                foreach ($resolved as $rl) { $compTxt[] = $rl . '(ok)'; }
+                $compStr = !empty($compTxt) ? mb_substr(implode('; ', $compTxt),0,32) : '-';
+                $wlogShort = $wlog !== '' ? mb_substr($wlog,0,35) : '-';
+                // Evita overflow vertical: se Y > 265, nova página e reimprime cabeçalho
+                if ($pdf->GetY() > 265) {
+                    $pdf->AddPage();
+                    $pdf->SetFont('Helvetica', 'B', 5);
+                    $pdf->SetFillColor(26, 115, 181); $pdf->SetTextColor(255,255,255);
+                    $pdf->Cell(7, 6, '#', 1, 0, 'C', true);
+                    $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
+                    $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
+                    $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
+                    $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
+                    $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
+                    $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                    $pdf->SetTextColor(45,45,45); $pdf->SetFont('Helvetica','',5);
+                }
+                $pdf->Cell(7, 5, (string)($i+1), 1, 0, 'C');
+                $pdf->Cell(30, 5, $toIso(mb_substr($it['item_name'],0,22)), 1, 0, 'L');
+                $pdf->Cell(18, 5, $toIso($typeShort), 1, 0, 'L');
+                $pdf->Cell(22, 5, $toIso(mb_substr($statusLabel,0,13)), 1, 0, 'L');
+                $pdf->Cell(30, 5, $toIso($reason), 1, 0, 'L');
+                $pdf->Cell(35, 5, $toIso($compStr), 1, 0, 'L');
+                $pdf->Cell(48, 5, $toIso($wlogShort), 1, 1, 'L');
             }
         }
         $pdf->Ln(4);
