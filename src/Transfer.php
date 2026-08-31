@@ -2513,6 +2513,7 @@ class Transfer
             $row['origin_entity_name'] = $origin
                 ? ($origin['name'] !== '' ? $origin['name'] : 'Entidade #' . $origin['id'])
                 : '-';
+            $row['origin_entity_id']   = $origin['id'] ?? 0;
             $row['tech_name']        = ($row['users_id_tech'] && isset($user_names[(int)$row['users_id_tech']]))
                 ? $user_names[(int)$row['users_id_tech']] : null;
             $row['creator_name']     = ($row['users_id_created'] && isset($user_names[(int)$row['users_id_created']]))
@@ -2901,6 +2902,78 @@ class Transfer
             self::$last_ticket_error = 'Exceção: ' . $e->getMessage();
             return false;
         }
+    }
+
+    /**
+     * Assinatura em lote: mesma assinatura (recebedor + técnico) para N transferências da mesma entidade.
+     * Valida mesma origem, status precisaAssinatura e delega para salvarAssinatura individual.
+     * @return array{ok:bool, results:array<int, array{id:int, ok:bool, error:string}>, error?:string}
+     */
+    public static function salvarAssinaturaBulk(array $transfer_ids, string $doc_type, string $doc_number, string $nome, string $image_base64, ?string $tec_doc_type = null, ?string $tec_doc_number = null, ?string $tec_nome = null, ?string $tec_image_base64 = null): array
+    {
+        self::$last_ticket_error = '';
+        $ids = array_values(array_unique(array_filter(array_map('intval', $transfer_ids), fn($v) => $v > 0)));
+        if (empty($ids)) {
+            return ['ok' => false, 'results' => [], 'error' => 'Nenhum ID informado'];
+        }
+        if (count($ids) < 2) {
+            // permite 1 para compat, mas ideal 2+
+        }
+        // Carrega todas e valida mesma origem
+        $originId = null;
+        $originName = '';
+        $transfers = [];
+        foreach ($ids as $tid) {
+            $tr = self::getById($tid);
+            if (!$tr) {
+                return ['ok' => false, 'results' => [], 'error' => "Transferência #$tid não encontrada"];
+            }
+            if (!self::precisaAssinatura($tr)) {
+                return ['ok' => false, 'results' => [], 'error' => "Transferência #$tid não está pendente de assinatura (status: {$tr['status']})"];
+            }
+            // origem via itens
+            $items = self::getItems($tid);
+            $first = reset($items);
+            $curOriginId = (int)($first['origin_entity_id'] ?? 0);
+            $curOriginName = (string)($first['origin_entity_name'] ?? '');
+            if ($curOriginId === 0 && $curOriginName === '' && !empty($items)) {
+                // fallback via getAll origem se necessário
+                try {
+                    $all = self::getAll();
+                    foreach ($all as $a) { if ((int)$a['id'] === $tid) { $curOriginId = (int)($a['origin_entity_id'] ?? 0); $curOriginName = (string)($a['origin_entity_name'] ?? ''); break; } }
+                } catch (\Throwable $e) {}
+            }
+            if ($originId === null) {
+                $originId = $curOriginId;
+                $originName = $curOriginName;
+            } elseif ($curOriginId !== $originId) {
+                // compara também por nome se id for 0
+                if ($curOriginId !== 0 || $originId !== 0) {
+                    return ['ok' => false, 'results' => [], 'error' => "Todas as transferências devem ser da mesma entidade. ID $tid é de '" . ($curOriginName ?: 'Entidade #'.$curOriginId) . "' diferente de '" . ($originName ?: 'Entidade #'.$originId) . "'"];
+                } elseif ($curOriginName !== $originName) {
+                    return ['ok' => false, 'results' => [], 'error' => "Todas devem ser da mesma entidade ('$curOriginName' vs '$originName')"];
+                }
+            }
+            $transfers[$tid] = $tr;
+        }
+
+        $results = [];
+        $allOk = true;
+        $firstError = '';
+        foreach ($ids as $tid) {
+            $ok = self::salvarAssinatura($tid, $doc_type, $doc_number, $nome, $image_base64, $tec_doc_type, $tec_doc_number, $tec_nome, $tec_image_base64);
+            $err = $ok ? '' : (self::$last_ticket_error ?: 'Falha ao salvar');
+            $results[] = ['id' => $tid, 'ok' => $ok, 'error' => $err];
+            if (!$ok) {
+                $allOk = false;
+                if ($firstError === '') $firstError = "Transferência #$tid: $err";
+            } else {
+                // limpa erro para próxima iteração não carregar anterior
+                self::$last_ticket_error = '';
+            }
+        }
+
+        return ['ok' => $allOk, 'results' => $results, 'error' => $allOk ? '' : $firstError];
     }
 
     public static function maskDocumento(string $type, string $raw): string
