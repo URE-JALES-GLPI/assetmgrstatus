@@ -56,6 +56,20 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 .am-sig-canvas{width:100%;height:220px;display:block;touch-action:none;cursor:crosshair;}
 @media(max-width:768px){.am-sig-canvas{height:260px;}}
 .am-sig-hint{font-size:.72rem;color:#9ca3af;text-align:center;margin-top:6px;}
+/* Bulk seleção */
+.am-sig-card{position:relative;}
+.am-sig-card.am-sig-selected{border-color:#4f46e5 !important;box-shadow:0 0 0 3px rgba(79,70,229,.18),0 8px 24px rgba(79,70,229,.12) !important;transform:translateY(-2px);}
+.am-sig-card.am-sig-selected::after{content:'✓';position:absolute;top:10px;right:10px;width:26px;height:26px;background:#4f46e5;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;z-index:3;box-shadow:0 2px 8px rgba(79,70,229,.3);}
+.am-sig-checkbox{position:absolute;top:10px;right:10px;z-index:4;width:22px;height:22px;accent-color:#4f46e5;cursor:pointer;display:none;}
+.am-sig-card.am-bulk-mode .am-sig-checkbox{display:block;}
+.am-sig-card.am-bulk-mode.am-sig-selected::after{display:none;}
+.am-sig-card.am-bulk-mode{cursor:pointer;}
+.am-sig-bulk-bar{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1e1b4b;color:#fff;padding:14px 20px;border-radius:16px;display:none;align-items:center;gap:14px;box-shadow:0 12px 40px rgba(30,27,75,.4);z-index:9998;max-width:96vw;width:max-content;flex-wrap:wrap;justify-content:center;}
+.am-sig-bulk-bar.open{display:flex;animation:amSigBulkIn .22s ease;}
+@keyframes amSigBulkIn{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.am-sig-bulk-info{font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:8px;}
+.am-sig-bulk-info .am-sig-bulk-count{background:#fff;color:#4f46e5;border-radius:20px;padding:2px 10px;font-weight:800;}
+@media(max-width:768px){.am-sig-bulk-bar{left:10px;right:10px;transform:none;width:auto;bottom:12px;padding:12px 14px;gap:10px;}}
 </style>
 
 <div class="container-fluid am-page">
@@ -93,6 +107,29 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         </div>
     </div>
 
+    <?php if ($filter==='pendente' && count($pendentes) >= 2): ?>
+    <?php
+        // Agrupa pendentes por entidade para hint
+        $pendPorEnt = [];
+        foreach ($pendentes as $pp) { $k = $pp['origin_entity_name'] ?: 'Sem entidade'; $pendPorEnt[$k] = ($pendPorEnt[$k] ?? 0) + 1; }
+        $temMesmaEnt = count(array_filter($pendPorEnt, fn($c)=>$c>=2))>0;
+    ?>
+    <div id="am-sig-bulk-toggle-wrap" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:12px 16px;">
+        <div style="flex:1;min-width:200px;">
+            <div style="font-weight:800;font-size:.9rem;color:#1e1b4b;display:flex;align-items:center;gap:8px;"><i class="ti ti-copy" style="color:#4f46e5;"></i> Assinatura em lote</div>
+            <div style="font-size:.82rem;color:#6b7280;margin-top:2px;">
+                <?php if ($temMesmaEnt): ?>
+                Tem <strong style="color:#4f46e5;"><?= count($pendentes) ?> pendentes</strong> — selecione 2+ da <strong>mesma escola</strong> para assinar de uma vez (1 wizard, 1 assinatura).
+                <?php else: ?>
+                Selecione 2+ da mesma escola quando houver — o lote exige mesma entidade.
+                <?php endif; ?>
+            </div>
+        </div>
+        <button id="am-sig-bulk-toggle-btn" class="am-btn am-btn-secondary" style="padding:9px 16px;font-size:.85rem;white-space:nowrap;" onclick="amSigToggleBulkMode()"><i class="ti ti-checkbox"></i> Selecionar em lote</button>
+        <?php if ($temMesmaEnt): ?><span style="font-size:.72rem;color:#059669;font-weight:700;background:#d1fae5;border:1px solid #a7f3d0;border-radius:20px;padding:3px 10px;"><?= count(array_filter($pendPorEnt, fn($c)=>$c>=2)) ?> escola(s) com 2+</span><?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <?php if (empty($transfers)): ?>
         <div class="am-empty-state"><i class="ti ti-signature-off"></i><p><?= $filter==='pendente' ? 'Nenhum termo pendente de assinatura. ðŸŽ‰' : ($filter==='assinado' ? 'Nenhum termo assinado ainda.' : 'Nenhuma transferÃªncia encontrada.') ?></p></div>
     <?php else: ?>
@@ -108,7 +145,8 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                     $docMasked = Transfer::maskDocumento($t['assinatura_document_type'] ?? '', $t['assinatura_document'] ?? '');
                 }
             ?>
-            <div class="am-tc-card am-sig-card" onclick="<?= $precisa ? "amOpenAssinaturaModal(".(int)$t['id'].")" : "void(0)" ?>" style="<?= $precisa ? 'border-color:#f59e0b;' : '' ?>">
+            <div class="am-tc-card am-sig-card <?= $precisa ? 'am-sig-pend' : '' ?>" data-id="<?= (int)$t['id'] ?>" data-origin-id="<?= (int)($t['origin_entity_id'] ?? 0) ?>" data-origin-name="<?= htmlspecialchars($t['origin_entity_name']) ?>" onclick="amSigCardClick(<?= (int)$t['id'] ?>, this, <?= $precisa ? 'true' : 'false' ?>)" style="<?= $precisa ? 'border-color:#f59e0b;' : '' ?>">
+                <?php if ($precisa): ?><input type="checkbox" class="am-sig-checkbox" value="<?= (int)$t['id'] ?>" data-origin-id="<?= (int)($t['origin_entity_id'] ?? 0) ?>" data-origin-name="<?= htmlspecialchars($t['origin_entity_name']) ?>" onclick="event.stopPropagation(); amSigToggleSelect(<?= (int)$t['id'] ?>, <?= (int)($t['origin_entity_id'] ?? 0) ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', this)"><?php endif; ?>
                 <div class="am-tc-card-header" style="border-left:4px solid <?= $isAssinado ? '#10b981' : ($precisa ? '#f59e0b' : Transfer::getStatusColor($t['status'])) ?>;">
                     <div>
                         <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;">TransferÃªncia #<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?></div>
@@ -149,6 +187,16 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+</div>
+
+<!-- Bulk bar flutuante -->
+<div id="am-sig-bulk-bar" class="am-sig-bulk-bar">
+    <div class="am-sig-bulk-info"><i class="ti ti-copy" style="font-size:1.2rem;"></i> <span id="am-sig-bulk-count">0</span> selecionado(s) <span id="am-sig-bulk-ent" style="background:rgba(255,255,255,.18);padding:2px 10px;border-radius:20px;font-size:.78rem;"></span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="am-btn" style="background:#fff;color:#4f46e5;font-weight:800;" onclick="amSigOpenBulkModal()"><i class="ti ti-signature"></i> Assinar em lote</button>
+        <button class="am-btn" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);" onclick="amSigClearSelection()"><i class="ti ti-x"></i> Limpar</button>
+        <button class="am-btn" style="background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;" onclick="amSigToggleBulkMode()"><i class="ti ti-x"></i> Sair</button>
+    </div>
 </div>
 
 <!-- Modal Assinatura Wizard 7 telas -->
@@ -290,9 +338,178 @@ function amGetCsrfAssinatura(){
   return amCsrfToken;
 }
 let amSigTransferId = 0;
+let amSigTransferIds = []; // bulk: lista de IDs
+let amSigBulkMode = false; // true quando wizard está em modo lote
 let amSigHasReceiver = false;
 let amSigHasTecnico = false;
 let amSigTecnicosCache = null;
+// Bulk seleção estado
+let amSigBulkActive = false;
+let amSigSelected = new Map(); // id -> {originId, originName}
+let amSigSelectedOriginId = null;
+let amSigSelectedOriginName = '';
+
+function amSigToggleBulkMode(){
+  amSigBulkActive = !amSigBulkActive;
+  var btn=document.getElementById('am-sig-bulk-toggle-btn');
+  var bar=document.getElementById('am-sig-bulk-bar');
+  var cards=document.querySelectorAll('.am-sig-card.am-sig-pend');
+  if(amSigBulkActive){
+    if(btn){ btn.innerHTML='<i class="ti ti-x"></i> Cancelar seleção'; btn.style.background='linear-gradient(135deg,#dc2626,#ef4444)'; btn.style.color='#fff'; }
+    cards.forEach(function(c){ c.classList.add('am-bulk-mode'); });
+    amSigToast('Modo lote ativado — toque nos cards da MESMA escola para selecionar', true);
+  } else {
+    if(btn){ btn.innerHTML='<i class="ti ti-checkbox"></i> Selecionar em lote'; btn.style.background=''; btn.style.color=''; }
+    cards.forEach(function(c){ c.classList.remove('am-bulk-mode'); c.classList.remove('am-sig-selected'); var cb=c.querySelector('.am-sig-checkbox'); if(cb) cb.checked=false; });
+    amSigClearSelection(false);
+  }
+  amSigUpdateBulkBar();
+}
+function amSigCardClick(id, el, isPend){
+  if(!isPend) return;
+  if(amSigBulkActive){
+    var oid = parseInt(el.getAttribute('data-origin-id')||'0',10);
+    var oname = el.getAttribute('data-origin-name')||'';
+    amSigToggleSelect(id, oid, oname, null);
+    // sincroniza checkbox visual
+    var cb=el.querySelector('.am-sig-checkbox');
+    var isSel=amSigSelected.has(id);
+    if(cb) cb.checked=isSel;
+    el.classList.toggle('am-sig-selected', isSel);
+    return;
+  }
+  amOpenAssinaturaModal(id);
+}
+function amSigToggleSelect(id, originId, originName, cbEl){
+  var exists = amSigSelected.has(id);
+  if(exists){
+    amSigSelected.delete(id);
+    if(amSigSelected.size===0){ amSigSelectedOriginId=null; amSigSelectedOriginName=''; }
+    else if(amSigSelected.size===1){
+      // recalcula origem do restante
+      var first=[...amSigSelected.values()][0];
+      amSigSelectedOriginId=first.originId;
+      amSigSelectedOriginName=first.originName;
+    }
+  } else {
+    if(amSigSelected.size===0){
+      amSigSelectedOriginId=originId;
+      amSigSelectedOriginName=originName;
+    } else {
+      // valida mesma entidade
+      var same = (originId!==0 && amSigSelectedOriginId!==0) ? (originId===amSigSelectedOriginId) : (originName===amSigSelectedOriginName);
+      if(!same){
+        amSigToast('Selecione apenas da mesma escola: "'+amSigSelectedOriginName+'" . Você clicou em "'+originName+'"', false);
+        if(cbEl) cbEl.checked=false;
+        return;
+      }
+    }
+    amSigSelected.set(id, {originId:originId, originName:originName});
+  }
+  // atualiza card visual
+  if(!cbEl){
+    var card=document.querySelector('.am-sig-card[data-id="'+id+'"]');
+    if(card){ var cb=card.querySelector('.am-sig-checkbox'); if(cb) cb.checked=amSigSelected.has(id); card.classList.toggle('am-sig-selected', amSigSelected.has(id)); }
+  } else {
+    var card2=cbEl.closest ? cbEl.closest('.am-sig-card') : document.querySelector('.am-sig-card[data-id="'+id+'"]');
+    if(card2) card2.classList.toggle('am-sig-selected', amSigSelected.has(id));
+  }
+  amSigUpdateBulkBar();
+}
+function amSigUpdateBulkBar(){
+  var bar=document.getElementById('am-sig-bulk-bar');
+  var cntEl=document.getElementById('am-sig-bulk-count');
+  var entEl=document.getElementById('am-sig-bulk-ent');
+  var n=amSigSelected.size;
+  if(cntEl) cntEl.textContent=String(n);
+  if(entEl) entEl.textContent= amSigSelectedOriginName ? 'Escola: '+amSigSelectedOriginName : '';
+  if(!bar) return;
+  if(amSigBulkActive && n>0){ bar.classList.add('open'); bar.style.display='flex'; }
+  else if(n>=2 && !amSigBulkActive){
+    // caso tenha selecionado via checkbox sem ativar modo, mostra barra
+    bar.classList.add('open'); bar.style.display='flex';
+  } else if(n===0){
+    bar.classList.remove('open'); bar.style.display='none';
+  } else {
+    // 1 selecionado mantém visível para incentivar selecionar mais
+    if(amSigBulkActive) { bar.classList.add('open'); bar.style.display='flex'; }
+  }
+  // habilita/desabilita botão assinar em lote
+  var btn = bar ? bar.querySelector('button') : null;
+  if(btn){ btn.disabled = n < 2; btn.style.opacity = n < 2 ? '.5' : '1'; btn.style.pointerEvents = n < 2 ? 'none' : 'auto'; if(n<2) btn.title='Selecione pelo menos 2 da mesma escola'; else btn.title=''; }
+}
+function amSigClearSelection(keepMode){
+  amSigSelected.clear();
+  amSigSelectedOriginId=null; amSigSelectedOriginName='';
+  document.querySelectorAll('.am-sig-card.am-sig-selected').forEach(function(c){ c.classList.remove('am-sig-selected'); var cb=c.querySelector('.am-sig-checkbox'); if(cb) cb.checked=false; });
+  amSigUpdateBulkBar();
+  if(keepMode===false && amSigBulkActive){ /* mantém modo */ } else if(keepMode!==false) { /* default limpa barra */ }
+}
+function amSigOpenBulkModal(){
+  if(amSigSelected.size < 2){ amSigToast('Selecione pelo menos 2 termos da mesma escola.'); return; }
+  var ids=[...amSigSelected.keys()];
+  // valida mesma entidade já garantido, mas re-checa
+  amSigBulkMode = true;
+  amSigTransferIds = ids.slice();
+  amSigTransferId = ids[0];
+  // abre wizard em modo lote
+  amOpenAssinaturaModalBulk(ids);
+}
+async function amOpenAssinaturaModalBulk(ids){
+  // configura estado bulk e abre wizard (reusa amOpenAssinaturaModal lógica mas com título bulk)
+  amSigBulkMode = true;
+  amSigTransferIds = ids.slice();
+  amSigTransferId = ids[0];
+  amSigDocType=''; amSigDocNumber=''; amSigHasDrawn=false; amSigHasReceiver=false; amSigHasTecnico=false;
+  // verifica hasReceiver/hasTecnico para cada? Para lote assume todas pendentes, mas checa primeira
+  try{
+    var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+    var r=await fetch(base+'/ajax/card_details.php?type=transfer&id='+encodeURIComponent(ids[0]), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
+    var j=await r.json();
+    if(j.success && j.data){ amSigHasReceiver=!!j.data.has_receiver; amSigHasTecnico=!!j.data.has_tecnico; }
+  }catch(e){}
+  var w1=document.getElementById('am-wiz-1'); if(w1) w1.style.display='block';
+  for(var i=2;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display='none'; }
+  var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width='14%';
+  var dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
+  var nm=document.getElementById('am-sig-nome'); if(nm) nm.value='';
+  amSigUpdateDisplay(); setTimeout(()=>amSigClearCanvas(),80);
+  var mod=document.getElementById('am-modal-assinatura'); if(mod) mod.classList.add('open');
+  document.body.style.overflow='hidden';
+  setTimeout(amSigInitCanvas,120);
+  amLoadTecnicos();
+  var ttl=document.getElementById('am-sig-modal-title');
+  if(ttl) ttl.textContent='Assinatura em LOTE — '+ids.length+' termos — '+ (amSigSelectedOriginName||'');
+  // mostra banner lote no wizard 1
+  var wiz1=document.getElementById('am-wiz-1');
+  if(wiz1 && !document.getElementById('am-bulk-banner')){
+    var b=document.createElement('div');
+    b.id='am-bulk-banner';
+    b.style.cssText='margin-bottom:12px;background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-size:.85rem;color:#3730a3;display:flex;align-items:center;gap:8px;';
+    b.innerHTML='<i class="ti ti-copy" style="font-size:1.1rem;"></i><div><strong>'+ids.length+' termos selecionados</strong> da escola <strong>'+(amSigSelectedOriginName||'')+'</strong><br><span style="font-size:.78rem;color:#6b7280;">Uma única assinatura será aplicada a todos. Após salvar, os PDFs abrirão para impressão.</span></div>';
+    wiz1.insertBefore(b, wiz1.firstChild.nextSibling ? wiz1.firstChild.nextSibling : wiz1.firstChild);
+  } else if(wiz1){
+    var ex=document.getElementById('am-bulk-banner');
+    if(ex) ex.style.display='flex';
+  }
+}
+function amSigOpenBulkPdfs(ids){
+  var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+  // tenta abrir cada PDF; usa ordem com delay para não ser bloqueado como pop-up; o primeiro é direto (gesto do save ainda considerado)
+  ids.forEach(function(id, idx){
+    var url=base+'/front/transfer_pdf.php?id='+encodeURIComponent(String(id))+'&stage=pronto';
+    setTimeout(function(){ window.open(url,'_blank'); }, idx*450);
+  });
+  // fallback: mostra lista clicável no toast area se pop-up bloqueado
+  setTimeout(function(){
+    var info=document.getElementById('am-wiz-7-info');
+    if(info && ids.length){
+      var links=ids.map(function(id){ var u=base+'/front/transfer_pdf.php?id='+id+'&stage=pronto'; return '<a href="'+u+'" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #c7d2fe;border-radius:8px;padding:6px 10px;margin:4px;font-weight:700;color:#4f46e5;text-decoration:none;"><i class="ti ti-file-type-pdf"></i> Termo #'+String(id).padStart(4,'0')+'</a>'; }).join('');
+      var warning='<div style="margin-top:10px;background:#fffbeb;border:1.5px solid #fde68a;border-radius:8px;padding:10px;font-size:.82rem;color:#92400e;">Se os PDFs não abriram automaticamente (bloqueio de pop-up), clique abaixo:<br><div style="margin-top:8px;display:flex;flex-wrap:wrap;justify-content:center;">'+links+'</div></div>';
+      info.insertAdjacentHTML('beforeend', warning);
+    }
+  }, 800);
+}
 async function amLoadTecnicos(){
   var sel=document.getElementById('am-sig-tec-select'); if(!sel) return;
   if(amSigTecnicosCache && amSigTecnicosCache.length){ populateTecSelect(amSigTecnicosCache); return; }
@@ -329,12 +546,15 @@ let amSigDocNumber = '';
 let amSigCanvas = null, amSigCtx = null, amSigDrawing = false, amSigHasDrawn = false;
 
 async function amOpenAssinaturaModal(transferId) {
+    amSigBulkMode = false;
+    amSigTransferIds = [transferId];
     amSigTransferId = transferId;
     amSigDocType = '';
     amSigDocNumber = '';
     amSigHasDrawn = false;
     amSigHasReceiver = false;
     amSigHasTecnico = false;
+    var bulkB=document.getElementById('am-bulk-banner'); if(bulkB) bulkB.style.display='none';
     // tenta descobrir se jÃ¡ tem recebedor/tecnico para ajustar UI
     try{
         var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
@@ -400,12 +620,21 @@ function amCloseAssinaturaModal() {
 function amWizGo(n){
   for(var i=1;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display = (i===n?'block':'none'); }
   var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width = Math.round(n/7*100)+'%';
-  var title=document.getElementById('am-sig-modal-title'); if(title) title.textContent='Assinatura â€” Etapa '+n+' de 7';
+  var title=document.getElementById('am-sig-modal-title');
+  if(title){
+    if(amSigBulkMode && amSigTransferIds.length>1){
+      title.textContent='Assinatura em LOTE ('+amSigTransferIds.length+') — Etapa '+n+' de 7 — '+(amSigSelectedOriginName||'');
+    } else {
+      title.textContent='Assinatura — Etapa '+n+' de 7';
+    }
+  }
   if(n===6) setTimeout(amSigInitCanvas, 120);
   if(n===5){
     var b=document.getElementById('am-sig-doc-badge'); if(b){ b.textContent=amSigDocType||'CPF'; b.style.background=amSigDocType==='CPF'?'#4f46e5':'#059669'; }
     var h=document.getElementById('am-sig-doc-hint'); if(h) h.textContent=amSigDocType==='CPF'?'11 dÃ­gitos':'5 a 12 dÃ­gitos';
   }
+  // mantém banner lote visível só na etapa 1
+  var bulkB=document.getElementById('am-bulk-banner'); if(bulkB) bulkB.style.display = (amSigBulkMode && n===1) ? 'flex' : 'none';
 }
 function amWizNext(n){
   if(n===1){
@@ -552,20 +781,22 @@ function amSigClearCanvas() {
     amSigHasDrawn = false;
 }
 async function amSigSave() {
-    if (!amSigTransferId) return amSigToast('TransferÃªncia invÃ¡lida.');
-    // ValidaÃ§Ã£o condicional: se jÃ¡ tem recebedor, nÃ£o precisa validar doc/imagem do recebedor de novo
+    var isBulk = amSigBulkMode && amSigTransferIds && amSigTransferIds.length>1;
+    if (!isBulk && !amSigTransferId) return amSigToast('Transferência inválida.');
+    if (isBulk && (!amSigTransferIds || amSigTransferIds.length<2)) return amSigToast('Selecione pelo menos 2 termos.');
+    // Validação condicional: se já tem recebedor, não precisa validar doc/imagem do recebedor de novo
     if (!amSigHasReceiver) {
-        if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dÃ­gitos.');
-        if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dÃ­gitos.');
-        if (!amSigHasDrawn) return amSigToast('FaÃ§a a assinatura do recebedor com o dedo/caneta no quadro.');
+        if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dígitos.');
+        if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dígitos.');
+        if (!amSigHasDrawn) return amSigToast('Faça a assinatura do recebedor com o dedo/caneta no quadro.');
     }
-    // TÃ©cnico Ã© obrigatÃ³rio se ainda nÃ£o tem tÃ©cnico assinado
+    // Técnico é obrigatório se ainda não tem técnico assinado
     var tecSel=document.getElementById('am-sig-tec-select');
     var tecId=tecSel?tecSel.value:'';
     var tecOpt=tecSel && tecSel.selectedIndex>=0 ? tecSel.options[tecSel.selectedIndex] : null;
     var needTec = !amSigHasTecnico;
     if(needTec && !tecId){
-        amSigToast('Selecione o tÃ©cnico responsÃ¡vel.');
+        amSigToast('Selecione o técnico responsável.');
         if(tecSel) tecSel.focus();
         return;
     }
@@ -581,29 +812,90 @@ async function amSigSave() {
     var dataUrl='';
     if(!amSigHasReceiver){
         dataUrl = c.toDataURL('image/png');
-        if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia â€” desenhe novamente.');
+        if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia — desenhe novamente.');
     } else {
-        // jÃ¡ tem recebedor, nÃ£o precisa nova imagem (backend vai usar a existente), mas manda vazio que o backend preenche
         dataUrl='';
-        // se jÃ¡ tem recebedor, garante que nÃ£o vai validar imagem vazia no backend (backend jÃ¡ trata)
-        // mas precisa mandar algo para nÃ£o falhar no check de imagem quando hasRecAlready? o backend jÃ¡ permite vazio nesse caso
     }
     const btn = document.getElementById('am-sig-save-btn');
-    const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
+    // tenta também botão do wiz6 caso footer oculto
+    var btnWiz = document.querySelector('#am-wiz-6 .am-btn[onclick="amWizNext(6)"]');
+    var activeBtn = btn && btn.offsetParent ? btn : btnWiz;
+    const old = activeBtn ? activeBtn.innerHTML : '';
+    if(activeBtn){ activeBtn.disabled=true; activeBtn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando'+(isBulk?' '+amSigTransferIds.length+' termos':'' )+'...'; }
+    else if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
         const tok = amGetCsrfAssinatura();
-        var payload={transfer_id: amSigTransferId, _glpi_csrf_token: tok};
+        // payload base
+        var basePayload={};
         if(!amSigHasReceiver){
-            payload.doc_type=amSigDocType; payload.doc_number=amSigDocNumber; payload.nome=nome; payload.image=dataUrl;
+            basePayload.doc_type=amSigDocType; basePayload.doc_number=amSigDocNumber; basePayload.nome=nome; basePayload.image=dataUrl;
         } else {
-            // jÃ¡ tem recebedor, manda dummy que o backend vai ignorar e preencher com existente
-            payload.doc_type='RG'; payload.doc_number='0'; payload.nome=''; payload.image='';
+            basePayload.doc_type='RG'; basePayload.doc_number='0'; basePayload.nome=''; basePayload.image='';
         }
         if(needTec){
-            payload.tec_doc_type=tecDocType; payload.tec_doc_number=tecDoc; payload.tec_nome=tecNome; payload.tec_image=tecImage;
+            basePayload.tec_doc_type=tecDocType; basePayload.tec_doc_number=tecDoc; basePayload.tec_nome=tecNome; basePayload.tec_image=tecImage;
         }
-        let res = await fetch(base + '/front/assinatura.form.php', {
+        basePayload._glpi_csrf_token=tok;
+        let res, text, j;
+        if(isBulk){
+            var bulkPayload=Object.assign({}, basePayload, {transfer_ids: amSigTransferIds});
+            res = await fetch(base + '/front/assinatura_bulk.form.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
+                credentials: 'same-origin',
+                body: JSON.stringify(bulkPayload)
+            });
+            if (!res.ok && (res.status===403 || res.status===404)) {
+                console.warn('bulk front 403, tentando ajax fallback');
+                res = await fetch(base + '/ajax/assinatura_bulk_save.php', {
+                    method: 'POST',
+                    headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
+                    credentials: 'same-origin',
+                    body: JSON.stringify(bulkPayload)
+                });
+            }
+            text = await res.text();
+            try { j = JSON.parse(text); } catch(parseErr) {
+                console.error('Resposta não-JSON bulk:', text);
+                amSigToast('❌ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
+                if(activeBtn){ activeBtn.disabled=false; activeBtn.innerHTML=old; } else if(btn){ btn.disabled=false; btn.innerHTML=old; }
+                return;
+            }
+            if (j.ok) {
+                // sucesso lote: mostra wiz 7 com lista e abre PDFs
+                amWizGo(7);
+                var info=document.getElementById('am-wiz-7-info');
+                if(info){
+                  info.innerHTML='<div style="font-weight:800;color:#065f46;font-size:1rem;">✅ '+amSigTransferIds.length+' termos assinados!</div><div style="margin-top:6px;font-size:.85rem;color:#065f46;">Escola: <strong>'+(amSigSelectedOriginName||'')+'</strong><br>Recebedor: '+(nome||'')+' — '+(amSigDocType||'')+' '+amSigDocNumber+'<br>Técnico: '+(tecNome||'')+'</div><div style="margin-top:10px;font-size:.82rem;color:#6b7280;">Os PDFs abrirão em abas separadas para impressão. Se o navegador bloquear, use os botões abaixo.</div>';
+                }
+                var titleEl=document.getElementById('am-sig-modal-title'); if(titleEl) titleEl.textContent='Assinatura em LOTE — Concluído!';
+                amSigToast('✅ '+amSigTransferIds.length+' assinaturas salvas! Abrindo PDFs...', true);
+                // abre PDFs
+                setTimeout(function(){ amSigOpenBulkPdfs(amSigTransferIds); }, 600);
+                // atualiza wiz7 botão para recarregar e limpar seleção
+                var btnReload=document.querySelector('#am-wiz-7 .am-btn');
+                if(btnReload){
+                  btnReload.innerHTML='<i class="ti ti-printer"></i> PDFs abertos — Fechar e atualizar';
+                  btnReload.onclick=function(){ amSigClearSelection(); location.reload(); };
+                }
+                // não recarrega automático rápido para dar tempo de ver PDFs; recarrega após 12s se usuário não clicar
+                setTimeout(function(){ try{ if(document.getElementById('am-modal-assinatura').classList.contains('open')){ amSigClearSelection(); location.reload(); } }catch(e){} }, 12000);
+            } else {
+                amSigToast('❌ ' + (j.error || 'Falha ao salvar lote.'));
+                console.error(j);
+                if(activeBtn){ activeBtn.disabled=false; activeBtn.innerHTML=old; } else if(btn){ btn.disabled=false; btn.innerHTML=old; }
+                // mostra detalhes por transferência se houver
+                if(j.results && Array.isArray(j.results)){
+                  var det=j.results.map(function(r){ return (r.ok?'✅':'❌')+' #'+String(r.id).padStart(4,'0')+(r.error?' — '+r.error:''); }).join('\n');
+                  console.log(det);
+                }
+            }
+            return;
+        }
+        // fluxo single (original)
+        var payload=Object.assign({}, basePayload, {transfer_id: amSigTransferId});
+        res = await fetch(base + '/front/assinatura.form.php', {
             method: 'POST',
             headers: {'Content-Type':'application/json', 'X-Glpi-Csrf-Token': tok, 'X-Requested-With': 'XMLHttpRequest'},
             credentials: 'same-origin',
@@ -618,26 +910,30 @@ async function amSigSave() {
                 body: JSON.stringify(payload)
             });
         }
-        const text = await res.text();
-        let j;
+        text = await res.text();
         try { j = JSON.parse(text); } catch(parseErr) {
-            console.error('Resposta nÃ£o-JSON:', text);
-            amSigToast('âŒ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
-            btn.disabled=false; btn.innerHTML=old;
+            console.error('Resposta não-JSON:', text);
+            amSigToast('❌ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
+            if(activeBtn){ activeBtn.disabled=false; activeBtn.innerHTML=old; } else if(btn){ btn.disabled=false; btn.innerHTML=old; }
             return;
         }
         if (j.ok) {
-            amSigToast('âœ… Assinatura salva! Termo atualizado.', true);
-            setTimeout(function(){ location.reload(); }, 900);
+            // em single também mostra wiz 7 com PDF único
+            amWizGo(7);
+            var info2=document.getElementById('am-wiz-7-info');
+            if(info2){ info2.innerHTML='<div style="font-weight:700;color:#065f46;">✅ Assinatura salva!</div><div style="margin-top:6px;font-size:.82rem;color:#374151;">Termo #'+String(amSigTransferId).padStart(4,'0')+' atualizado. <a href="'+base+'/front/transfer_pdf.php?id='+amSigTransferId+'&stage=pronto" target="_blank" style="color:#4f46e5;font-weight:700;">Abrir PDF</a></div>'; }
+            amSigToast('✅ Assinatura salva! Termo atualizado.', true);
+            setTimeout(function(){ amSigOpenBulkPdfs([amSigTransferId]); }, 700);
+            setTimeout(function(){ location.reload(); }, 2500);
         } else {
-            amSigToast('âŒ ' + (j.error || 'Falha ao salvar.'));
+            amSigToast('❌ ' + (j.error || 'Falha ao salvar.'));
             console.error(j);
-            btn.disabled=false; btn.innerHTML=old;
+            if(activeBtn){ activeBtn.disabled=false; activeBtn.innerHTML=old; } else if(btn){ btn.disabled=false; btn.innerHTML=old; }
         }
     } catch(e) {
         amSigToast('Erro de rede: ' + e.message);
         console.error(e);
-        btn.disabled=false; btn.innerHTML=old;
+        if(activeBtn){ activeBtn.disabled=false; activeBtn.innerHTML=old; } else if(btn){ btn.disabled=false; btn.innerHTML=old; }
     }
 }
 function amSigConfirmCancel(){ var m=document.getElementById('am-sig-cancel-confirm'); if(m){ m.style.display='flex'; } }
