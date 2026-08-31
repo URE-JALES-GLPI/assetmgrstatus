@@ -868,10 +868,192 @@ class Transfer
                 @unlink($pdfPath);
             } catch (\Throwable $e) { $mpdfError .= ' | chromium exc: ' . $e->getMessage(); }
         }
-        // Se tudo falhou, retorna erro detalhado para diagnóstico
+        // Fallback 4: Simple PHP PDF sem dependências (garante 1-2 páginas mesmo sem mPDF/wkhtmltopdf)
+        $simplePath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.pdf';
+        if (self::generateSimpleFallbackPdf($transfer_id, $stage, $simplePath)) {
+            if (file_exists($simplePath) && filesize($simplePath) > 800) {
+                error_log('[assetmgrstatus] generateDocPdf simple fallback ok transfer=' . $transfer_id . ' stage=' . $stage . ' size=' . filesize($simplePath));
+                return $simplePath;
+            }
+            @unlink($simplePath);
+            $mpdfError .= ' | simple fallback: arquivo vazio';
+        } else {
+            $mpdfError .= ' | simple fallback falhou';
+        }
+        // Se tudo falhou, loga detalhe no servidor e retorna erro curto para UI (1 confirm + 1 resultado)
         $checked = implode(', ', array_filter($tryPaths, 'is_string'));
-        self::$last_ticket_error = 'mPDF indisponível — anexo não gerado. Detalhe: ' . ($mpdfError ?: 'mPDF não encontrado em: ' . $checked . '. Tente no servidor: sudo -u www-data composer -d ' . GLPI_ROOT . '/plugins/assetmgrstatus install  ou  cd ' . GLPI_ROOT . '/plugins/assetmgrstatus && composer require mpdf/mpdf  ou  sudo apt install wkhtmltopdf && sudo systemctl restart apache2');
+        $detailed = $mpdfError ?: 'mPDF não encontrado em: ' . $checked;
+        error_log('[assetmgrstatus] generateDocPdf falhou transfer=' . $transfer_id . ' stage=' . $stage . ' checked=' . $checked . ' err=' . $detailed);
+        // Erro curto para usuário + código de auditoria (log completo fica no error_log e timeline)
+        self::$last_ticket_error = 'PDF não gerado (mPDF/Dompdf/wkhtmltopdf não instalados no servidor). Código: MPDF_MISSING_' . $transfer_id;
         return null;
+    }
+
+    private static function generateSimpleFallbackPdf(int $transfer_id, string $stage, string $outPath): bool
+    {
+        try {
+            $transfer = self::getById($transfer_id);
+            if (!$transfer) return false;
+            $items = self::getItems($transfer_id);
+            $is_pronto = in_array($stage, ['pronto','final'], true);
+            $title = $is_pronto ? 'TERMO DE DEVOLUCAO DE EQUIPAMENTO' : 'TERMO DE RETIRADA DE EQUIPAMENTO';
+            $dest_name = ($transfer['entity_dest'] && (new \Entity())->getFromDB((int)$transfer['entity_dest'])) ? (new \Entity())->getName() : 'URE Jales';
+            $origin_name = '';
+            if (!empty($items)) { $first = reset($items); $origin_name = $first['origin_entity_name'] ?? ''; if ($origin_name === '' && !empty($first['origin_entity_id'])) { $eo = new \Entity(); if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName(); } }
+            $tech_name = self::getUserName((int)($transfer['users_id_tech'] ?? 0));
+            $creator_name = self::getUserName((int)($transfer['users_id_created'] ?? 0));
+            $sig_ok = !empty($transfer['assinatura_image']) && !empty($transfer['assinatura_tecnico_image'] ?? '');
+            // Fallback usa apenas nomes/docs, sem imagem
+            $lines = [];
+            $lines[] = 'UNIDADE REGIONAL DE ENSINO - REGIAO DE JALES';
+            $lines[] = $title . '  -  #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '  -  ' . date('d/m/Y H:i');
+            $lines[] = str_repeat('=', 85);
+            $lines[] = '';
+            if (!$is_pronto) {
+                $lines[] = 'Declaracao: equipamentos retirados pelo responsavel. Retirada verificada no suporte tecnico.';
+                $lines[] = '';
+                $lines[] = 'Eu, ' . $creator_name . ', declaro retirada dos equipamentos abaixo:';
+                $lines[] = '';
+                $lines[] = 'Data Retirada: ' . date('d/m/Y', strtotime($transfer['date_creation'])) . '  |  Destino: ' . $dest_name;
+                $lines[] = 'Motivo: ' . ($transfer['reason'] ?? '-');
+                $lines[] = '';
+                $lines[] = 'Equipamentos Retirados:';
+                $lines[] = str_repeat('-', 85);
+                foreach ($items as $i => $it) { $lines[] = ($i+1) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']'; }
+            } else {
+                $lines[] = 'Declaracao: equipamentos devolvidos apos manutencao. Condicoes verificadas na devolucao.';
+                $lines[] = '';
+                $lines[] = 'Eu, ' . $tech_name . ', tecnico responsavel, declaro devolucao dos equipamentos abaixo:';
+                $lines[] = '';
+                $lines[] = 'Data Devolucao: ' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '  |  Destino: ' . $dest_name;
+                $lines[] = 'Tecnico: ' . $tech_name . '  |  Solicitante: ' . $creator_name;
+                $lines[] = 'Origem: ' . ($origin_name ?: 'Nao informada') . '  |  Retornando para: ' . ($origin_name ?: 'Escola de origem');
+                if (!empty($transfer['reason'])) $lines[] = 'Motivo original: ' . $transfer['reason'];
+                $lines[] = '';
+                $lines[] = 'Equipamentos Devolvidos:';
+                $lines[] = str_repeat('-', 85);
+                foreach ($items as $i => $it) {
+                    $lines[] = ($i+1) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']  Status: ' . ($it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-') ;
+                    if (!empty($it['final_reason'])) $lines[] = '   Motivo: ' . $it['final_reason'];
+                    // work_log
+                    global $DB;
+                    try {
+                        $wrow = $DB->request(['SELECT'=>['work_log'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$it['items_id']],'LIMIT'=>1])->current();
+                        $wlog = trim($wrow['work_log'] ?? '');
+                        if ($wlog !== '') $lines[] = '   Feito: ' . mb_substr($wlog,0,200);
+                    } catch (\Throwable $e) {}
+                }
+            }
+            $lines[] = '';
+            $lines[] = str_repeat('-', 85);
+            $lines[] = 'Assinaturas:';
+            if ($sig_ok) {
+                $lines[] = 'Entrega (Tecnico): ' . $tech_name . '  |  Recebimento: ' . ($transfer['assinatura_nome'] ?? '-') . ' (' . ($transfer['assinatura_document_type'] ?? '') . ' ' . self::maskDocumento($transfer['assinatura_document_type'] ?? '', $transfer['assinatura_document'] ?? '') . ') em ' . ($transfer['assinatura_data'] ? date('d/m/Y H:i', strtotime($transfer['assinatura_data'])) : '-');
+                $lines[] = 'Tecnico: ' . ($transfer['assinatura_tecnico_nome'] ?? '-') . ' (' . ($transfer['assinatura_tecnico_document_type'] ?? '') . ' ' . self::maskDocumento($transfer['assinatura_tecnico_document_type'] ?? '', $transfer['assinatura_tecnico_document'] ?? '') . ')';
+            } else {
+                $lines[] = 'Entrega: ___________________________      Recebimento: ___________________________';
+                $lines[] = 'Documento: ___________________  Data: ____/____/______';
+            }
+            $lines[] = '';
+            $lines[] = 'Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales - Suporte Tecnico';
+            $lines[] = 'Obs: PDF simples gerado sem mPDF (fallback). Para PDF completo com logo/assinatura imagem, instale: composer install';
+            return self::buildSimplePdfFromLines($lines, $outPath);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] simple fallback exception: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    private static function buildSimplePdfFromLines(array $lines, string $outPath): bool
+    {
+        // Translitera UTF-8 -> ISO-8859-1 para Helvetica core
+        $clean = [];
+        foreach ($lines as $l) {
+            $l = (string)$l;
+            // quebra linhas muito longas em 85 chars
+            $wrapped = [];
+            $l = str_replace("\r", '', $l);
+            foreach (explode("\n", $l) as $part) {
+                $part = trim($part);
+                if ($part === '') { $wrapped[] = ''; continue; }
+                // iconv
+                $partIso = @iconv('UTF-8', 'ISO-8859-1//TRANSLIT//IGNORE', $part);
+                if ($partIso === false) $partIso = $part;
+                // word wrap 85
+                $words = explode(' ', $partIso);
+                $cur = '';
+                foreach ($words as $w) {
+                    if (strlen($cur . ' ' . $w) > 85) { $wrapped[] = trim($cur); $cur = $w; } else { $cur = $cur === '' ? $w : $cur . ' ' . $w; }
+                }
+                if ($cur !== '') $wrapped[] = trim($cur);
+                if (empty($words)) $wrapped[] = '';
+            }
+            foreach ($wrapped as $wl) $clean[] = $wl;
+        }
+        $pages = array_chunk($clean, 45);
+        if (empty($pages)) $pages = [[]];
+        // PDF em memoria
+        $pdf = "%PDF-1.4\n";
+        $offsets = [];
+        $objects = [];
+        // Objetos: 1 Catalog, 2 Pages, 3 Font, depois Page+Content por pagina
+        $fontObjNum = 3;
+        $catalogNum = 1;
+        $pagesNum = 2;
+        // Reserva numeros
+        $pageObjNums = [];
+        $contentObjNums = [];
+        $nextNum = 4;
+        foreach ($pages as $i => $pg) {
+            $pageObjNums[$i] = $nextNum++;
+            $contentObjNums[$i] = $nextNum++;
+        }
+        $totalObjs = $nextNum - 1;
+        // Helper para escapar texto PDF
+        $esc = function($s) { return str_replace(['\\','(',')',"\r"], ['\\\\','\\(','\\)','\\r'], $s); };
+        // Constroi objetos em ordem numerica
+        $objs = [];
+        // 1 Catalog
+        $objs[$catalogNum] = "<< /Type /Catalog /Pages $pagesNum 0 R >>";
+        // 2 Pages
+        $kids = implode(' ', array_map(fn($n) => "$n 0 R", $pageObjNums));
+        $objs[$pagesNum] = "<< /Type /Pages /Kids [$kids] /Count " . count($pages) . " >>";
+        // 3 Font
+        $objs[$fontObjNum] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+        // Paginas e conteudos
+        foreach ($pages as $idx => $pgLines) {
+            $pNum = $pageObjNums[$idx];
+            $cNum = $contentObjNums[$idx];
+            // Conteudo
+            $content = "BT\n/F1 9 Tf\n";
+            $y = 800;
+            foreach ($pgLines as $line) {
+                $content .= sprintf("1 0 0 1 40 %.2F Tm (%s) Tj\n", $y, $esc($line));
+                $y -= 13;
+                if ($y < 40) break;
+            }
+            // numeracao pagina
+            $content .= sprintf("1 0 0 1 500 20 Tm (%d/%d) Tj\n", $idx+1, count($pages));
+            $content .= "ET\n";
+            $objs[$cNum] = "<< /Length " . strlen($content) . " >>\nstream\n$content\nendstream";
+            $objs[$pNum] = "<< /Type /Page /Parent $pagesNum 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 $fontObjNum 0 R >> >> /Contents $cNum 0 R >>";
+        }
+        // Escreve PDF com offsets
+        $pdf = "%PDF-1.4\n";
+        $offsets[0] = 0;
+        for ($i=1; $i<=$totalObjs; $i++) {
+            $offsets[$i] = strlen($pdf);
+            $pdf .= $i . " 0 obj\n" . $objs[$i] . "\nendobj\n";
+        }
+        $xrefPos = strlen($pdf);
+        $pdf .= "xref\n0 " . ($totalObjs+1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
+        for ($i=1; $i<=$totalObjs; $i++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$i]);
+        }
+        $pdf .= "trailer\n<< /Size " . ($totalObjs+1) . " /Root $catalogNum 0 R >>\n";
+        $pdf .= "startxref\n$xrefPos\n%%EOF\n";
+        return @file_put_contents($outPath, $pdf) !== false;
     }
 
     // -------------------------------------------------------
@@ -1000,29 +1182,35 @@ class Transfer
         // imprimiria 60+ folhas com o código HTML, não o termo renderizado.
         $pdf_path = self::generateDocPdf($transfer_id, $stage);
         if (!$pdf_path || !file_exists($pdf_path)) {
-            $err = self::$last_ticket_error ?: 'Falha ao gerar PDF para impressão (mPDF indisponível ou erro interno)';
+            $err = self::$last_ticket_error ?: 'Falha ao gerar PDF (dependência não instalada)';
             error_log('[assetmgrstatus] printOnServer: PDF não gerado transfer=' . $transfer_id . ' stage=' . $stage . ' err=' . $err);
-            return ['ok' => false, 'error' => $err . ' — O mesmo PDF que abre em "PDF Assinado" não pôde ser gerado no servidor. Instale no servidor: sudo -u www-data composer -d ' . (defined('GLPI_ROOT') ? GLPI_ROOT : '/var/www/html/glpi') . '/plugins/assetmgrstatus install  ou  sudo apt install wkhtmltopdf && sudo systemctl restart apache2'];
+            // Auditoria: registra tentativa falha na timeline
+            try { self::logStatus($transfer_id, $transfer['status'], '❌ Falha ao imprimir na HP — PDF não gerado (' . $err . ') por ' . self::getUserName(\Session::getLoginUserID())); } catch (\Throwable $e) {}
+            // Retorno curto para UI (1 confirm + 1 resultado). Detalhe completo fica no error_log/timeline.
+            return ['ok' => false, 'error' => $err, 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Código: MPDF_MISSING'];
         }
-        // Valida que é um PDF real (não HTML renomeado) — evita imprimir texto/HTML como PDF
+        // Valida que é um PDF real (não HTML renomeado) — evita 60 folhas
         $fh = @fopen($pdf_path, 'rb');
         $header = $fh ? @fread($fh, 5) : '';
         if ($fh) @fclose($fh);
         if ($header !== '%PDF-') {
             $size = @filesize($pdf_path);
             @unlink($pdf_path);
-            error_log('[assetmgrstatus] printOnServer: arquivo gerado não é PDF (header=' . json_encode($header) . ' size=' . $size . ') transfer=' . $transfer_id);
-            return ['ok' => false, 'error' => 'Arquivo gerado não é um PDF válido (cabeçalho ' . json_encode($header) . '). O termo não foi enviado para impressão. Verifique mPDF/Dompdf no servidor. Detalhe: ' . self::$last_ticket_error];
+            error_log('[assetmgrstatus] printOnServer: arquivo não é PDF header=' . json_encode($header) . ' size=' . $size . ' transfer=' . $transfer_id);
+            try { self::logStatus($transfer_id, $transfer['status'], '❌ Falha ao imprimir — arquivo não é PDF válido por ' . self::getUserName(\Session::getLoginUserID())); } catch (\Throwable $e) {}
+            return ['ok' => false, 'error' => 'Arquivo não é PDF válido — impressão bloqueada.', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Código: INVALID_PDF'];
         }
-        // Valida tamanho razoável e contagem de páginas para evitar 60 folhas acidental
+        // Valida tamanho razoável
         $fsize = @filesize($pdf_path);
         if ($fsize !== false && $fsize < 800) {
             @unlink($pdf_path);
-            return ['ok' => false, 'error' => 'PDF gerado vazio/corrompido (' . $fsize . ' bytes). Não enviado para impressão.'];
+            try { self::logStatus($transfer_id, $transfer['status'], '❌ Falha ao imprimir — PDF vazio/corrompido por ' . self::getUserName(\Session::getLoginUserID())); } catch (\Throwable $e) {}
+            return ['ok' => false, 'error' => 'PDF vazio/corrompido — impressão bloqueada.', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Código: EMPTY_PDF'];
         }
         if ($fsize !== false && $fsize > 15 * 1024 * 1024) {
             @unlink($pdf_path);
-            return ['ok' => false, 'error' => 'PDF muito grande (' . round($fsize/1024/1024,1) . ' MB) — impressão bloqueada para evitar desperdício.'];
+            try { self::logStatus($transfer_id, $transfer['status'], '❌ Falha ao imprimir — PDF muito grande por ' . self::getUserName(\Session::getLoginUserID())); } catch (\Throwable $e) {}
+            return ['ok' => false, 'error' => 'PDF muito grande — impressão bloqueada.', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Código: HUGE_PDF'];
         }
         // Conta páginas de forma leve (busca "/Type /Page" no PDF) — aborta se > 10 páginas
         try {
@@ -1036,7 +1224,8 @@ class Transfer
                 if ($pages > 10) {
                     @unlink($pdf_path);
                     error_log('[assetmgrstatus] printOnServer: PDF com ' . $pages . ' páginas bloqueado transfer=' . $transfer_id);
-                    return ['ok' => false, 'error' => 'PDF gerado com ' . $pages . ' páginas — bloqueado para evitar impressão de 60 folhas. O termo deveria ter 1-2 páginas. Contate o suporte: o HTML pode estar com tabela muito larga ou loop. PDF não enviado.'];
+                    try { self::logStatus($transfer_id, $transfer['status'], '❌ Bloqueado: PDF com ' . $pages . ' páginas por ' . self::getUserName(\Session::getLoginUserID())); } catch (\Throwable $e) {}
+                    return ['ok' => false, 'error' => 'PDF com ' . $pages . ' páginas — bloqueado (esperado 1-2).', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Páginas: ' . $pages . ' | Código: TOO_MANY_PAGES'];
                 }
                 // Log informativo
                 error_log('[assetmgrstatus] printOnServer: PDF ok transfer=' . $transfer_id . ' stage=' . $stage . ' size=' . $fsize . ' pages~' . $pages);
@@ -1155,9 +1344,12 @@ class Transfer
         @unlink($pdf_path);
 
         if (!$printed) {
-            $msg = 'Falha ao enviar para fila CUPS (código ' . (int)$ret . '). Impressora: ' . $printer . '. Saída: ' . ($lastOut ?: '(vazia)') . '. Disponíveis: ' . (empty($available) ? 'nenhuma' : implode(', ', $available)) . '. Tente: lpstat -p -d; sudo lpstat -p';
-            error_log('[assetmgrstatus] printOnServer fail transfer=' . $transfer_id . ' printer=' . $printer . ' out=' . $lastOut);
-            return ['ok' => false, 'printer' => $printer, 'error' => $msg, 'output' => $lastOut];
+            $msgShort = 'Falha ao enviar para HP (' . $printer . ')';
+            $auditFail = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ' | Código: CUPS_FAIL';
+            error_log('[assetmgrstatus] printOnServer fail transfer=' . $transfer_id . ' printer=' . $printer . ' out=' . $lastOut . ' ret=' . $ret);
+            try { self::logStatus($transfer_id, $transfer['status'], '❌ Falha ao imprimir na HP (' . $printer . ') por ' . self::getUserName(\Session::getLoginUserID()) . ' — ' . $msgShort); } catch (\Throwable $e) {}
+            // Detalhe completo vai para error_log/timeline; UI recebe só curto + audit
+            return ['ok' => false, 'printer' => $printer, 'error' => $msgShort, 'output' => $lastOut, 'audit' => $auditFail, 'detail' => 'Saída CUPS: ' . ($lastOut ?: '(vazia)') . ' | Disponíveis: ' . (empty($available) ? 'nenhuma' : implode(', ', $available))];
         }
 
         // Sucesso: registra no timeline e no chamado
@@ -1174,7 +1366,8 @@ class Transfer
             } catch (\Throwable $e) {}
         }
 
-        return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id];
+        $auditOk = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ($request_id ? ' | Job: ' . $request_id : '');
+        return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id, 'audit' => $auditOk];
     }
 
     // HTML do termo (versão impressa p/ mPDF — sem CSS grid, só tabelas)

@@ -82,9 +82,9 @@ try {
 
     $res = \GlpiPlugin\Assetmgrstatus\Transfer::printOnServer($transfer_id, $stage, $printer ?: null);
     if ($res['ok']) {
-        echo json_encode(['ok'=>true,'printer'=>$res['printer'] ?? null,'request_id'=>$res['request_id'] ?? '','output'=>$res['output'] ?? '']);
+        echo json_encode(['ok'=>true,'printer'=>$res['printer'] ?? null,'request_id'=>$res['request_id'] ?? '','output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '']);
     } else {
-        echo json_encode(['ok'=>false,'error'=>$res['error'] ?? 'Falha desconhecida','printer'=>$res['printer'] ?? null,'output'=>$res['output'] ?? '']);
+        echo json_encode(['ok'=>false,'error'=>$res['error'] ?? 'Falha desconhecida','printer'=>$res['printer'] ?? null,'output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '','detail'=>$res['detail'] ?? '']);
     }
 } catch (Throwable $e) {
     error_log('[assetmgrstatus] print_hp.form fatal: '.$e->getMessage().' @ '.$e->getFile().':'.$e->getLine());
