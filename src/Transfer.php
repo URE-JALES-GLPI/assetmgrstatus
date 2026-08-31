@@ -994,27 +994,54 @@ class Transfer
         // Valida stage
         if (!in_array($stage, ['transfer','pronto','final'], true)) $stage = 'pronto';
 
-        // Gera PDF temporário (usa mPDF — mesmo que vai para o chamado)
+        // Gera PDF temporário (usa mPDF — mesmo HTML do "PDF Assinado" em transfer_pdf.php / renderDocHtml)
+        // CORREÇÃO 60 folhas: NUNCA imprimir HTML puro no CUPS. Se o PDF não for gerado, retorna erro
+        // em vez de enviar .html para "lp" — CUPS trataria HTML como texto puro (source code) e
+        // imprimiria 60+ folhas com o código HTML, não o termo renderizado.
         $pdf_path = self::generateDocPdf($transfer_id, $stage);
-        $isHtmlFallback = false;
         if (!$pdf_path || !file_exists($pdf_path)) {
             $err = self::$last_ticket_error ?: 'Falha ao gerar PDF para impressão (mPDF indisponível ou erro interno)';
-            // Fallback: tenta imprimir HTML direto (CUPS pode converter via texttopdf/h5topdf)
-            $htmlFallback = self::renderDocHtml($transfer_id, $stage);
-            if ($htmlFallback !== '') {
-                $htmlPath = sys_get_temp_dir() . '/am_doc_' . $transfer_id . '_' . uniqid() . '.html';
-                @file_put_contents($htmlPath, $htmlFallback);
-                if (file_exists($htmlPath) && filesize($htmlPath) > 200) {
-                    $pdf_path = $htmlPath;
-                    $isHtmlFallback = true;
-                    // não retorna erro, tenta imprimir HTML
-                } else {
-                    return ['ok' => false, 'error' => $err];
-                }
-            } else {
-                return ['ok' => false, 'error' => $err];
-            }
+            error_log('[assetmgrstatus] printOnServer: PDF não gerado transfer=' . $transfer_id . ' stage=' . $stage . ' err=' . $err);
+            return ['ok' => false, 'error' => $err . ' — O mesmo PDF que abre em "PDF Assinado" não pôde ser gerado no servidor. Instale no servidor: sudo -u www-data composer -d ' . (defined('GLPI_ROOT') ? GLPI_ROOT : '/var/www/html/glpi') . '/plugins/assetmgrstatus install  ou  sudo apt install wkhtmltopdf && sudo systemctl restart apache2'];
         }
+        // Valida que é um PDF real (não HTML renomeado) — evita imprimir texto/HTML como PDF
+        $fh = @fopen($pdf_path, 'rb');
+        $header = $fh ? @fread($fh, 5) : '';
+        if ($fh) @fclose($fh);
+        if ($header !== '%PDF-') {
+            $size = @filesize($pdf_path);
+            @unlink($pdf_path);
+            error_log('[assetmgrstatus] printOnServer: arquivo gerado não é PDF (header=' . json_encode($header) . ' size=' . $size . ') transfer=' . $transfer_id);
+            return ['ok' => false, 'error' => 'Arquivo gerado não é um PDF válido (cabeçalho ' . json_encode($header) . '). O termo não foi enviado para impressão. Verifique mPDF/Dompdf no servidor. Detalhe: ' . self::$last_ticket_error];
+        }
+        // Valida tamanho razoável e contagem de páginas para evitar 60 folhas acidental
+        $fsize = @filesize($pdf_path);
+        if ($fsize !== false && $fsize < 800) {
+            @unlink($pdf_path);
+            return ['ok' => false, 'error' => 'PDF gerado vazio/corrompido (' . $fsize . ' bytes). Não enviado para impressão.'];
+        }
+        if ($fsize !== false && $fsize > 15 * 1024 * 1024) {
+            @unlink($pdf_path);
+            return ['ok' => false, 'error' => 'PDF muito grande (' . round($fsize/1024/1024,1) . ' MB) — impressão bloqueada para evitar desperdício.'];
+        }
+        // Conta páginas de forma leve (busca "/Type /Page" no PDF) — aborta se > 10 páginas
+        try {
+            $raw = @file_get_contents($pdf_path);
+            if ($raw !== false) {
+                $pages = substr_count($raw, '/Type /Page') - substr_count($raw, '/Type /Pages');
+                // Fallback: conta "/Page" isolado se técnica acima falhar
+                if ($pages <= 0) {
+                    $pages = preg_match_all('/\/Type\s*\/Page[^s]/', $raw);
+                }
+                if ($pages > 10) {
+                    @unlink($pdf_path);
+                    error_log('[assetmgrstatus] printOnServer: PDF com ' . $pages . ' páginas bloqueado transfer=' . $transfer_id);
+                    return ['ok' => false, 'error' => 'PDF gerado com ' . $pages . ' páginas — bloqueado para evitar impressão de 60 folhas. O termo deveria ter 1-2 páginas. Contate o suporte: o HTML pode estar com tabela muito larga ou loop. PDF não enviado.'];
+                }
+                // Log informativo
+                error_log('[assetmgrstatus] printOnServer: PDF ok transfer=' . $transfer_id . ' stage=' . $stage . ' size=' . $fsize . ' pages~' . $pages);
+            }
+        } catch (\Throwable $e) { /* ignora contagem, segue impressão */ }
 
         // Escolhe impressora
         $printer = null;
@@ -1053,17 +1080,20 @@ class Transfer
         @chmod($pdf_path, 0644);
 
         // Se impressora escolhida não está na lista mas há impressoras, avisa mas tenta mesmo assim (pode ser nome com alias)
-        // Monta comando com segurança (escapeshellarg) — replica comando que usuário usa: lp -d HP_PeB /tmp/file
+        // CORREÇÃO 60 folhas: sempre forçar 1 cópia, A4 e fit-to-page para não imprimir 60 páginas/cópias
         $output = [];
         $ret = -1;
         $cmd = '';
         $printed = false;
         $lastOut = '';
+        $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
 
-        // Tenta lp primeiro — simples como usuário faz: lp -d HP_PeB /tmp/file
+        // Tenta lp primeiro — com opções explícitas de página (evita 60 cópias/páginas por padrão CUPS)
         if ($hasLp) {
             $cmd = 'lp';
             if ($printer) $cmd .= ' -d ' . escapeshellarg($printer);
+            $cmd .= ' -t ' . escapeshellarg($title);
+            $cmd .= ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
@@ -1074,7 +1104,7 @@ class Transfer
                 if (stripos($lastOut, 'Unknown destination') !== false || stripos($lastOut, 'unknown printer') !== false) {
                     $out2 = [];
                     $ret2 = -1;
-                    $cmd2 = 'lp ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd2 = 'lp -t ' . escapeshellarg($title) . ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd2, $out2, $ret2);
                     if ($ret2 === 0) {
                         $printed = true;
@@ -1082,25 +1112,25 @@ class Transfer
                         $printer = $default ?? 'default';
                     }
                 } else {
-                    // tenta com opções de página (pode ajudar PDF)
+                    // tenta sem fit-to-page como último recurso
                     $out3 = [];
                     $ret3 = -1;
-                    $title = 'Termo-' . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . '-' . $stage;
-                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' -o fit-to-page ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd3, $out3, $ret3);
                     if ($ret3 === 0) {
                         $printed = true;
-                        $lastOut = implode("\n", $out3) . " (fallback fit-to-page)";
+                        $lastOut = implode("\n", $out3) . " (fallback simples)";
                     }
                 }
             }
         }
 
-        // Se ainda não imprimiu e lpr disponível, tenta lpr (também simples)
+        // Se ainda não imprimiu e lpr disponível, tenta lpr com 1 cópia
         if (!$printed && $hasLpr) {
             $output = [];
             $cmd = 'lpr';
             if ($printer) $cmd .= ' -P ' . escapeshellarg($printer);
+            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=one-sided';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);

@@ -440,7 +440,7 @@ async function amSigSave() {
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nO PDF será gerado no servidor Ubuntu (GLPI) e enviado para a fila de impressão CUPS da impressora HP padrão (HP_PeB).')) return;
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (1-2 páginas, A4, 1 cópia).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
@@ -479,11 +479,15 @@ async function amPrintHP(transferId) {
         if (j.ok) {
             const printer = j.printer ? ' (' + j.printer + ')' : '';
             const job = j.request_id ? '\nJob: ' + j.request_id : (j.output ? '\n' + j.output.substring(0,200) : '');
-            alert('✅ Enviado para impressão na HP' + printer + '!\nTermo #' + String(transferId).padStart(4,'0') + ' entrou na fila CUPS do servidor.' + job);
+            alert('✅ Enviado para impressão na HP' + printer + '!\nTermo #' + String(transferId).padStart(4,'0') + ' entrou na fila CUPS do servidor.\n\nImpressão: 1 cópia, A4, 1-2 páginas (bloqueio anti-60 folhas ativo).' + job + '\n\nSe sair em branco, abra "PDF Assinado" e use Ctrl+P no navegador.');
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         } else {
             console.error(j);
-            alert('❌ Falha ao imprimir na HP:\n' + (j.error || 'Erro desconhecido') + (j.output ? '\n\nDetalhe: ' + j.output.substring(0,400) : ''));
+            const basePdf = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+            const pdfUrl = basePdf + '/front/transfer_pdf.php?id=' + encodeURIComponent(String(transferId)) + '&stage=pronto';
+            const msg = '❌ Falha ao imprimir na HP:\n' + (j.error || 'Erro desconhecido') + (j.output ? '\n\nDetalhe: ' + j.output.substring(0,400) : '') + '\n\n[CORREÇÃO 60 folhas: o botão agora NUNCA imprime HTML puro — só PDF válido de 1-2 páginas. Se o PDF não for gerado, este erro aparece em vez de 60 folhas.]\n\nSolução imediata: abra o "PDF Assinado" e imprima manualmente (Ctrl+P):\n' + pdfUrl;
+            alert(msg);
+            if (confirm('Abrir "PDF Assinado" agora para impressão manual (Ctrl+P)?')) { window.open(pdfUrl, '_blank'); }
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         }
     } catch(e) {
