@@ -102,6 +102,7 @@ header('Content-Type: text/html; charset=UTF-8');
 <head>
 <meta charset="UTF-8">
 <title><?= htmlspecialchars($doc_title) ?> — #<?= $transfer_id ?></title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Arial', sans-serif; font-size: 11px; color: #2d2d2d; background: #f4f4f4; }
@@ -172,6 +173,50 @@ header('Content-Type: text/html; charset=UTF-8');
     <button id="btn-hp" onclick="amPrintHP()" style="padding:9px 22px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">🖨️ Imprimir na HP</button>
     <button onclick="window.close()" style="padding:9px 22px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fechar</button>
 </div>
+<script>
+const amCsrfTokenPdf = "<?= Session::getNewCSRFToken() ?>";
+const amTransferIdPdf = <?= (int)$transfer_id ?>;
+const amStagePdf = "<?= htmlspecialchars($stage) ?>";
+async function amPrintHP() {
+    const btn = document.getElementById('btn-hp');
+    const old = btn ? btn.innerHTML : '';
+    if (!confirm('Enviar Termo #' + String(amTransferIdPdf).padStart(6,'0') + ' para impressão na HP?\n\nSerá impresso exatamente este PDF (1-2 páginas, A4, 1 cópia) na HP padrão do servidor.')) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Gerando PDF...'; }
+    let pdfBase64 = null;
+    try {
+        const pageEl = document.querySelector('.page');
+        if (pageEl && window.html2pdf) {
+            const opt = { margin: [10, 10, 10, 10], filename: 'Termo-' + String(amTransferIdPdf).padStart(6,'0') + '.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true, scrollY: 0 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+            const dataUri = await html2pdf().set(opt).from(pageEl).outputPdf('datauristring');
+            const parts = dataUri.split(','); pdfBase64 = parts[1] || null;
+            if (pdfBase64) console.log('[amPrintHP] PDF cliente gerado', pdfBase64.length);
+        }
+    } catch(e) { console.warn('html2pdf falhou, fallback servidor', e); pdfBase64 = null; }
+    if (btn) btn.innerHTML = '⏳ Enviando...';
+    try {
+        const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+        let body; let headers = {'X-Glpi-Csrf-Token': amCsrfTokenPdf, 'X-Requested-With':'XMLHttpRequest'};
+        if (pdfBase64) { body = new URLSearchParams({transfer_id: String(amTransferIdPdf), stage: amStagePdf, pdf_base64: pdfBase64, _glpi_csrf_token: amCsrfTokenPdf}); }
+        else { body = new URLSearchParams({transfer_id: String(amTransferIdPdf), stage: amStagePdf, _glpi_csrf_token: amCsrfTokenPdf}); }
+        let res = await fetch(base + '/front/print_hp.form.php', {method:'POST', headers: headers, credentials:'same-origin', body: body});
+        if (!res.ok && (res.status===403 || res.status===404)) { res = await fetch(base + '/ajax/print_hp.php', {method:'POST', headers: headers, credentials:'same-origin', body: body}); }
+        const text = await res.text();
+        let j; try { j = JSON.parse(text); } catch(e) { alert('❌ Erro servidor (HTTP '+res.status+'):\n'+text.slice(0,800).replace(/<[^>]*>/g,' ').trim()); if(btn){btn.disabled=false;btn.innerHTML=old;} return; }
+        if (j.ok) {
+            const audit = j.audit || ('Transferência #'+String(amTransferIdPdf).padStart(4,'0')+' | '+new Date().toLocaleString('pt-BR')+' | Impressora: '+(j.printer||'-')+(j.request_id?' | Job:'+j.request_id:''));
+            try { navigator.clipboard.writeText(audit); } catch(e) {}
+            alert('✅ Impressão enviada!\n'+audit+'\n\n1 cópia, A4, 1-2 páginas.\nPDF enviado foi exatamente o que você vê nesta página.');
+            console.log('[AUDIT OK]', audit, j);
+        } else {
+            const audit = j.audit || ('Transferência #'+String(amTransferIdPdf).padStart(4,'0')+' | '+new Date().toLocaleString('pt-BR')+' | Erro: '+(j.error||'desconhecido'));
+            try { navigator.clipboard.writeText(audit); } catch(e) {}
+            alert('❌ Falha ao imprimir\n'+(j.error||'Erro desconhecido')+'\n\nLog auditoria:\n'+audit);
+            console.log('[AUDIT FAIL]', audit, j);
+        }
+    } catch(e) { alert('Erro de rede: '+e.message); console.error(e); }
+    finally { if(btn){btn.disabled=false;btn.innerHTML=old;} }
+}
+</script>
 <script>
 const amCsrfTokenPdf = "<?= Session::getNewCSRFToken() ?>";
 const amTransferIdPdf = <?= (int)$transfer_id ?>;

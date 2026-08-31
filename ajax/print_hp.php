@@ -61,6 +61,7 @@ try {
     $stage = trim((string)($data['stage'] ?? $_GET['stage'] ?? 'pronto'));
     if (!in_array($stage, ['transfer','pronto','final'], true)) $stage = 'pronto';
     $printer = trim((string)($data['printer'] ?? $_GET['printer'] ?? ''));
+    $pdf_base64 = trim((string)($data['pdf_base64'] ?? ''));
 
     if (!$transfer_id) {
         echo json_encode(['ok'=>false,'error'=>'ID da transferência não informado']);
@@ -73,7 +74,7 @@ try {
         exit;
     }
 
-    $res = \GlpiPlugin\Assetmgrstatus\Transfer::printOnServer($transfer_id, $stage, $printer ?: null);
+    $res = \GlpiPlugin\Assetmgrstatus\Transfer::printOnServer($transfer_id, $stage, $printer ?: null, $pdf_base64 ?: null);
     if ($res['ok']) {
         echo json_encode(['ok'=>true,'printer'=>$res['printer'] ?? null,'request_id'=>$res['request_id'] ?? '','output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '']);
     } else {
