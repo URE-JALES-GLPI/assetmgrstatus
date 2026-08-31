@@ -151,83 +151,74 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     <?php endif; ?>
 </div>
 
-<!-- Modal Assinatura (RG/CPF + teclado numérico + canvas) -->
+<!-- Modal Assinatura Wizard 7 telas -->
 <div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;">
-    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:560px;max-height:92vh;display:flex;flex-direction:column;">
+    <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;max-height:92vh;display:flex;flex-direction:column;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#1a73b5,#4f46e5);">
-            <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura do Termo</span></div>
+            <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura — Etapa 1 de 7</span></div>
             <button class="am-modal-close" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i></button>
         </div>
+        <div style="height:4px;background:#e8eaf0;"><div id="am-sig-progress" style="height:100%;width:14%;background:linear-gradient(90deg,#10b981,#059669);transition:width .25s;"></div></div>
 
-        <!-- Step 1: Escolha RG/CPF -->
-        <div id="am-sig-step1" class="am-modal-body" style="display:block;">
-            <div style="text-align:center;margin-bottom:12px;">
-                <div style="font-weight:800;font-size:1rem;color:#1e1b4b;">Documento do responsável</div>
-                <div style="font-size:.82rem;color:#6b7280;">Escolha o tipo de documento que será coletado</div>
-            </div>
-            <div class="am-doc-choice">
-                <button type="button" class="am-doc-btn" data-type="RG" onclick="amSigChooseDoc('RG')">
-                    <i class="ti ti-id" style="font-size:1.6rem;"></i> RG
-                    <small>Registro Geral</small>
-                </button>
-                <button type="button" class="am-doc-btn" data-type="CPF" onclick="amSigChooseDoc('CPF')">
-                    <i class="ti ti-id-badge-2" style="font-size:1.6rem;"></i> CPF
-                    <small>11 dígitos</small>
-                </button>
-            </div>
-            <div id="am-sig-step1-hint" style="text-align:center;font-size:.78rem;color:#9ca3af;margin-top:8px;">Selecione RG ou CPF para continuar</div>
-            <div style="margin-top:14px;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 12px;font-size:.78rem;color:#1e3a5f;">
-                <i class="ti ti-shield-check" style="color:#1a73b5;"></i> O documento será impresso no termo junto com a assinatura e data/hora.
-            </div>
+        <!-- WIZ 1: Seleciona Tecnico -->
+        <div id="am-wiz-1" class="am-modal-body" style="display:block;text-align:center;">
+            <div style="width:64px;height:64px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-user-check" style="font-size:1.8rem;color:#fff;"></i></div>
+            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">1. Selecione o Técnico</div>
+            <div style="font-size:.85rem;color:#6b7280;margin:6px 0 14px;">Quem está entregando o equipamento?</div>
+            <select id="am-sig-tec-select" class="am-input" style="background:#fff;font-size:1rem;padding:12px;">
+                <option value="">Carregando técnicos...</option>
+            </select>
+            <div id="am-sig-tec-empty" style="display:none;margin-top:10px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:.85rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
+            <button type="button" class="am-btn" style="width:100%;margin-top:16px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(1)"><i class="ti ti-arrow-right"></i> Próximo</button>
         </div>
 
-        <!-- Step 2: Teclado numérico + Nome + Assinatura -->
-        <div id="am-sig-step2" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
-            <div id="am-sig-tec-wrap" style="margin-bottom:16px;background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:12px;">
-                <label class="am-form-label" style="color:#3730a3;"><i class="ti ti-user-check"></i> Técnico responsável <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(assinatura já cadastrada)</small></label>
-                <select id="am-sig-tec-select" class="am-input" style="background:#fff;">
-                    <option value="">Carregando técnicos...</option>
-                </select>
-                <small style="font-size:.75rem;color:#6b7280;display:block;margin-top:4px;">Selecione o técnico que está entregando — a assinatura dele do cadastro será usada.</small>
-                <div id="am-sig-tec-empty" style="display:none;margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;font-size:.78rem;color:#92400e;">Nenhum técnico cadastrado. Cadastre em Dashboard > Técnicos.</div>
+        <!-- WIZ 2: Aviso Recebedor -->
+        <div id="am-wiz-2" class="am-modal-body" style="display:none;text-align:center;">
+            <div style="width:64px;height:64px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-user" style="font-size:1.8rem;color:#fff;"></i></div>
+            <div style="font-weight:800;font-size:1.1rem;color:#1e1b4b;">2. Agora é a vez do Recebedor</div>
+            <div style="font-size:.9rem;color:#6b7280;margin:10px 0 16px;line-height:1.5;">O próximo a assinar é o <strong style="color:#1e1b4b;">responsável da escola</strong> que está recebendo.<br>Tenha o documento dele em mãos.</div>
+            <div style="background:#f0f7ff;border:1.5px solid #bfdbfe;border-radius:10px;padding:12px;font-size:.85rem;color:#1e3a5f;"><i class="ti ti-info-circle"></i> O técnico <strong id="am-wiz-tec-name">—</strong> já foi selecionado. Agora colete os dados do recebedor.</div>
+            <div style="display:flex;gap:10px;margin-top:16px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(2)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(2)">Continuar <i class="ti ti-arrow-right"></i></button></div>
+        </div>
+
+        <!-- WIZ 3: Nome Recebedor -->
+        <div id="am-wiz-3" class="am-modal-body" style="display:none;">
+            <div style="text-align:center;margin-bottom:14px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">3. Nome do Recebedor</div><div style="font-size:.85rem;color:#6b7280;">Quem está recebendo? (opcional, mas recomendado)</div></div>
+            <label class="am-form-label">Nome completo</label>
+            <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="font-size:1.05rem;padding:14px;">
+            <div style="display:flex;gap:10px;margin-top:16px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(3)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="amWizNext(3)">Próximo <i class="ti ti-arrow-right"></i></button></div>
+            <button type="button" class="am-btn am-btn-secondary" style="width:100%;margin-top:8px;background:transparent;border:none;color:#6b7280;" onclick="document.getElementById('am-sig-nome').value=''; amWizNext(3)">Pular (deixar em branco)</button>
+        </div>
+
+        <!-- WIZ 4: RG ou CPF -->
+        <div id="am-wiz-4" class="am-modal-body" style="display:none;">
+            <div style="text-align:center;margin-bottom:14px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">4. Tipo de documento</div><div style="font-size:.85rem;color:#6b7280;">RG ou CPF do recebedor?</div></div>
+            <div class="am-doc-choice">
+                <button type="button" class="am-doc-btn" data-type="RG" onclick="amWizChooseDoc('RG')"><i class="ti ti-id" style="font-size:1.6rem;"></i> RG<small>5 a 12 dígitos</small></button>
+                <button type="button" class="am-doc-btn" data-type="CPF" onclick="amWizChooseDoc('CPF')"><i class="ti ti-id-badge-2" style="font-size:1.6rem;"></i> CPF<small>11 dígitos</small></button>
             </div>
+            <button type="button" class="am-btn am-btn-secondary" style="width:100%;margin-top:14px;" onclick="amWizPrev(4)"><i class="ti ti-arrow-left"></i> Voltar</button>
+        </div>
 
-            <div id="am-sig-receiver-section">
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                    <button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amSigBackToDoc()"><i class="ti ti-arrow-left"></i> Voltar</button>
-                    <span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span>
-                </div>
-
-                <label class="am-form-label">Documento do recebedor <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
-                <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
-                <input type="hidden" id="am-sig-doc-value">
-
-                <div class="am-numpad">
-                    <button type="button" onclick="amSigPress('1')">1</button>
-                    <button type="button" onclick="amSigPress('2')">2</button>
-                    <button type="button" onclick="amSigPress('3')">3</button>
-                    <button type="button" onclick="amSigPress('4')">4</button>
-                    <button type="button" onclick="amSigPress('5')">5</button>
-                    <button type="button" onclick="amSigPress('6')">6</button>
-                    <button type="button" onclick="amSigPress('7')">7</button>
-                    <button type="button" onclick="amSigPress('8')">8</button>
-                    <button type="button" onclick="amSigPress('9')">9</button>
-                    <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button>
-                    <button type="button" onclick="amSigPress('0')">0</button>
-                    <button type="button" class="am-numpad-action" onclick="amSigPress('ok')"><i class="ti ti-check"></i></button>
-                </div>
-                <div style="display:flex;gap:8px;margin-bottom:14px;">
-                    <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button>
-                    <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button>
-                </div>
-
-                <label class="am-form-label">Nome do recebedor (opcional)</label>
-                <input type="text" id="am-sig-nome" class="am-input" placeholder="Ex: João da Silva" style="margin-bottom:14px;">
-
-                <div id="am-sig-already-receiver" style="display:none;margin-bottom:14px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px 14px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor já assinado — agora só falta o técnico</div>
+        <!-- WIZ 5: Digita documento -->
+        <div id="am-wiz-5" class="am-modal-body" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amWizPrev(5)"><i class="ti ti-arrow-left"></i> Voltar</button><span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span></div>
+            <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
+            <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
+            <input type="hidden" id="am-sig-doc-value">
+            <div class="am-numpad">
+                <button type="button" onclick="amSigPress('1')">1</button><button type="button" onclick="amSigPress('2')">2</button><button type="button" onclick="amSigPress('3')">3</button>
+                <button type="button" onclick="amSigPress('4')">4</button><button type="button" onclick="amSigPress('5')">5</button><button type="button" onclick="amSigPress('6')">6</button>
+                <button type="button" onclick="amSigPress('7')">7</button><button type="button" onclick="amSigPress('8')">8</button><button type="button" onclick="amSigPress('9')">9</button>
+                <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button><button type="button" onclick="amSigPress('0')">0</button><button type="button" class="am-numpad-action" onclick="amWizNext(5)"><i class="ti ti-check"></i> Ok</button>
             </div>
+            <div style="display:flex;gap:8px;margin-top:10px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button></div>
+        </div>
 
-            <label id="am-sig-canvas-label" class="am-form-label">Assinatura do recebedor <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">use o dedo ou caneta touch</small></label>
+        <!-- WIZ 6: Assina -->
+        <div id="am-wiz-6" class="am-modal-body" style="display:none;flex:1;overflow-y:auto;">
+            <div style="text-align:center;margin-bottom:10px;"><div style="font-weight:800;font-size:1.05rem;color:#1e1b4b;">6. Assinatura do recebedor</div><div style="font-size:.85rem;color:#6b7280;">Use o dedo ou caneta touch no quadro abaixo</div></div>
+            <div id="am-sig-already-receiver" style="display:none;margin-bottom:10px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px;text-align:center;color:#065f46;font-weight:700;"><i class="ti ti-check"></i> Recebedor já assinado</div>
             <div class="am-sig-canvas-wrap">
                 <canvas id="am-sig-canvas" class="am-sig-canvas"></canvas>
             </div>
@@ -236,6 +227,16 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClearCanvas()"><i class="ti ti-eraser"></i> Limpar assinatura</button>
                 <button type="button" class="am-btn am-btn-secondary" style="flex:1;background:#fef2f2;color:#dc2626;border-color:#fecaca;" onclick="amCloseAssinaturaModal()"><i class="ti ti-x"></i> Cancelar</button>
             </div>
+            <div style="display:flex;gap:10px;margin-top:14px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(6)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn" style="flex:1;background:linear-gradient(135deg,#10b981,#059669);color:#fff;" onclick="amWizNext(6)"><i class="ti ti-check"></i> Assinar</button></div>
+        </div>
+
+        <!-- WIZ 7: Deu certo -->
+        <div id="am-wiz-7" class="am-modal-body" style="display:none;text-align:center;">
+            <div style="width:80px;height:80px;background:linear-gradient(135deg,#10b981,#059669);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:16px auto;"><i class="ti ti-check" style="font-size:2.4rem;color:#fff;"></i></div>
+            <div style="font-weight:800;font-size:1.3rem;color:#065f46;">Deu certo!</div>
+            <div style="font-size:.9rem;color:#6b7280;margin:8px 0 16px;">Assinatura salva com sucesso.<br>O termo foi atualizado e já pode ser impresso.</div>
+            <div id="am-wiz-7-info" style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px;font-size:.85rem;color:#065f46;margin-bottom:16px;"></div>
+            <button type="button" class="am-btn" style="width:100%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="location.reload()"><i class="ti ti-refresh"></i> Fechar e atualizar</button>
         </div>
 
         <div id="am-sig-footer" class="am-modal-footer" style="display:none;">
