@@ -1412,7 +1412,7 @@ class Transfer
      * Gera o PDF via mPDF e executa `lp`/`lpr`.
      * @return array{ok:bool, printer?:string, output?:string, error?:string, request_id?:string}
      */
-    public static function printOnServer(int $transfer_id, string $stage = 'pronto', ?string $preferred_printer = null): array
+    public static function printOnServer(int $transfer_id, string $stage = 'pronto', ?string $preferred_printer = null, ?string $pdfBase64 = null): array
     {
         global $DB;
         $transfer = self::getById($transfer_id);
@@ -1422,11 +1422,38 @@ class Transfer
         // Valida stage
         if (!in_array($stage, ['transfer','pronto','final'], true)) $stage = 'pronto';
 
-        // Gera PDF temporário (usa mPDF — mesmo HTML do "PDF Assinado" em transfer_pdf.php / renderDocHtml)
-        // CORREÇÃO 60 folhas: NUNCA imprimir HTML puro no CUPS. Se o PDF não for gerado, retorna erro
-        // em vez de enviar .html para "lp" — CUPS trataria HTML como texto puro (source code) e
-        // imprimiria 60+ folhas com o código HTML, não o termo renderizado.
-        $pdf_path = self::generateDocPdf($transfer_id, $stage);
+        // Se cliente enviou PDF base64 (gerado via html2pdf no navegador - exatamente o que vê no PDF Assinado), usa ele
+        // Isso garante impressão idêntica à página, sem depender de mPDF/wkhtmltopdf no servidor
+        $pdf_path = null;
+        $isClientPdf = false;
+        if (!empty($pdfBase64)) {
+            try {
+                $raw = base64_decode($pdfBase64, true);
+                if ($raw !== false && strlen($raw) > 800 && substr($raw, 0, 5) === '%PDF-') {
+                    $pdf_path = sys_get_temp_dir() . '/am_client_' . $transfer_id . '_' . uniqid() . '.pdf';
+                    if (@file_put_contents($pdf_path, $raw) !== false && file_exists($pdf_path) && filesize($pdf_path) > 800) {
+                        $isClientPdf = true;
+                        error_log('[assetmgrstatus] printOnServer: PDF cliente usado transfer=' . $transfer_id . ' size=' . filesize($pdf_path));
+                    } else {
+                        $pdf_path = null;
+                        error_log('[assetmgrstatus] printOnServer: falha ao salvar PDF cliente transfer=' . $transfer_id);
+                    }
+                } else {
+                    error_log('[assetmgrstatus] printOnServer: pdfBase64 inválido transfer=' . $transfer_id . ' len=' . strlen($pdfBase64 ?? '') . ' header=' . json_encode(substr($raw ?? '',0,10)));
+                }
+            } catch (\Throwable $e) {
+                error_log('[assetmgrstatus] printOnServer pdfBase64 exception: ' . $e->getMessage());
+                $pdf_path = null;
+            }
+        }
+        // Fallback: gera PDF no servidor (mPDF/FPDF) se cliente não enviou
+        if (!$pdf_path) {
+            // Gera PDF temporário (usa mPDF — mesmo HTML do "PDF Assinado" em transfer_pdf.php / renderDocHtml)
+            // CORREÇÃO 60 folhas: NUNCA imprimir HTML puro no CUPS. Se o PDF não for gerado, retorna erro
+            // em vez de enviar .html para "lp" — CUPS trataria HTML como texto puro (source code) e
+            // imprimiria 60+ folhas com o código HTML, não o termo renderizado.
+            $pdf_path = self::generateDocPdf($transfer_id, $stage);
+        }
         if (!$pdf_path || !file_exists($pdf_path)) {
             $err = self::$last_ticket_error ?: 'Falha ao gerar PDF (dependência não instalada)';
             error_log('[assetmgrstatus] printOnServer: PDF não gerado transfer=' . $transfer_id . ' stage=' . $stage . ' err=' . $err);
