@@ -231,7 +231,15 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     </div>
 </div>
 
+<style>#am-sig-toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:10006;background:#fff;border:2px solid #fecaca;color:#991b1b;padding:16px 20px;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.25);font-weight:700;max-width:90vw;text-align:center;display:none;}#am-sig-toast.ok{border-color:#a7f3d0;color:#065f46;background:#f0fdf4;}</style>
+<div id="am-sig-toast"></div>
 <script>
+function amSigToast(msg, ok){
+  var t=document.getElementById('am-sig-toast'); if(!t) return alert(msg);
+  t.textContent=msg; t.className=ok?'ok':''; t.style.display='block'; t.style.opacity='1';
+  clearTimeout(window._amSigToastT);
+  window._amSigToastT=setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(function(){ t.style.display='none'; },300); }, ok?2500:3500);
+}
 const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
 let amSigTransferId = 0;
 let amSigDocType = '';
@@ -336,8 +344,8 @@ function amSigUpdateDisplay() {
     if (amSigDocType==='CPF') el.style.borderColor = amSigDocNumber.length===11 ? '#10b981' : '#f59e0b';
 }
 function amSigCheckDocComplete() {
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { alert('CPF precisa de 11 dígitos.'); return; }
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { alert('RG precisa de 5 a 12 dígitos.'); return; }
+    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) { amSigToast('CPF precisa de 11 dígitos.'); return; }
+    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) { amSigToast('RG precisa de 5 a 12 dígitos.'); return; }
     document.getElementById('am-sig-nome').focus();
 }
 function amSigInitCanvas() {
@@ -385,15 +393,15 @@ function amSigClearCanvas() {
     amSigHasDrawn = false;
 }
 async function amSigSave() {
-    if (!amSigTransferId) return alert('Transferência inválida.');
-    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return alert('CPF precisa de 11 dígitos.');
-    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return alert('RG precisa de 5 a 12 dígitos.');
-    if (!amSigHasDrawn) return alert('Faça a assinatura com o dedo/caneta no quadro.');
+    if (!amSigTransferId) return amSigToast('Transferência inválida.');
+    if (amSigDocType==='CPF' && amSigDocNumber.length!==11) return amSigToast('CPF precisa de 11 dígitos.');
+    if (amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)) return amSigToast('RG precisa de 5 a 12 dígitos.');
+    if (!amSigHasDrawn) return amSigToast('Faça a assinatura com o dedo/caneta no quadro.');
     const nome = document.getElementById('am-sig-nome').value.trim();
     const c = document.getElementById('am-sig-canvas');
     // exporta PNG base64
     const dataUrl = c.toDataURL('image/png');
-    if (!dataUrl || dataUrl.length < 500) return alert('Assinatura vazia — desenhe novamente.');
+    if (!dataUrl || dataUrl.length < 500) return amSigToast('Assinatura vazia — desenhe novamente.');
     const btn = document.getElementById('am-sig-save-btn');
     const old = btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Salvando...';
     try {
@@ -419,20 +427,20 @@ async function amSigSave() {
         let j;
         try { j = JSON.parse(text); } catch(parseErr) {
             console.error('Resposta não-JSON:', text);
-            alert('❌ Erro servidor (resposta não-JSON, HTTP ' + res.status + '):\n' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
+            amSigToast('❌ Erro servidor (HTTP ' + res.status + '): ' + text.slice(0,1500).replace(/<[^>]*>/g,' ').trim().substring(0,600));
             btn.disabled=false; btn.innerHTML=old;
             return;
         }
         if (j.ok) {
-            alert('✅ Assinatura salva! Termo atualizado. Você já pode imprimir.');
-            location.reload();
+            amSigToast('✅ Assinatura salva! Termo atualizado.', true);
+            setTimeout(function(){ location.reload(); }, 900);
         } else {
-            alert('❌ ' + (j.error || 'Falha ao salvar.'));
+            amSigToast('❌ ' + (j.error || 'Falha ao salvar.'));
             console.error(j);
             btn.disabled=false; btn.innerHTML=old;
         }
     } catch(e) {
-        alert('Erro de rede: ' + e.message);
+        amSigToast('Erro de rede: ' + e.message);
         console.error(e);
         btn.disabled=false; btn.innerHTML=old;
     }
