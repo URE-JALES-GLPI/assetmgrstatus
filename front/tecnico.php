@@ -1115,7 +1115,8 @@ function amSubmitPegar(e){
     if(btn){ btn.disabled=true; btn.innerHTML='<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Pegando...'; }
     var fd=new FormData(); fd.append('type','transfer'); fd.append('id', id); fd.append('to','emandamento');
     var csrf=amGetCsrfToken(); if(csrf) fd.append('_glpi_csrf_token', csrf);
-    fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    var h={'X-Requested-With':'XMLHttpRequest'}; if(csrf) h['X-Glpi-Csrf-Token']=csrf;
+    fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:h})
         .then(amParseKanbanResponse)
         .then(function(res){
             if(res.ok && res.j.success){
@@ -1167,7 +1168,8 @@ function amSubmitPegarTicket(e){
     if(btn){ btn.disabled=true; btn.innerHTML='<i class=\"ti ti-loader-2\" style=\"animation:amSpin .8s linear infinite;display:inline-block;\"></i> Pegando...'; }
     var fd=new FormData(); fd.append('type','ticket'); fd.append('id', id); fd.append('to','emandamento');
     var csrf=amGetCsrfToken(); if(csrf) fd.append('_glpi_csrf_token', csrf);
-    fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    var h2={'X-Requested-With':'XMLHttpRequest'}; if(csrf) h2['X-Glpi-Csrf-Token']=csrf;
+    fetch((window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '') + '/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:h2})
         .then(amParseKanbanResponse)
         .then(function(res){
             if(res.ok && res.j.success){
@@ -1743,8 +1745,10 @@ function amKanbanConfirmGo(){
   fd.append('type', pending.type);
   fd.append('id', pending.id);
   fd.append('to', pending.to);
-  fd.append('_glpi_csrf_token', amGetCsrfToken() || '<?= Session::getNewCSRFToken() ?>');
-  fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}})
+  var csrf3=amGetCsrfToken() || '<?= Session::getNewCSRFToken() ?>';
+  fd.append('_glpi_csrf_token', csrf3);
+  var h3={'X-Requested-With':'XMLHttpRequest'}; if(csrf3) h3['X-Glpi-Csrf-Token']=csrf3;
+  fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:h3})
     .then(amParseKanbanResponse)
     .then(function(res){
       if(res.ok && res.j.success){
@@ -1816,6 +1820,7 @@ document.addEventListener('DOMContentLoaded', function(){
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     var btn = document.getElementById("am-theme-btn");
+    if(!btn) return;
     var dark = localStorage.getItem("am_theme") === "dark";
     btn.innerHTML = dark ? '<i class="ti ti-sun"></i>' : '<i class="ti ti-moon"></i>';
 });
