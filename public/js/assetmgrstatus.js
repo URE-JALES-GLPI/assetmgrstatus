@@ -709,9 +709,14 @@
         var reasonEl = form.querySelector('textarea[name="reason"]');
         var reason = reasonEl ? reasonEl.value.trim() : '';
         if (!reason) { alert('Preencha o motivo da transferência.'); if(reasonEl){reasonEl.focus(); reasonEl.style.borderColor='#ef4444'; setTimeout(function(){reasonEl.style.borderColor='';},1500);} return; }
-        var catEl = form.querySelector('select[name="ticket_category"]');
-        if (!catEl || !catEl.value) { alert('Selecione a categoria do chamado.'); if(catEl){catEl.focus(); catEl.style.borderColor='#ef4444'; setTimeout(function(){catEl.style.borderColor='';},1500);} return; }
-        var catName = catEl.options[catEl.selectedIndex]?.text || '';
+        var catEl = form.querySelector('[name="ticket_category"]');
+        if (!catEl || !catEl.value) { alert('Categoria do chamado não encontrada (Manutenção). Verifique se a categoria Manutenção existe em Configuração > Categorias.'); if(catEl){catEl.focus();} return; }
+        var catName = '';
+        if (catEl.tagName === 'SELECT') catName = catEl.options[catEl.selectedIndex]?.text || '';
+        else {
+            var disp = form.querySelector('[data-cat-name]'); catName = disp ? disp.textContent.trim() : 'Manutenção';
+            if (!catName) catName = 'Manutenção';
+        }
         // Itens selecionados
         var inp = document.getElementById('am-tr-selected-assets');
         var items = [];

@@ -1139,31 +1139,31 @@ if ($can_admin_entity) {
                     <label class="am-form-label">Motivo da Transferência <span class="am-required">*</span></label>
                     <textarea name="reason" class="am-textarea" required placeholder="Descreva o motivo da transferência..."></textarea>
                 </div>
+                <?php
+                // Categoria fixa: Manutenção (não aparece opção pra selecionar)
+                $manutCatId = 0; $manutCatName = 'Manutenção';
+                try {
+                    $found = null;
+                    foreach ($DB->request(['SELECT' => ['id','name','completename'], 'FROM' => 'glpi_itilcategories', 'WHERE' => ['name' => ['LIKE', 'Manutenção']], 'LIMIT' => 1]) as $r) $found = $r;
+                    if (!$found) foreach ($DB->request(['SELECT' => ['id','name','completename'], 'FROM' => 'glpi_itilcategories', 'WHERE' => ['completename' => ['LIKE', '%Manutenção%']], 'LIMIT' => 1]) as $r) $found = $r;
+                    if ($found) { $manutCatId = (int)$found['id']; $manutCatName = $found['completename'] ?: $found['name']; }
+                    else {
+                        // fallback: pega primeira categoria se Manutenção não existir
+                        $first = $DB->request(['SELECT' => ['id','completename'], 'FROM' => 'glpi_itilcategories', 'ORDER' => ['id ASC'], 'LIMIT' => 1])->current();
+                        if ($first) { $manutCatId = (int)$first['id']; $manutCatName = $first['completename'] ?: 'Manutenção'; }
+                    }
+                } catch (\Throwable $e) {}
+                ?>
                 <div class="am-form-section">
-                    <label class="am-form-label">Categoria do Chamado <span class="am-required">*</span></label>
-                    <select name="ticket_category" class="am-input" required>
-                        <option value="">Selecione a categoria...</option>
-                        <?php
-                        try {
-                            $tcats = $DB->request([
-                                'FROM'  => 'glpi_itilcategories',
-                                'ORDER' => ['completename ASC'],
-                            ]);
-                            $hasCat = false;
-                            foreach ($tcats as $tcat) {
-                                $hasCat = true;
-                                echo '<option value="' . (int)$tcat['id'] . '">' . htmlspecialchars($tcat['completename']) . '</option>';
-                            }
-                            if (!$hasCat) {
-                                echo '<option value="" disabled>Nenhuma categoria cadastrada — crie em Configuração > Categorias de chamado</option>';
-                            }
-                        } catch (\Throwable $e) {
-                            echo '<option value="" disabled>Erro ao carregar categorias: ' . htmlspecialchars($e->getMessage()) . '</option>';
-                        }
-                        ?>
-                    </select>
+                    <label class="am-form-label">Categoria do Chamado</label>
+                    <input type="hidden" name="ticket_category" value="<?= (int)$manutCatId ?>">
+                    <div style="display:flex;align-items:center;gap:8px;background:#f0fdf4;border:1.5px solid #a7f3d0;border-radius:10px;padding:10px 14px;">
+                        <i class="ti ti-category" style="color:#059669;font-size:1.1rem;"></i>
+                        <span data-cat-name style="font-weight:700;color:#065f46;"><?= htmlspecialchars($manutCatName) ?></span>
+                        <span style="font-size:.75rem;color:#6b7280;">— fixo automático</span>
+                    </div>
                     <small style="display:block;margin-top:6px;color:#6b7280;font-size:.75rem;">
-                        <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI com todas as informações da transferência.
+                        <i class="ti ti-ticket"></i> Um chamado será aberto automaticamente no GLPI na categoria <strong><?= htmlspecialchars($manutCatName) ?></strong> com todas as informações da transferência.
                     </small>
                 </div>
             </div>

@@ -1137,6 +1137,16 @@ function amSubmitPegar(e){
                         // remove empty msg
                         var empty=target.querySelector('.am-kanban-empty'); if(empty) empty.style.display='none';
                         card.style.display=''; card.classList.remove('am-kanban-hidden-pego'); card.setAttribute('data-mine','1');
+                        card.setAttribute('data-status','em_manutencao');
+                        // atualiza badge e footer sem F5
+                        try{
+                            var bdg=card.querySelector('.am-badge'); if(bdg){ bdg.textContent='Em Andamento'; bdg.className='am-badge am-badge-garantia'; }
+                            var foot=card.querySelector('.am-tc-card-footer');
+                            if(foot){
+                                var rd=(window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '/glpi');
+                                foot.innerHTML='<a href="'+rd+'/plugins/assetmgrstatus/front/tecnico_diario.php?id='+id+'" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-clipboard-text"></i> Diário</a><a href="'+rd+'/plugins/assetmgrstatus/front/tecnico_pronto.php?id='+id+'" class="am-btn" style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-check"></i> Pronto</a>';
+                            }
+                        }catch(e){}
                         card.style.opacity='0'; target.prepend(card);
                         setTimeout(function(){ card.style.transition='opacity .3s'; card.style.opacity='1'; }, 30);
                         // atualiza contadores
@@ -1189,7 +1199,20 @@ function amSubmitPegarTicket(e){
                         var empty=target.querySelector('.am-kanban-empty'); if(empty) empty.style.display='none';
                         card.style.display=''; card.classList.remove('am-kanban-hidden-pego');
                         card.setAttribute('data-mine','1');
-                        // muda cor de borda/status para Em Andamento (opcional)
+                        card.setAttribute('data-status','2');
+                        try{
+                            var bdg2=card.querySelector('.am-badge'); if(bdg2){ bdg2.textContent='Em Andamento'; bdg2.style.background='#3b82f6'; }
+                            var foot2=card.querySelector('.am-tc-card-footer');
+                            if(foot2){
+                                var rd2=(window.CFG_GLPI && window.CFG_GLPI.root_doc ? window.CFG_GLPI.root_doc : '/glpi');
+                                foot2.innerHTML='<a href="'+rd2+'/front/ticket.form.php?id='+id+'" target="_blank" class="am-btn am-btn-secondary" style="flex:1;padding:6px 10px;font-size:.75rem;"><i class="ti ti-external-link"></i> Abrir</a>';
+                            }
+                            var semTec=card.querySelector('.ti-user-question');
+                            if(semTec){
+                                var row=semTec.closest('.am-tc-info-row');
+                                if(row) row.innerHTML='<i class="ti ti-user-check" style="color:#10b981;"></i><span style="color:#059669;font-weight:700;">Atribuído: você</span>';
+                            }
+                        }catch(e){}
                         card.style.opacity='0'; target.prepend(card);
                         setTimeout(function(){ card.style.transition='opacity .3s'; card.style.opacity='1'; }, 30);
                         var cntPend=document.getElementById('am-kanban-count-pendente');
