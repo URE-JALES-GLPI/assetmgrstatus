@@ -415,7 +415,8 @@ function amWizNext(n){
   } else if(n===2){ amWizGo(3); setTimeout(function(){ var e=document.getElementById('am-sig-nome'); if(e) e.focus(); },150); }
   else if(n===3){ amWizGo(4); }
   else if(n===5){
-    if(amSigDocType==='CPF' && amSigDocNumber.length!==11){ amSigToast('CPF precisa de 11 dÃ­gitos.'); return; }
+    if(amSigDocType==='CPF' && amSigDocNumber.length!==11){ amSigToast('CPF precisa de 11 dígitos.'); return; }
+    if(amSigDocType==='CPF' && !amIsValidCPF(amSigDocNumber)){ amSigToast('CPF inválido — dígito verificador não confere.'); return; }
     if(amSigDocType==='RG' && (amSigDocNumber.length<5 || amSigDocNumber.length>12)){ amSigToast('RG precisa de 5 a 12 dÃ­gitos.'); return; }
     amWizGo(6);
   } else if(n===6){
