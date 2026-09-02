@@ -354,16 +354,16 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 $status_label = Transfer::getStatusOptions()[$t['status']] ?? $t['status'];
         ?>
         <div class="am-tc-card" style="cursor:pointer;" onclick="if(!event.target.closest('button,a,details,summary')) amOpenCardModal('transfer', <?= (int)$t['id'] ?>)">
-            <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;">
-                <div>
-                    <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;">
+            <div class="am-tc-card-header" style="border-left:4px solid <?= $status_color ?>;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:14px 18px 12px;">
+                <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>" style="font-size:.70rem;"><?= $status_label ?></span>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-width:0;">
+                    <div style="font-size:.72rem;color:#9ca3af;font-weight:600;text-transform:uppercase;text-align:center;white-space:normal;word-break:break-word;">
                         Transferência #<?= str_pad($t['id'], 4, '0', STR_PAD_LEFT) ?>
                     </div>
-                    <div style="font-weight:800;font-size:1rem;color:#1e2333;">
+                    <div style="font-weight:800;font-size:1rem;color:#1e2333;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;">
                         <?= htmlspecialchars($t['origin_entity_name']) ?>
                     </div>
                 </div>
-                <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>"><?= $status_label ?></span>
             </div>
 
             <div class="am-tc-card-body">
@@ -516,16 +516,16 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 $tkCatColor = '#4f46e5';
         ?>
         <div class="am-tc-card" style="border-left:4px solid #2563eb;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('ticket', <?= (int)$tk['id'] ?>)">
-            <div class="am-tc-card-header" style="border-left:4px solid #2563eb;background:#f8f9ff;">
-                <div>
-                    <div style="font-size:.72rem;color:#4f46e5;font-weight:700;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+            <div class="am-tc-card-header" style="border-left:4px solid #2563eb;background:#f8f9ff;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;padding:14px 18px 12px;">
+                <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.70rem;"><?= htmlspecialchars($tkStatusLabel) ?></span>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-width:0;">
+                    <div style="font-size:.72rem;color:#4f46e5;font-weight:700;text-transform:uppercase;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;white-space:normal;word-break:break-word;flex-wrap:wrap;">
                         <i class="ti ti-ticket" style="font-size:.9rem;"></i> Chamado #<?= str_pad($tk['id'], 6, '0', STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?>
                     </div>
-                    <div style="font-weight:800;font-size:1rem;color:#1e2333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;" title="<?= htmlspecialchars($tk['name']) ?>">
+                    <div style="font-weight:800;font-size:1rem;color:#1e2333;text-align:center;white-space:normal;word-break:break-word;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:100%;" title="<?= htmlspecialchars($tk['name']) ?>">
                         <?= htmlspecialchars($tk['name'] ?: 'Sem título') ?>
                     </div>
                 </div>
-                <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;"><?= htmlspecialchars($tkStatusLabel) ?></span>
             </div>
             <div class="am-tc-card-body">
                 <div class="am-tc-info-row"><i class="ti ti-category" style="color:#4f46e5;"></i><span style="color:#4f46e5;font-weight:700;"><?= htmlspecialchars($tk['category_name']) ?></span></div>
@@ -655,12 +655,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     ?>
                     <?php if ($item['type']==='transfer'): $t = $item['data']; $status_color = '#f59e0b'; ?>
                     <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDrag ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="transfer" data-id="<?= $t['id'] ?>" data-date="<?= htmlspecialchars($t['date_creation']) ?>" data-status="<?= htmlspecialchars($t['status']) ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid <?= $borderColor ?>;<?= $canDrag ? 'cursor:pointer;' : 'opacity:.6;' ?>;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('transfer', <?= (int)$t['id'] ?>)" data-mine="<?= ($stageKey==='emandamento' && !$isHiddenPego) ? '1' : '0' ?>">
-                        <div class="am-tc-card-header" style="border-left:4px solid <?= $borderColor ?>;padding:12px 14px;gap:10px;">
-                            <div style="min-width:0;flex:1;">
-                                <div style="font-size:.65rem;color:#9ca3af;font-weight:700;white-space:normal;word-break:break-word;line-height:1.2;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
-                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:normal;word-break:break-word;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;"><?= htmlspecialchars($t['origin_entity_name']) ?></div>
+                        <div class="am-tc-card-header" style="border-left:4px solid <?= $borderColor ?>;padding:12px 14px;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;">
+                            <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>" style="font-size:.65rem;white-space:nowrap;"><?= htmlspecialchars($sLabel) ?></span>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-width:0;">
+                                <div style="font-size:.65rem;color:#9ca3af;font-weight:700;white-space:normal;word-break:break-word;line-height:1.2;text-align:center;">#<?= str_pad($t['id'],4,'0',STR_PAD_LEFT) ?> • <?= date('d/m H:i', strtotime($t['date_creation'])) ?></div>
+                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:normal;word-break:break-word;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;text-align:center;"><?= htmlspecialchars($t['origin_entity_name']) ?></div>
                             </div>
-                            <span class="am-badge <?= Transfer::getStatusBadgeClass($t['status']) ?>" style="font-size:.65rem;flex-shrink:0;white-space:nowrap;"><?= htmlspecialchars($sLabel) ?></span>
                         </div>
                         <div class="am-tc-card-body" style="padding:10px 14px;">
                             <div class="am-tc-info-row" style="font-size:.78rem;white-space:normal;word-break:break-word;"><i class="ti ti-box"></i><span><?= $t['items_count'] ?> ativo(s)</span></div>
@@ -682,12 +682,12 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                     </div>
                     <?php else: $tk = $item['data']; $tkStatusColor = match((int)$tk['status']){1=>'#f59e0b',2=>'#ef4444',3=>'#f59e0b',4=>'#6b7280',5=>'#10b981',6=>'#111827',default=>'#ef4444'}; $tkStatusLabel = (class_exists('Ticket') && method_exists('Ticket','getStatus')) ? Ticket::getStatus($tk['status']) : $tk['status']; $tkContentShort = trim(strip_tags($tk['content'] ?? '')); if (mb_strlen($tkContentShort)>60) $tkContentShort=mb_substr($tkContentShort,0,60).'…'; $canDragTicket = !in_array($stageKey, ['retirada','concluido'], true); $isTicketPendente = (int)$tk['status']===1; ?>
                     <div class="am-tc-card <?= ($stageKey==='emandamento' && $isHiddenPego) ? 'am-kanban-hidden-pego' : '' ?>" draggable="<?= $canDragTicket ? 'true' : 'false' ?>" ondragstart="amKanbanDragStart(event)" data-type="ticket" data-id="<?= $tk['id'] ?>" style="margin:0;<?= ($stageKey==='emandamento' && $isHiddenPego) ? 'display:none;' : '' ?>;border-left:4px solid #2563eb;<?= $canDragTicket ? 'cursor:pointer;' : 'opacity:.6;cursor:not-allowed;' ?>;cursor:pointer;" onclick="if(!event.target.closest('button,a')) amOpenCardModal('ticket', <?= (int)$tk['id'] ?>)" data-mine="<?= $isHiddenPego ? '0' : '1' ?>" data-status="<?= (int)$tk['status'] ?>" data-date="<?= htmlspecialchars($tk['date_creation']) ?>">
-                        <div class="am-tc-card-header" style="border-left:4px solid #2563eb;padding:12px 14px;gap:10px;">
-                            <div style="min-width:0;flex:1;">
-                                <div style="font-size:.65rem;color:#2563eb;font-weight:700;white-space:normal;word-break:break-word;line-height:1.2;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
-                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:normal;word-break:break-word;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;"><?= htmlspecialchars($tk['name']?:'Sem título') ?></div>
+                        <div class="am-tc-card-header" style="border-left:4px solid #2563eb;padding:12px 14px;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;">
+                            <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.65rem;white-space:nowrap;"><?= htmlspecialchars($tkStatusLabel) ?></span>
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;min-width:0;">
+                                <div style="font-size:.65rem;color:#2563eb;font-weight:700;white-space:normal;word-break:break-word;line-height:1.2;text-align:center;">Chamado #<?= str_pad($tk['id'],6,'0',STR_PAD_LEFT) ?> • <?= htmlspecialchars($tk['category_name']) ?></div>
+                                <div style="font-weight:800;font-size:.9rem;color:#1e2333;white-space:normal;word-break:break-word;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.25;text-align:center;"><?= htmlspecialchars($tk['name']?:'Sem título') ?></div>
                             </div>
-                            <span class="am-badge" style="background:<?= $tkStatusColor ?>;color:#fff;font-size:.65rem;flex-shrink:0;white-space:nowrap;"><?= htmlspecialchars($tkStatusLabel) ?></span>
                         </div>
                         <div class="am-tc-card-body" style="padding:10px 14px;">
                             <?php if ($tk['entity_name']): ?><div class="am-tc-info-row" style="font-size:.78rem;white-space:normal;word-break:break-word;"><i class="ti ti-building"></i><span><?= htmlspecialchars($tk['entity_name']) ?></span></div><?php endif; ?>
