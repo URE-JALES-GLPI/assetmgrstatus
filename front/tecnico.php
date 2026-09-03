@@ -168,6 +168,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-plus"></i> Cadastrar
             </a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/kanban.php<?= $_SERVER['QUERY_STRING'] ? '?'.htmlspecialchars($_SERVER['QUERY_STRING']) : '' ?>" target="_blank"
+               class="am-btn" style="padding:8px 14px;font-size:.82rem;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;border:1px solid #1e293b;box-shadow:0 2px 8px rgba(15,23,42,.2);"
+               title="Abrir Kanban em página externa (tela cheia, sem menu GLPI)">
+                <i class="ti ti-external-link"></i> Kanban Externo
+            </a>
 
             <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
                 <i class="ti ti-refresh"></i> Atualizar
