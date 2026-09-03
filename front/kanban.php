@@ -565,6 +565,7 @@ function filterKanbanExternal(q){
     if(show) visible++;
   });
   if(cnt) cnt.textContent=q? visible+' de '+cards.length+' exibido(s)':'';
+  try{ kanbanLimitConcluido(); }catch(e){}
   var url=new URL(window.location.href);
   if(q) url.searchParams.set('q', document.getElementById('kanban-entity-search').value.trim());
   else url.searchParams.delete('q');
@@ -573,15 +574,20 @@ function filterKanbanExternal(q){
 // clock
 setInterval(function(){ var el=document.getElementById('kanban-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); },1000);
 (function(){ var el=document.getElementById('kanban-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); })();
-// limita CONCLUÍDO a 15 no kanban externo
+// limita CONCLUÍDO a 15 no kanban externo (respeita busca)
 function kanbanLimitConcluido(){
+    var moreOld=document.getElementById('kanban-concluido-more');
+    if(moreOld) moreOld.remove();
+    var qEl=document.getElementById('kanban-entity-search');
+    if(qEl && qEl.value.trim()!=='') return;
     var body=document.getElementById('kanban-body-concluido');
     if(!body) return;
     var cards=Array.from(body.querySelectorAll('.am-tc-card'));
+    cards.forEach(function(c){ if(c.dataset.hiddenByLimit==='1'){ c.style.display=''; delete c.dataset.hiddenByLimit; } });
     if(cards.length<=15) return;
     var hidden=0;
     cards.forEach(function(c,idx){ if(idx>=15){ c.style.display='none'; c.dataset.hiddenByLimit='1'; hidden++; } });
-    if(hidden>0 && !document.getElementById('kanban-concluido-more')){
+    if(hidden>0){
         var more=document.createElement('div');
         more.id='kanban-concluido-more';
         more.style.cssText='text-align:center;padding:10px;';
@@ -591,7 +597,11 @@ function kanbanLimitConcluido(){
         if(cnt){ cnt.textContent=cards.length; cnt.title=cards.length+' total — 15 visíveis'; }
     }
 }
-document.addEventListener('DOMContentLoaded',function(){ try{ kanbanLimitConcluido(); }catch(e){} });
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){ try{ kanbanLimitConcluido(); }catch(e){} });
+} else {
+  try{ kanbanLimitConcluido(); }catch(e){}
+}
 // auto-atualizacao a cada 10s via hash (mesmo de tecnico.php)
 var _kanbanCheckBase='<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/tecnico_check.php';
 var _kanbanLastHash=null;

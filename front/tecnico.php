@@ -1382,7 +1382,7 @@ function amCloseCardModal(){ var m=document.getElementById('am-modal-card-detail
 var _amMaxStage = null;
 var _amMaxCards = []; // {el, date, text, year, month}
 var _amMaxPage = 1;
-var _amMaxPerPage = 10;
+var _amMaxPerPage = 15;
 function amKanbanMaximize(stage) {
     _amMaxStage = stage;
     var col = document.querySelector('.am-kanban-column[data-stage="'+stage+'"]');
@@ -1516,17 +1516,22 @@ document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     amClosePegarModal(); amCloseFinalizarModal(); amCloseCancelarModal(); amClosePegarTicketModal(); amKanbanMaximizeClose(); amCloseCardModal();
 });
-// limita CONCLUÍDO a 15 no kanban normal
+// limita CONCLUÍDO a 15 no kanban normal (respeita busca)
 function amLimitConcluido() {
+    var moreOld=document.getElementById('am-concluido-more');
+    if(moreOld) moreOld.remove();
+    var qEl=document.getElementById('am-entity-search-tec');
+    if(qEl && qEl.value.trim()!=='') return;
     var body = document.getElementById('am-kanban-body-concluido');
     if (!body) return;
     var cards = Array.from(body.querySelectorAll('.am-tc-card'));
+    cards.forEach(function(c){ if(c.dataset.hiddenByLimit==='1'){ c.style.display=''; delete c.dataset.hiddenByLimit; } });
     if (cards.length <= 15) return;
     var hidden = 0;
     cards.forEach(function(c, idx){
         if (idx >= 15) { c.style.display='none'; c.dataset.hiddenByLimit='1'; hidden++; }
     });
-    if (hidden>0 && !document.getElementById('am-concluido-more')) {
+    if (hidden>0) {
         var more = document.createElement('div');
         more.id='am-concluido-more';
         more.style.cssText='text-align:center;padding:10px;';
@@ -1536,7 +1541,11 @@ function amLimitConcluido() {
         if (cnt) { cnt.textContent = cards.length; cnt.title = cards.length+' total — 15 visíveis, clique no cabeçalho para maximizar e filtrar por 2025 etc'; }
     }
 }
-document.addEventListener('DOMContentLoaded', function(){ try{ amLimitConcluido(); }catch(e){} });
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', function(){ try{ amLimitConcluido(); }catch(e){} });
+} else {
+  try{ amLimitConcluido(); }catch(e){}
+}
 
 
 // Cronômetro em tempo real (para em finalizados)
@@ -1694,6 +1703,8 @@ function amFilterTecEntity(){
     } else if(noRes) noRes.style.display='none';
     if(cntEl) cntEl.textContent = q ? visible + ' de ' + cards.length + ' exibido(s)' : '';
     if(clearBtn) clearBtn.style.display = q ? 'flex' : 'none';
+    // reaplica limite 15 quando não está buscando
+    try{ amLimitConcluido(); }catch(e){}
     try{
         var url=new URL(window.location.href);
         if(q) url.searchParams.set('q', qEl.value.trim());
@@ -1711,11 +1722,17 @@ function amInitTecEntitySearch(){
     if(cBtn) cBtn.addEventListener('click', function(){ sEl.value=''; amFilterTecEntity(); sEl.focus(); });
     if(sEl.value.trim()!=='') setTimeout(amFilterTecEntity, 60);
 }
-// re-aplica filtro após soft refresh
+// re-aplica filtro/limite após soft refresh
 var _amOrigSoftRefresh = amSoftRefresh;
 amSoftRefresh = function(){
     var r=_amOrigSoftRefresh.apply(this, arguments);
-    setTimeout(function(){ try{ var se=document.getElementById('am-entity-search-tec'); if(se && se.value.trim()!=='') amFilterTecEntity(); }catch(e){} }, 350);
+    setTimeout(function(){ 
+        try{ 
+            var se=document.getElementById('am-entity-search-tec'); 
+            if(se && se.value.trim()!=='') amFilterTecEntity(); 
+            else amLimitConcluido();
+        }catch(e){ try{amLimitConcluido();}catch(e2){} } 
+    }, 350);
     return r;
 };
 document.addEventListener('DOMContentLoaded', function(){ try{ amInitTecEntitySearch(); }catch(e){} });
