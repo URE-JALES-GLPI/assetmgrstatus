@@ -130,6 +130,26 @@ $preview_count = match($report_mode) {
             </div>
         </div>
 
+        <style>
+        .rep-filter-toggle{margin:16px 0;display:flex;align-items:center;gap:8px}
+        .rep-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fff;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;font-weight:700;color:#374151;cursor:pointer;transition:all .15s}
+        .rep-filter-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+        .rep-filter-btn.active{background:#eef2ff;border-color:#c7d2fe;color:#4f46e5}
+        .rep-filters-collapsible.collapsed{display:none}
+        .rep-filters-collapsible.expanded{display:block;animation:repFadeIn .2s ease}
+        @keyframes repFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+        </style>
+        <?php
+        $rep_has_filter = ($filter_type!=='' || $filter_status!=='' || $period_start!=='' || $period_end!=='');
+        $rep_active_count = ($filter_type!==''?1:0)+($filter_status!==''?1:0)+($period_start!==''?1:0)+($period_end!==''?1:0);
+        ?>
+        <div class="rep-filter-toggle">
+            <button type="button" id="rep-filter-btn" class="rep-filter-btn" onclick="toggleRepFilters()">
+                <i class="ti ti-filter"></i> Filtros <?php if($rep_has_filter) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$rep_active_count</span>"; ?> <span id="rep-filter-text">Expandir</span> <i id="rep-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
+            </button>
+            <?php if($rep_has_filter): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> filtros ativos</small><?php endif; ?>
+        </div>
+        <div id="rep-filters-collapsible" class="rep-filters-collapsible collapsed" style="display:none">
         <!-- Filtros (só relevantes para assets e history) -->
         <?php if (in_array($report_mode, ['assets', 'history'])): ?>
         <div class="am-report-section">
@@ -204,6 +224,26 @@ elseif (in_array($report_mode, ['history','technician','components','avg_time'])
             </form>
         </div>
         <?php endif; ?>
+        </div>
+        <script>
+        function toggleRepFilters(){
+          var c=document.getElementById('rep-filters-collapsible');
+          var b=document.getElementById('rep-filter-btn');
+          var t=document.getElementById('rep-filter-text');
+          var icon=document.getElementById('rep-filter-icon');
+          if(c.style.display==='none' || c.classList.contains('collapsed')){
+            c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
+            b.classList.add('active');
+            if(t) t.textContent='Recolher';
+            if(icon){ icon.classList.remove('ti-chevron-down'); icon.classList.add('ti-chevron-up'); }
+          } else {
+            c.style.display='none'; c.classList.add('collapsed'); c.classList.remove('expanded');
+            b.classList.remove('active');
+            if(t) t.textContent='Expandir';
+            if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
+          }
+        }
+        </script>
 
         <!-- Pré-visualização + Exportar -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">

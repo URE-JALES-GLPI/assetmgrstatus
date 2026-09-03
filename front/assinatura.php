@@ -96,6 +96,22 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         </div>
     </div>
 
+    <style>
+    .sig-filter-toggle{margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .sig-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fff;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;font-weight:700;color:#374151;cursor:pointer;transition:all .15s}
+    .sig-filter-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+    .sig-filter-btn.active{background:#eef2ff;border-color:#c7d2fe;color:#4f46e5}
+    .sig-filters-collapsible.collapsed{display:none}
+    .sig-filters-collapsible.expanded{display:block;animation:sigFadeIn .2s ease}
+    @keyframes sigFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+    <div class="sig-filter-toggle">
+        <button type="button" id="sig-filter-btn" class="sig-filter-btn" onclick="toggleSigFilters()">
+            <i class="ti ti-filter"></i> Filtros <span id="sig-filter-text">Expandir</span> <i id="sig-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
+        </button>
+        <small style="color:#6b7280;font-size:.78rem">Filtrando: <strong><?= htmlspecialchars(ucfirst($filter)) ?></strong> (<?= $filter==='pendente'?count($pendentes):($filter==='assinado'?count($assinados):count($all)) ?>)</small>
+    </div>
+    <div id="sig-filters-collapsible" class="sig-filters-collapsible collapsed" style="display:none">
     <div class="am-filters-bar" style="margin-bottom:20px;">
         <div class="am-filter-group">
             <label>FILTRO</label>
@@ -106,6 +122,26 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
             </div>
         </div>
     </div>
+    </div>
+    <script>
+    function toggleSigFilters(){
+      var c=document.getElementById('sig-filters-collapsible');
+      var b=document.getElementById('sig-filter-btn');
+      var t=document.getElementById('sig-filter-text');
+      var icon=document.getElementById('sig-filter-icon');
+      if(c.style.display==='none' || c.classList.contains('collapsed')){
+        c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
+        b.classList.add('active');
+        if(t) t.textContent='Recolher';
+        if(icon){ icon.classList.remove('ti-chevron-down'); icon.classList.add('ti-chevron-up'); }
+      } else {
+        c.style.display='none'; c.classList.add('collapsed'); c.classList.remove('expanded');
+        b.classList.remove('active');
+        if(t) t.textContent='Expandir';
+        if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
+      }
+    }
+    </script>
 
     <?php if ($filter==='pendente' && count($pendentes) >= 2): ?>
     <?php

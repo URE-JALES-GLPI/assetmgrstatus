@@ -180,6 +180,26 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         </div>
     </div>
 
+    <style>
+    .tec-filter-toggle{margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .tec-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fff;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;font-weight:700;color:#374151;cursor:pointer;transition:all .15s}
+    .tec-filter-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+    .tec-filter-btn.active{background:#eef2ff;border-color:#c7d2fe;color:#4f46e5}
+    .tec-filters-collapsible.collapsed{display:none}
+    .tec-filters-collapsible.expanded{display:block;animation:tecFadeIn .2s ease}
+    @keyframes tecFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+    <?php
+    $tec_has_active = ($filter_status!=='' || $filter_tech || $filter_date!=='' || $filter_sort!=='recent' || $filter_tipo!=='all' || $filter_cat || $q!=='');
+    $tec_active_count = ($filter_status!==''?1:0)+($filter_tech?1:0)+($filter_date!==''?1:0)+($filter_sort!=='recent'?1:0)+($filter_tipo!=='all'?1:0)+($filter_cat?1:0)+($q!==''?1:0);
+    ?>
+    <div class="tec-filter-toggle">
+        <button type="button" id="tec-filter-btn" class="tec-filter-btn" onclick="toggleTecFilters()">
+            <i class="ti ti-filter"></i> Filtros <?php if($tec_has_active) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$tec_active_count</span>"; ?> <span id="tec-filter-text">Expandir</span> <i id="tec-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
+        </button>
+        <?php if($tec_has_active): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> <?= $tec_active_count ?> filtro(s) ativo(s)</small><?php endif; ?>
+    </div>
+    <div id="tec-filters-collapsible" class="tec-filters-collapsible collapsed" style="display:none">
     <!-- Filtro de status -->
     <div class="am-filters-bar" style="margin-bottom:20px;">
         <div class="am-filter-group">
@@ -339,6 +359,26 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             </div>
         </div>
     </div>
+    </div>
+    <script>
+    function toggleTecFilters(){
+      var c=document.getElementById('tec-filters-collapsible');
+      var b=document.getElementById('tec-filter-btn');
+      var t=document.getElementById('tec-filter-text');
+      var icon=document.getElementById('tec-filter-icon');
+      if(c.style.display==='none' || c.classList.contains('collapsed')){
+        c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
+        b.classList.add('active');
+        if(t) t.textContent='Recolher';
+        if(icon){ icon.classList.remove('ti-chevron-down'); icon.classList.add('ti-chevron-up'); }
+      } else {
+        c.style.display='none'; c.classList.add('collapsed'); c.classList.remove('expanded');
+        b.classList.remove('active');
+        if(t) t.textContent='Expandir';
+        if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
+      }
+    }
+    </script>
 
     <?php if (empty($combined_page)): ?>
     <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhum card encontrado (transferência ou chamado) para os filtros atuais.</p></div>

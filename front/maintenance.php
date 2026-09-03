@@ -263,6 +263,26 @@ if ($can_admin_entity) {
         <?php endforeach; ?>
     </div>
 
+    <style>
+    .am-filter-toggle{margin-bottom:12px;display:flex;align-items:center;gap:8px}
+    .am-filter-toggle-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fff;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;font-weight:700;color:#374151;cursor:pointer;transition:all .15s}
+    .am-filter-toggle-btn:hover{background:#f8fafc;border-color:#cbd5e1}
+    .am-filter-toggle-btn.active{background:#eef2ff;border-color:#c7d2fe;color:#4f46e5}
+    .am-filters-collapsible.collapsed{display:none}
+    .am-filters-collapsible.expanded{display:block;animation:amFadeIn .2s ease}
+    @keyframes amFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+    </style>
+    <?php
+    $am_has_active_filter = ($filter_type !== '' || $filter_status !== '' || $filter_search !== '' || !empty($filter_comp) || !empty($filter_fabricante) || !empty($filter_entity));
+    $am_active_count = ($filter_type!==''?1:0)+($filter_status!==''?1:0)+($filter_search!==''?1:0)+(empty($filter_comp)?0:count($filter_comp))+(empty($filter_fabricante)?0:count($filter_fabricante))+(!empty($filter_entity)?1:0);
+    ?>
+    <div class="am-filter-toggle">
+        <button type="button" id="am-filter-toggle-btn" class="am-filter-toggle-btn" onclick="toggleAmFilters()">
+            <i class="ti ti-filter"></i> Filtros <?php if($am_has_active_filter) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$am_active_count</span>"; ?> <span id="am-filter-text">Expandir</span> <i id="am-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
+        </button>
+        <?php if($am_has_active_filter): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> <?= $am_active_count ?> filtro(s) ativo(s)</small><?php endif; ?>
+    </div>
+    <div id="am-filters-collapsible" class="am-filters-collapsible collapsed" style="display:none">
     <!-- Filtros -->
     <div class="am-filters-bar">
         <div class="am-filter-group">
@@ -503,6 +523,26 @@ if ($can_admin_entity) {
             </div>
         </div>
     </div>
+    </div>
+    <script>
+    function toggleAmFilters(){
+      var c=document.getElementById('am-filters-collapsible');
+      var b=document.getElementById('am-filter-toggle-btn');
+      var t=document.getElementById('am-filter-text');
+      var icon=document.getElementById('am-filter-icon');
+      if(c.style.display==='none' || c.classList.contains('collapsed')){
+        c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
+        b.classList.add('active');
+        if(t) t.textContent='Recolher';
+        if(icon){ icon.classList.remove('ti-chevron-down'); icon.classList.add('ti-chevron-up'); }
+      } else {
+        c.style.display='none'; c.classList.add('collapsed'); c.classList.remove('expanded');
+        b.classList.remove('active');
+        if(t) t.textContent='Expandir';
+        if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
+      }
+    }
+    </script>
 
     <!-- Barra de ação em massa -->
     <div id="am-bulk-bar" class="am-bulk-bar">
