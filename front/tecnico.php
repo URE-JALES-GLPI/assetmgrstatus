@@ -371,7 +371,9 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
       var b=document.getElementById('tec-filter-btn');
       var t=document.getElementById('tec-filter-text');
       var icon=document.getElementById('tec-filter-icon');
-      if(c.style.display==='none' || c.classList.contains('collapsed')){
+      if(!c || !b){ console.error('tec-filters-collapsible not found'); return; }
+      var isHidden = c.classList.contains('collapsed') || window.getComputedStyle(c).display === 'none' || c.style.display === 'none';
+      if(isHidden){
         c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
         b.classList.add('active');
         if(t) t.textContent='Recolher';
@@ -383,6 +385,11 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
       }
     }
+    document.addEventListener('DOMContentLoaded', function(){
+      var btn=document.getElementById('tec-filter-btn');
+      if(btn){ btn.addEventListener('click', function(e){ e.preventDefault(); toggleTecFilters(); }); console.log('tec-filter-toggle ready'); }
+    });
+    window.toggleTecFilters = toggleTecFilters;
     </script>
 
     <?php if (empty($combined_page)): ?>

@@ -129,7 +129,9 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
       var b=document.getElementById('sig-filter-btn');
       var t=document.getElementById('sig-filter-text');
       var icon=document.getElementById('sig-filter-icon');
-      if(c.style.display==='none' || c.classList.contains('collapsed')){
+      if(!c || !b){ console.error('sig-filters-collapsible not found'); return; }
+      var isHidden = c.classList.contains('collapsed') || window.getComputedStyle(c).display === 'none' || c.style.display === 'none';
+      if(isHidden){
         c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
         b.classList.add('active');
         if(t) t.textContent='Recolher';
@@ -141,6 +143,11 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
       }
     }
+    document.addEventListener('DOMContentLoaded', function(){
+      var btn=document.getElementById('sig-filter-btn');
+      if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); toggleSigFilters(); });
+    });
+    window.toggleSigFilters = toggleSigFilters;
     </script>
 
     <?php if ($filter==='pendente' && count($pendentes) >= 2): ?>

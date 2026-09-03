@@ -530,7 +530,9 @@ if ($can_admin_entity) {
       var b=document.getElementById('am-filter-toggle-btn');
       var t=document.getElementById('am-filter-text');
       var icon=document.getElementById('am-filter-icon');
-      if(c.style.display==='none' || c.classList.contains('collapsed')){
+      if(!c || !b){ console.error('am-filters-collapsible not found'); return; }
+      var isHidden = c.classList.contains('collapsed') || window.getComputedStyle(c).display === 'none' || c.style.display === 'none';
+      if(isHidden){
         c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded');
         b.classList.add('active');
         if(t) t.textContent='Recolher';
@@ -542,6 +544,18 @@ if ($can_admin_entity) {
         if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
       }
     }
+    document.addEventListener('DOMContentLoaded', function(){
+      var btn=document.getElementById('am-filter-toggle-btn');
+      if(btn){
+        // garante funcionamento mesmo se onclick inline falhar
+        btn.addEventListener('click', function(e){ e.preventDefault(); toggleAmFilters(); });
+        console.log('am-filter-toggle ready', btn);
+      } else {
+        console.warn('am-filter-toggle-btn not found');
+      }
+    });
+    // fallback global
+    window.toggleAmFilters = toggleAmFilters;
     </script>
 
     <!-- Barra de ação em massa -->
