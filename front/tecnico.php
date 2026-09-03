@@ -1509,24 +1509,24 @@ document.addEventListener('keydown', function(e) {
     if (e.key !== 'Escape') return;
     amClosePegarModal(); amCloseFinalizarModal(); amCloseCancelarModal(); amClosePegarTicketModal(); amKanbanMaximizeClose(); amCloseCardModal();
 });
-// limita CONCLUÍDO a 10 no kanban normal
+// limita CONCLUÍDO a 15 no kanban normal
 function amLimitConcluido() {
     var body = document.getElementById('am-kanban-body-concluido');
     if (!body) return;
     var cards = Array.from(body.querySelectorAll('.am-tc-card'));
-    if (cards.length <= 10) return;
+    if (cards.length <= 15) return;
     var hidden = 0;
     cards.forEach(function(c, idx){
-        if (idx >= 10) { c.style.display='none'; c.dataset.hiddenByLimit='1'; hidden++; }
+        if (idx >= 15) { c.style.display='none'; c.dataset.hiddenByLimit='1'; hidden++; }
     });
     if (hidden>0 && !document.getElementById('am-concluido-more')) {
         var more = document.createElement('div');
         more.id='am-concluido-more';
         more.style.cssText='text-align:center;padding:10px;';
-        more.innerHTML='<button onclick="amKanbanMaximize(\'concluido\')" style="background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:8px 14px;font-size:.82rem;font-weight:700;color:#3b82f6;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);"><i class="ti ti-eye"></i> Ver todos ('+cards.length+') — maximizado com filtros</button><div style="font-size:.70rem;color:#9ca3af;margin-top:6px;">Mostrando 10 de '+cards.length+' · clique para ver com filtro por ano</div>';
+        more.innerHTML='<button onclick="amKanbanMaximize(\'concluido\')" style="background:#fff;border:1.5px solid #e8eaf0;border-radius:10px;padding:8px 14px;font-size:.82rem;font-weight:700;color:#3b82f6;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.06);"><i class="ti ti-eye"></i> Ver todos ('+cards.length+') — maximizado com filtros</button><div style="font-size:.70rem;color:#9ca3af;margin-top:6px;">Mostrando 15 de '+cards.length+' · clique para ver com filtro por ano</div>';
         body.appendChild(more);
         var cnt = document.getElementById('am-kanban-count-concluido');
-        if (cnt) { cnt.textContent = cards.length; cnt.title = cards.length+' total — 10 visíveis, clique no cabeçalho para maximizar e filtrar por 2025 etc'; }
+        if (cnt) { cnt.textContent = cards.length; cnt.title = cards.length+' total — 15 visíveis, clique no cabeçalho para maximizar e filtrar por 2025 etc'; }
     }
 }
 document.addEventListener('DOMContentLoaded', function(){ try{ amLimitConcluido(); }catch(e){} });

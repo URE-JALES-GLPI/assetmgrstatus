@@ -573,7 +573,72 @@ function filterKanbanExternal(q){
 // clock
 setInterval(function(){ var el=document.getElementById('kanban-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); },1000);
 (function(){ var el=document.getElementById('kanban-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); })();
-
+// limita CONCLUÍDO a 15 no kanban externo
+function kanbanLimitConcluido(){
+    var body=document.getElementById('kanban-body-concluido');
+    if(!body) return;
+    var cards=Array.from(body.querySelectorAll('.am-tc-card'));
+    if(cards.length<=15) return;
+    var hidden=0;
+    cards.forEach(function(c,idx){ if(idx>=15){ c.style.display='none'; c.dataset.hiddenByLimit='1'; hidden++; } });
+    if(hidden>0 && !document.getElementById('kanban-concluido-more')){
+        var more=document.createElement('div');
+        more.id='kanban-concluido-more';
+        more.style.cssText='text-align:center;padding:10px;';
+        more.innerHTML='<div style="font-size:.82rem;font-weight:700;color:#3b82f6;">Mostrando 15 de '+cards.length+'</div><div style="font-size:.70rem;color:#9ca3af;margin-top:4px;">Use filtros ou maximize para ver todos</div>';
+        body.appendChild(more);
+        var cnt=document.querySelector('.am-kanban-column[data-stage="concluido"] .am-kanban-count');
+        if(cnt){ cnt.textContent=cards.length; cnt.title=cards.length+' total — 15 visíveis'; }
+    }
+}
+document.addEventListener('DOMContentLoaded',function(){ try{ kanbanLimitConcluido(); }catch(e){} });
+// auto-atualizacao a cada 10s via hash (mesmo de tecnico.php)
+var _kanbanCheckBase='<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/tecnico_check.php';
+var _kanbanLastHash=null;
+var _kanbanLastCount=document.querySelectorAll('.am-tc-card').length;
+fetch(_kanbanCheckBase+window.location.search,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+  .then(function(r){ return r.json(); }).then(function(d){ _kanbanLastHash=d.hash; _kanbanLastCount=d.count; }).catch(function(){});
+function kanbanCheckForUpdates(){
+    if(document.querySelector('.am-modal-overlay.open')) return;
+    fetch(_kanbanCheckBase+window.location.search,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(function(r){ return r.json(); }).then(function(d){
+        // atualiza relogio de refresh no header (se existir)
+        if(d.hash!==_kanbanLastHash && _kanbanLastHash!==null){
+            _kanbanLastHash=d.hash; _kanbanLastCount=d.count;
+            // toast e reload suave do kanban
+            var toast=document.createElement('div');
+            toast.textContent='🔔 Nova atualização — recarregando kanban...';
+            toast.style.cssText='position:fixed;top:16px;right:16px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#fff;padding:10px 16px;border-radius:10px;font-weight:700;font-size:.82rem;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:10000;opacity:0;transition:opacity .3s';
+            document.body.appendChild(toast);
+            requestAnimationFrame(function(){ toast.style.opacity='1'; });
+            setTimeout(function(){
+                // soft reload via fetch da pagina
+                fetch(window.location.href,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+                  .then(function(r){ return r.text(); }).then(function(html){
+                    try{
+                        var parser=new DOMParser(); var doc=parser.parseFromString(html,'text/html');
+                        var newKanban=doc.querySelector('.am-kanban');
+                        var curKanban=document.querySelector('.am-kanban');
+                        if(newKanban && curKanban){
+                            curKanban.innerHTML=newKanban.innerHTML;
+                            try{ kanbanLimitConcluido(); }catch(e){}
+                            var newCount=curKanban.querySelectorAll('.am-tc-card').length;
+                            if(newCount>_kanbanLastCount){
+                                toast.textContent='🔔 '+ (newCount-_kanbanLastCount) +' novo(s) card(s)!';
+                            }
+                        } else {
+                            location.reload();
+                        }
+                    }catch(e){ location.reload(); }
+                    setTimeout(function(){ toast.style.opacity='0'; setTimeout(function(){ toast.remove(); },300); },2500);
+                  }).catch(function(){ location.reload(); });
+            },600);
+        } else if(_kanbanLastHash===null){
+            _kanbanLastHash=d.hash; _kanbanLastCount=d.count;
+        }
+      }).catch(function(){});
+}
+setInterval(kanbanCheckForUpdates,10000);
 // Reusa funções de tecnico.php (copiadas)
 function amGetCsrfToken(){
     try{
