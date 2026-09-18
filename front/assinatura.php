@@ -478,7 +478,7 @@ async function amOpenAssinaturaModalBulk(ids){
   for(var i=2;i<=7;i++){ var w=document.getElementById('am-wiz-'+i); if(w) w.style.display='none'; }
   var prog=document.getElementById('am-sig-progress'); if(prog) prog.style.width='14%';
   var dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
-  var nm=document.getElementById('am-sig-nome'); if(nm) nm.value='';
+  var nm=document.getElementById('am-sig-nome'); if(nm) nm.value = (amSigSelectedOriginName||'');
   amSigUpdateDisplay(); setTimeout(()=>amSigClearCanvas(),80);
   var mod=document.getElementById('am-modal-assinatura'); if(mod) mod.classList.add('open');
   document.body.style.overflow='hidden';
@@ -561,7 +561,8 @@ async function amOpenAssinaturaModal(transferId) {
     amSigHasReceiver = false;
     amSigHasTecnico = false;
     var bulkB=document.getElementById('am-bulk-banner'); if(bulkB) bulkB.style.display='none';
-    // tenta descobrir se já tem recebedor/tecnico para ajustar UI
+    // tenta descobrir se já tem recebedor/tecnico para ajustar UI — e se for KanPro, captura nome do Card para pré-preencher
+    var amSigKanProNome = '';
     try{
         var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
         var r=await fetch(base+'/ajax/card_details.php?type=transfer&id='+encodeURIComponent(transferId), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
@@ -569,6 +570,11 @@ async function amOpenAssinaturaModal(transferId) {
         if(j.success && j.data){
             amSigHasReceiver = !!j.data.has_receiver;
             amSigHasTecnico = !!j.data.has_tecnico;
+            if(j.data.reason && j.data.reason.indexOf('[KanPro') !== -1 && j.data.origin){
+                amSigKanProNome = j.data.origin;
+                // expõe globalmente para salvar se usuário não editar
+                window._amSigKanProNome = amSigKanProNome;
+            }
         }
     }catch(e){}
     var s1=document.getElementById('am-sig-step1'); if(s1) s1.style.display = amSigHasReceiver ? 'none' : 'block';
@@ -604,9 +610,9 @@ async function amOpenAssinaturaModal(transferId) {
         }
     }
     var ttl=document.getElementById('am-sig-modal-title'); if(ttl) ttl.textContent='Assinatura — Transferência #' + String(transferId).padStart(4,'0') + (amSigHasReceiver ? ' (técnico)' : '');
-    // limpa step2
+    // limpa step2 — KanPro pré-preenche nome do Card como Responsável pela Retirada
     var dv=document.getElementById('am-sig-doc-value'); if(dv) dv.value='';
-    var nm=document.getElementById('am-sig-nome'); if(nm) nm.value='';
+    var nm=document.getElementById('am-sig-nome'); if(nm) nm.value = amSigKanProNome || '';
     amSigUpdateDisplay();
     setTimeout(()=>amSigClearCanvas(), 80);
     var mod=document.getElementById('am-modal-assinatura'); if(mod) mod.classList.add('open');

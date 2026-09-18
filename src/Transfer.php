@@ -915,6 +915,20 @@ class Transfer
             if (!empty($items)) { $first = reset($items); $origin_name = $first['origin_entity_name'] ?? ''; if ($origin_name === '' && !empty($first['origin_entity_id'])) { $eo = new \Entity(); if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName(); } }
             $tech_name = self::getUserName((int)($transfer['users_id_tech'] ?? 0));
             $creator_name = self::getUserName((int)($transfer['users_id_created'] ?? 0));
+            $isKanProSimple = strpos($transfer['reason'] ?? '', '[KanPro') !== false;
+            $kanproCardNameSimple = trim($origin_name);
+            if ($isKanProSimple && preg_match('/Card:\s*([^|]+)/u', $transfer['reason'] ?? '', $ms)) {
+                $tmpS = trim($ms[1] ?? '');
+                if ($tmpS !== '' && $tmpS !== $kanproCardNameSimple) $kanproCardNameSimple = $tmpS;
+            }
+            $kanproRecebedorSimple = trim($transfer['assinatura_nome'] ?? '');
+            if ($isKanProSimple) {
+                if ($kanproRecebedorSimple !== '') $displayCreatorSimple = $kanproRecebedorSimple;
+                elseif ($kanproCardNameSimple !== '') $displayCreatorSimple = $kanproCardNameSimple;
+                else $displayCreatorSimple = $creator_name;
+            } else {
+                $displayCreatorSimple = $creator_name;
+            }
             $lines = [];
             $lines[] = 'UNIDADE REGIONAL DE ENSINO - REGIAO DE JALES';
             $lines[] = $title . '  -  #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '  -  ' . date('d/m/Y H:i');
@@ -923,7 +937,7 @@ class Transfer
             if (!$is_pronto) {
                 $lines[] = 'Declaracao: equipamentos retirados pelo responsavel. Retirada verificada no suporte tecnico.';
                 $lines[] = '';
-                $lines[] = 'Eu, ' . $creator_name . ', declaro retirada dos equipamentos abaixo:';
+                $lines[] = 'Eu, ' . ($isKanProSimple ? $displayCreatorSimple : $creator_name) . ', declaro retirada dos equipamentos abaixo:';
                 $lines[] = '';
                 $lines[] = 'Data Retirada: ' . date('d/m/Y', strtotime($transfer['date_creation'])) . '  |  Destino: ' . $dest_name;
                 $lines[] = 'Motivo: ' . ($transfer['reason'] ?? '-');
@@ -937,7 +951,7 @@ class Transfer
                 $lines[] = 'Eu, ' . $tech_name . ', tecnico responsavel, declaro devolucao dos equipamentos abaixo:';
                 $lines[] = '';
                 $lines[] = 'Data Devolucao: ' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '  |  Destino: ' . $dest_name;
-                $lines[] = 'Tecnico: ' . $tech_name . '  |  Solicitante: ' . $creator_name;
+                $lines[] = 'Tecnico: ' . $tech_name . '  |  Responsável pela Retirada: ' . $displayCreatorSimple;
                 $lines[] = 'Origem: ' . ($origin_name ?: 'Nao informada') . '  |  Retornando para: ' . ($origin_name ?: 'Escola de origem');
                 if (!empty($transfer['reason'])) $lines[] = 'Motivo original: ' . $transfer['reason'];
                 $lines[] = '';
@@ -977,6 +991,21 @@ class Transfer
         if (!empty($items)) { $first = reset($items); $origin_name = $first['origin_entity_name'] ?? ''; if ($origin_name === '' && !empty($first['origin_entity_id'])) { $eo = new \Entity(); if ($eo->getFromDB((int)$first['origin_entity_id'])) $origin_name = $eo->getName(); } }
         $tech_name = self::getUserName((int)($transfer['users_id_tech'] ?? 0));
         $creator_name = self::getUserName((int)($transfer['users_id_created'] ?? 0));
+        $isKanProFpdf = strpos($transfer['reason'] ?? '', '[KanPro') !== false;
+        $kanproCardNameFpdf = trim($origin_name);
+        // Fallback reason para transferências antigas (antes de b00cbc0)
+        if ($isKanProFpdf && preg_match('/Card:\s*([^|]+)/u', $transfer['reason'] ?? '', $mf)) {
+            $tmpF = trim($mf[1] ?? '');
+            if ($tmpF !== '' && $tmpF !== $kanproCardNameFpdf) $kanproCardNameFpdf = $tmpF;
+        }
+        $kanproRecebedorFpdf = trim($transfer['assinatura_nome'] ?? '');
+        if ($isKanProFpdf) {
+            if ($kanproRecebedorFpdf !== '') $displayCreatorFpdf = $kanproRecebedorFpdf;
+            elseif ($kanproCardNameFpdf !== '') $displayCreatorFpdf = $kanproCardNameFpdf;
+            else $displayCreatorFpdf = $creator_name;
+        } else {
+            $displayCreatorFpdf = $creator_name;
+        }
         $logoFile = GLPI_ROOT . '/plugins/assetmgrstatus/img/logo_ure.png';
         // dados assinatura
         $sigImage = $transfer['assinatura_image'] ?? '';
@@ -1024,7 +1053,7 @@ class Transfer
         // Corpo
         $pdf->SetTextColor(45, 45, 45);
         $pdf->SetFont('Helvetica', '', 8);
-        $who = $is_pronto ? $tech_name : $creator_name;
+        $who = $is_pronto ? $tech_name : ($isKanProFpdf ? $displayCreatorFpdf : $creator_name);
         $body = 'Eu, ' . $who . ', declaro ' . ($is_pronto ? 'devolucao' : 'retirada') . ' dos equipamentos abaixo:';
         $pdf->MultiCell(0, 4, $toIso($body), 0, 'L');
         $pdf->Ln(2);
@@ -1039,7 +1068,8 @@ class Transfer
         ];
         if ($is_pronto) {
             $info[] = ['Tecnico', $tech_name];
-            $info[] = ['Solicitante', $creator_name];
+            // KanPro: Responsável pela Retirada = nome do Card (fallback para assinatura_nome)
+            $info[] = [$isKanProFpdf ? 'Responsável pela Retirada' : 'Solicitante', $isKanProFpdf ? $displayCreatorFpdf : $creator_name];
             $info[] = ['Origem', $origin_name ?: 'Nao informada'];
             $info[] = ['Retornando para', $origin_name ?: 'Escola de origem'];
         }
@@ -1668,9 +1698,31 @@ class Transfer
         $tech_name    = self::getUserName((int)$transfer['users_id_tech']);
         $creator_name = self::getUserName((int)$transfer['users_id_created']);
         $isKanPro = strpos($transfer['reason'] ?? '', '[KanPro') !== false;
-        // KanPro: Responsavel pela Retirada = nome do Recebedor digitado na assinatura
+        // KanPro: Responsável pela Retirada = nome do Card — puxa do Card (origin_entity_name) ou extrai do reason "Card: X |" para compat com transferências antigas
+        $kanproCardName = trim($origin_name);
+        // Fallback: extrai nome do Card do reason quando origin ainda é board_name (transferências antigas antes do fix b00cbc0)
+        $kanproCardFromReason = '';
+        if ($isKanPro && $kanproCardName !== '' && preg_match('/Card:\s*([^|]+)/u', $transfer['reason'] ?? '', $m)) {
+            $tmp = trim($m[1]);
+            if ($tmp !== '') $kanproCardFromReason = $tmp;
+            // prefere reason quando diferente de origin (reason é mais fiel ao card)
+            if ($kanproCardFromReason !== '' && $kanproCardFromReason !== $kanproCardName) $kanproCardName = $kanproCardFromReason;
+        } elseif ($isKanPro && $kanproCardName === '' && preg_match('/Card:\s*([^|]+)/u', $transfer['reason'] ?? '', $m2)) {
+            $kanproCardFromReason = trim($m2[1] ?? '');
+            if ($kanproCardFromReason !== '') $kanproCardName = $kanproCardFromReason;
+        }
         $kanproRecebedor = trim($transfer['assinatura_nome'] ?? '');
-        $displayCreator = $isKanPro && $kanproRecebedor !== '' ? $kanproRecebedor : $creator_name;
+        if ($isKanPro) {
+            if ($kanproRecebedor !== '') {
+                $displayCreator = $kanproRecebedor;
+            } elseif ($kanproCardName !== '') {
+                $displayCreator = $kanproCardName;
+            } else {
+                $displayCreator = $creator_name;
+            }
+        } else {
+            $displayCreator = $creator_name;
+        }
 
         // Assinatura digital via tablet — dual
         $sig_image      = $transfer['assinatura_image'] ?? '';
@@ -1722,7 +1774,7 @@ class Transfer
 
         if (!$is_pronto) {
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) retirado(s) pelo responsável identificado abaixo. O responsável está ciente de que retirou exatamente o(s) equipamento(s) que foi(ram) apresentado(s) ao suporte técnico, conforme verificado no momento da retirada.</div>';
-            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($creator_name) . '</b>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:</p>';
+            $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($isKanPro ? $displayCreator : $creator_name) . '</b>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:</p>';
             $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
             $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'] ?? '', 200)) . '</td></tr></table>';
             $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th style="width:6%">#</th><th style="width:62%">Nome do Equipamento</th><th style="width:32%">Tipo</th></tr>';
@@ -1806,7 +1858,9 @@ class Transfer
                 $receb_data = htmlspecialchars($sig_data_fmt);
                 $recCell = '<td style="background:#fff;border:1.5px solid #e8eaf0;">' . $sig_img_html . '<div class="line" style="border-color:#2d2d2d;height:1.5px;margin-bottom:4px;"></div><b>Responsável pelo Recebimento <span style="color:#059669;font-size:8px;">● ASSINADO</span></b><br>Nome: ' . $receb_nome . '<br><br>Documento: ' . $receb_doc . '<br>Data: ' . $receb_data . '<br><span style="font-size:7px;color:#6b7280;">via tablet — IP ' . htmlspecialchars($transfer['assinatura_ip'] ?? '') . '</span></td>';
             } else {
-                $recCell = '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
+                // KanPro: mesmo sem assinatura, exibe nome do Card como Responsável
+                $recNomePending = ($isKanPro && !empty($displayCreator) && $displayCreator !== '—') ? htmlspecialchars($displayCreator) : '________________________________________';
+                $recCell = '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ' . $recNomePending . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>';
             }
             $h .= '<table class="sign"><tr>' . $tecCell . $recCell . '</tr></table>';
             if ($is_assinado) {
@@ -1815,8 +1869,9 @@ class Transfer
                 $h .= '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo parcialmente assinado — falta ' . (!$hasRec ? 'recebedor' : '') . (!$hasRec && !$hasTec ? ' e ' : '') . (!$hasTec ? 'técnico' : '') . '. Colete na aba Assinatura.</div>';
             }
         } else {
+            $recNomeNoSig = ($isKanPro && !empty($displayCreator) && $displayCreator !== '—') ? htmlspecialchars($displayCreator) : '________________________________________';
             $h .= '<table class="sign"><tr><td><div class="line"></div><b>' . ($is_pronto ? 'Responsável pela Entrega (Técnico)' : 'Responsável pelo Envio') . '</b><br>' . htmlspecialchars($is_pronto ? $tecFallbackName : $creator_name) . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td>'
-                . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ________________________________________<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>'
+                . '<td><div class="line"></div><b>Responsável pelo Recebimento</b><br>Nome: ' . $recNomeNoSig . '<br><br>Documento: ____________________________<br>Data: ____/____/________</td></tr></table>'
                 . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura recebedor + técnico).</div>';
         }
 
