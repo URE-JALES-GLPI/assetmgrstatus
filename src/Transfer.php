@@ -1745,11 +1745,25 @@ class Transfer
                 $resolved = [];
                 foreach ($wcomps as $ck => $cs) if ($cs === 'resolved') $resolved[] = $comp_list[$ck] ?? $ck;
 
-                $comp_txt = [];
-                $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
-                foreach ($fcomps as $ckey => $cdesc) $comp_txt[] = '◆ ' . ($comp_list[$ckey] ?? $ckey) . ($cdesc ? ': ' . $cdesc : '');
-                foreach ($resolved as $rl) $comp_txt[] = '✓ ' . $rl . ' (resolvido)';
-                $comp_str = !empty($comp_txt) ? implode('; ', $comp_txt) : '—';
+                // KanPro: Componentes Afetados = DIÁRIO (o que foi feito na máquina)
+                if (($item['itemtype'] ?? '') === 'KanPro') {
+                    $kanproDiary = trim($item['final_reason'] ?? $wlog ?? '');
+                    if (!empty($item['final_components'])) {
+                        $tmpComp = json_decode($item['final_components'], true);
+                        if (is_array($tmpComp)) {
+                            if (isset($tmpComp['diario']) && trim($tmpComp['diario']) !== '') $kanproDiary = trim($tmpComp['diario']);
+                            elseif (isset($tmpComp['kanpro_diario']) && trim($tmpComp['kanpro_diario']) !== '') $kanproDiary = trim($tmpComp['kanpro_diario']);
+                            elseif (isset($tmpComp['KanPro']) && trim($tmpComp['KanPro']) !== '') $kanproDiary = trim($tmpComp['KanPro']);
+                        }
+                    }
+                    $comp_str = $kanproDiary !== '' ? $kanproDiary : '—';
+                } else {
+                    $comp_txt = [];
+                    $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
+                    foreach ($fcomps as $ckey => $cdesc) $comp_txt[] = '◆ ' . ($comp_list[$ckey] ?? $ckey) . ($cdesc ? ': ' . $cdesc : '');
+                    foreach ($resolved as $rl) $comp_txt[] = '✓ ' . $rl . ' (resolvido)';
+                    $comp_str = !empty($comp_txt) ? implode('; ', $comp_txt) : '—';
+                }
                 $final_reason_raw = $item['final_reason'] ?? '—';
                 $final_reason_trunc = ($final_reason_raw === '—' || $final_reason_raw === '') ? '—' : self::truncPdf($final_reason_raw, 90);
                 $comp_trunc = ($comp_str === '—') ? '—' : self::truncPdf($comp_str, 90);

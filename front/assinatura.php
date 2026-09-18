@@ -60,6 +60,10 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
 .am-sig-card{position:relative;}
 .am-sig-card.am-sig-selected{border-color:#4f46e5 !important;box-shadow:0 0 0 3px rgba(79,70,229,.18),0 8px 24px rgba(79,70,229,.12) !important;transform:translateY(-2px);}
 .am-sig-card.am-sig-selected::after{content:'✓';position:absolute;top:10px;right:10px;width:26px;height:26px;background:#4f46e5;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:900;z-index:3;box-shadow:0 2px 8px rgba(79,70,229,.3);}
+.am-kanpro{border-color:#ec4899 !important;background:#fff0f6 !important;}
+.am-kanpro .am-tc-card-header{border-left-color:#ec4899 !important;}
+.am-kanpro .am-badge{background:#fce7f3;color:#be185d;border-color:#f9a8d4;}
+.am-kanpro-badge{background:#ec4899;color:#fff;border:1px solid #ec4899;padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:800;}
 .am-sig-checkbox{position:absolute;top:10px;right:10px;z-index:4;width:22px;height:22px;accent-color:#4f46e5;cursor:pointer;display:none;}
 .am-sig-card.am-bulk-mode .am-sig-checkbox{display:block;}
 .am-sig-card.am-bulk-mode.am-sig-selected::after{display:none;}
@@ -145,7 +149,9 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
                     $docMasked = Transfer::maskDocumento($t['assinatura_document_type'] ?? '', $t['assinatura_document'] ?? '');
                 }
             ?>
-            <div class="am-tc-card am-sig-card <?= $precisa ? 'am-sig-pend' : '' ?>" data-id="<?= (int)$t['id'] ?>" data-origin-id="<?= (int)($t['origin_entity_id'] ?? 0) ?>" data-origin-name="<?= htmlspecialchars($t['origin_entity_name']) ?>" onclick="amSigCardClick(<?= (int)$t['id'] ?>, this, <?= $precisa ? 'true' : 'false' ?>)" style="<?= $precisa ? 'border-color:#f59e0b;' : '' ?>">
+            <?php $isKanPro = strpos($t['reason'] ?? '', '[KanPro') !== false; ?>
+            <div class="am-tc-card am-sig-card <?= $precisa ? 'am-sig-pend' : '' ?> <?= $isKanPro ? 'am-kanpro' : '' ?>" data-id="<?= (int)$t['id'] ?>" data-origin-id="<?= (int)($t['origin_entity_id'] ?? 0) ?>" data-origin-name="<?= htmlspecialchars($t['origin_entity_name']) ?>" onclick="amSigCardClick(<?= (int)$t['id'] ?>, this, <?= $precisa ? 'true' : 'false' ?>)" style="<?= $isKanPro ? 'border-color:#ec4899;background:#fff0f6;' : ($precisa ? 'border-color:#f59e0b;' : '') ?>">
+                <?php if($isKanPro): ?><div style="position:absolute;top:8px;left:10px;background:#ec4899;color:#fff;padding:2px 8px;border-radius:12px;font-size:.68rem;font-weight:800;z-index:2;letter-spacing:.04em">🔧 KANPRO</div><?php endif; ?>
                 <?php if ($precisa): ?><input type="checkbox" class="am-sig-checkbox" value="<?= (int)$t['id'] ?>" data-origin-id="<?= (int)($t['origin_entity_id'] ?? 0) ?>" data-origin-name="<?= htmlspecialchars($t['origin_entity_name']) ?>" onclick="event.stopPropagation(); amSigToggleSelect(<?= (int)$t['id'] ?>, <?= (int)($t['origin_entity_id'] ?? 0) ?>, '<?= htmlspecialchars(addslashes($t['origin_entity_name'])) ?>', this)"><?php endif; ?>
                 <div class="am-tc-card-header" style="border-left:4px solid <?= $isAssinado ? '#10b981' : ($precisa ? '#f59e0b' : Transfer::getStatusColor($t['status'])) ?>;">
                     <div>
