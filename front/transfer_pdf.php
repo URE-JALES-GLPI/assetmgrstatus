@@ -440,18 +440,32 @@ async function amPrintHP() {
             <td style="font-size:10.5px;color:#4b5563;"><?= htmlspecialchars($item['final_reason'] ?? '—') ?></td>
             <td style="font-size:10px;color:#4b5563;">
                 <?php
-                $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
-                $comps_html = [];
-                foreach ($fcomps as $ckey => $cdesc) {
-                    $clabel = $comp_list[$ckey] ?? $ckey;
-                    $comps_html[] = '<span style="color:#b91c1c;">◆</span> <strong>' . htmlspecialchars($clabel) . '</strong>' . ($cdesc ? ': ' . htmlspecialchars($cdesc) : '');
+                // KanPro: Componentes Afetados mostra só o diário sem prefixo ◆ diario:
+                if (($item['itemtype'] ?? '') === 'KanPro') {
+                    $kanproDiary = trim($item['final_reason'] ?? $wlog ?? '');
+                    if (!empty($item['final_components'])) {
+                        $tmpComp = json_decode($item['final_components'], true);
+                        if (is_array($tmpComp)) {
+                            if (isset($tmpComp['diario']) && trim($tmpComp['diario']) !== '') $kanproDiary = trim($tmpComp['diario']);
+                            elseif (isset($tmpComp['kanpro_diario']) && trim($tmpComp['kanpro_diario']) !== '') $kanproDiary = trim($tmpComp['kanpro_diario']);
+                            elseif (isset($tmpComp['KanPro']) && trim($tmpComp['KanPro']) !== '') $kanproDiary = trim($tmpComp['KanPro']);
+                        }
+                    }
+                    echo $kanproDiary !== '' ? nl2br(htmlspecialchars($kanproDiary)) : '<span style="color:#9ca3af;">—</span>';
+                } else {
+                    $fcomps = !empty($item['final_components']) ? json_decode($item['final_components'], true) : [];
+                    $comps_html = [];
+                    foreach ($fcomps as $ckey => $cdesc) {
+                        $clabel = $comp_list[$ckey] ?? $ckey;
+                        $comps_html[] = '<span style="color:#b91c1c;">◆</span> <strong>' . htmlspecialchars($clabel) . '</strong>' . ($cdesc ? ': ' . htmlspecialchars($cdesc) : '');
+                    }
+                    foreach ($resolved as $rlabel) {
+                        $comps_html[] = '<span style="color:#059669;font-weight:700;">✓ ' . htmlspecialchars($rlabel) . ' (resolvido)</span>';
+                    }
+                    echo !empty($comps_html)
+                        ? implode('<br>', $comps_html)
+                        : '<span style="color:#9ca3af;">—</span>';
                 }
-                foreach ($resolved as $rlabel) {
-                    $comps_html[] = '<span style="color:#059669;font-weight:700;">✓ ' . htmlspecialchars($rlabel) . ' (resolvido)</span>';
-                }
-                echo !empty($comps_html)
-                    ? implode('<br>', $comps_html)
-                    : '<span style="color:#9ca3af;">—</span>';
                 ?>
             </td>
             <td style="font-size:10px;color:#4b5563;">
