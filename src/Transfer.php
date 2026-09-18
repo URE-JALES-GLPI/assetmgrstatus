@@ -1667,6 +1667,10 @@ class Transfer
         }
         $tech_name    = self::getUserName((int)$transfer['users_id_tech']);
         $creator_name = self::getUserName((int)$transfer['users_id_created']);
+        $isKanPro = strpos($transfer['reason'] ?? '', '[KanPro') !== false;
+        // KanPro: Responsavel pela Retirada = nome do Recebedor digitado na assinatura
+        $kanproRecebedor = trim($transfer['assinatura_nome'] ?? '');
+        $displayCreator = $isKanPro && $kanproRecebedor !== '' ? $kanproRecebedor : $creator_name;
 
         // Assinatura digital via tablet — dual
         $sig_image      = $transfer['assinatura_image'] ?? '';
@@ -1732,7 +1736,7 @@ class Transfer
             if ($tecDisplayName === 'Sistema' || trim($tecDisplayName) === '') $tecDisplayName = $tec_nome !== '' ? $tec_nome : $tech_name;
             $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($tecDisplayName) . '</b>, técnico(a) responsável pelo atendimento, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro que os equipamentos abaixo foram submetidos ao suporte técnico e estão sendo devolvidos ao responsável identificado abaixo, conforme verificado no momento da entrega:</p>';
             $h .= '<table class="info"><tr><td><b>Data de Devolução</b>' . date('d/m/Y', strtotime($transfer['date_pronto'] ?: $transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
-            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tecDisplayName, 40)) . ($tec_masked ? ' — ' . htmlspecialchars($tec_type . ' ' . $tec_masked) : '') . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($creator_name, 40)) . '</td></tr>';
+            $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tecDisplayName, 40)) . ($tec_masked ? ' — ' . htmlspecialchars($tec_type . ' ' . $tec_masked) : '') . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($displayCreator, 40)) . '</td></tr>';
             $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Não informada', 50)) . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
             $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Escola de origem', 60)) . '</td></tr>';
             if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
