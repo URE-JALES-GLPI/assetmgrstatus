@@ -1116,7 +1116,7 @@ class Transfer
                 $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,12);
                 $statusLabel = $it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-';
                 $reason = mb_substr($it['final_reason'] ?? '-',0,28);
-                // Componentes: final_components + work_components resolved
+                // Componentes: final_components + work_components resolved — KanPro mostra só diário sem prefixo
                 global $DB;
                 $wrow = null; $wlog = ''; $wcomps = [];
                 try {
@@ -1128,12 +1128,25 @@ class Transfer
                 } catch (\Throwable $e) {}
                 $resolved = [];
                 foreach ($wcomps as $ck => $cs) { if ($cs === 'resolved') $resolved[] = $compList[$ck] ?? $ck; }
-                $fcomps = !empty($it['final_components']) ? json_decode($it['final_components'], true) : [];
-                if (!is_array($fcomps)) $fcomps = [];
-                $compTxt = [];
-                foreach ($fcomps as $ckey => $cdesc) { $clabel = $compList[$ckey] ?? $ckey; $compTxt[] = $clabel . ($cdesc ? ':'.mb_substr($cdesc,0,12) : ''); }
-                foreach ($resolved as $rl) { $compTxt[] = $rl . '(ok)'; }
-                $compStr = !empty($compTxt) ? mb_substr(implode('; ', $compTxt),0,32) : '-';
+                if (($it['itemtype'] ?? '') === 'KanPro') {
+                    $kanproDiary = trim($it['final_reason'] ?? $wlog ?? '');
+                    if (!empty($it['final_components'])) {
+                        $tmpComp = json_decode($it['final_components'], true);
+                        if (is_array($tmpComp)) {
+                            if (isset($tmpComp['diario']) && trim($tmpComp['diario']) !== '') $kanproDiary = trim($tmpComp['diario']);
+                            elseif (isset($tmpComp['kanpro_diario']) && trim($tmpComp['kanpro_diario']) !== '') $kanproDiary = trim($tmpComp['kanpro_diario']);
+                            elseif (isset($tmpComp['KanPro']) && trim($tmpComp['KanPro']) !== '') $kanproDiary = trim($tmpComp['KanPro']);
+                        }
+                    }
+                    $compStr = $kanproDiary !== '' ? mb_substr($kanproDiary, 0, 32) : '-';
+                } else {
+                    $fcomps = !empty($it['final_components']) ? json_decode($it['final_components'], true) : [];
+                    if (!is_array($fcomps)) $fcomps = [];
+                    $compTxt = [];
+                    foreach ($fcomps as $ckey => $cdesc) { $clabel = $compList[$ckey] ?? $ckey; $compTxt[] = $clabel . ($cdesc ? ':'.mb_substr($cdesc,0,12) : ''); }
+                    foreach ($resolved as $rl) { $compTxt[] = $rl . '(ok)'; }
+                    $compStr = !empty($compTxt) ? mb_substr(implode('; ', $compTxt),0,32) : '-';
+                }
                 $wlogShort = $wlog !== '' ? mb_substr($wlog,0,35) : '-';
                 // Evita overflow vertical: se Y > 265, nova página e reimprime cabeçalho
                 if ($pdf->GetY() > 265) {
