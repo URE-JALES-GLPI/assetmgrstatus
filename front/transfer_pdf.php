@@ -49,6 +49,22 @@ $tech_name = ($transfer['users_id_tech'] && $u->getFromDB($transfer['users_id_te
 $u2 = new User();
 $creator_name = ($transfer['users_id_created'] && $u2->getFromDB($transfer['users_id_created'])) ? $u2->getName() : '—';
 
+// KanPro: Responsável pela Retirada = nome do Card — puxa do Card, fallback reason para compat antigas
+$isKanPro = strpos($transfer['reason'] ?? '', '[KanPro') !== false;
+$kanproCardName = trim($origin_entity_name);
+if ($isKanPro && preg_match('/Card:\s*([^|]+)/u', $transfer['reason'] ?? '', $mk)) {
+    $tmpK = trim($mk[1] ?? '');
+    if ($tmpK !== '' && $tmpK !== $kanproCardName) $kanproCardName = $tmpK;
+}
+$kanproRecebedor = trim($transfer['assinatura_nome'] ?? '');
+if ($isKanPro) {
+    if ($kanproRecebedor !== '') $displayCreator = $kanproRecebedor;
+    elseif ($kanproCardName !== '') $displayCreator = $kanproCardName;
+    else $displayCreator = $creator_name;
+} else {
+    $displayCreator = $creator_name;
+}
+
 // Assinatura digital dual (recebedor + técnico) — coleta via tablet
 $assinatura_image         = $transfer['assinatura_image'] ?? '';
 $assinatura_doc_type      = $transfer['assinatura_document_type'] ?? '';
@@ -280,7 +296,7 @@ async function amPrintHP() {
 
     <!-- Corpo do termo -->
     <div class="eu-declaro">
-        Eu, <strong><?= htmlspecialchars($creator_name) ?></strong>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <strong>JALES</strong>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:
+        Eu, <strong><?= htmlspecialchars($isKanPro ? $displayCreator : $creator_name) ?></strong>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <strong>JALES</strong>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:
     </div>
 
     <!-- Informações -->
@@ -349,7 +365,7 @@ async function amPrintHP() {
         </div>
         <div class="info-box">
             <label>Responsável pela Retirada</label>
-            <span><?= htmlspecialchars($creator_name) ?></span>
+            <span><?= htmlspecialchars($displayCreator) ?></span>
         </div>
         <div class="info-box">
             <label>📍 Escola de Origem (de onde veio)</label>
@@ -491,7 +507,7 @@ async function amPrintHP() {
                 <?php endif; ?>
                 <div class="sign-name">Responsável pelo Recebimento <?= $hasRec ? '<span style="color:#059669;font-size:9px;">● ASSINADO</span>' : '' ?></div>
                 <div class="sign-fields">
-                    <span>Nome: <?= $hasRec && $assinatura_nome !== '' ? htmlspecialchars($assinatura_nome) : '_____________________________________________' ?></span>
+                    <span>Nome: <?= $hasRec && $assinatura_nome !== '' ? htmlspecialchars($assinatura_nome) : ($isKanPro && $displayCreator !== '—' ? htmlspecialchars($displayCreator) : '_____________________________________________') ?></span>
                     <span>Documento (<?= $hasRec ? htmlspecialchars($assinatura_doc_type) : 'RG/CPF' ?>): <?= $hasRec ? htmlspecialchars($assinatura_doc_type . ' ' . $assinatura_doc_masked) : '_________________________________' ?></span>
                     <span>Data: <?= $hasRec ? htmlspecialchars($assinatura_data_fmt) : '_____ / _____ / ___________' ?></span>
                     <?php if ($hasRec): ?>
