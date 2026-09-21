@@ -83,7 +83,7 @@ try {
 
     $res = \GlpiPlugin\Assetmgrstatus\Transfer::printOnServer($transfer_id, $stage, $printer ?: null, $pdf_base64 ?: null);
     if ($res['ok']) {
-        echo json_encode(['ok'=>true,'printer'=>$res['printer'] ?? null,'request_id'=>$res['request_id'] ?? '','output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '']);
+        echo json_encode(['ok'=>true,'printer'=>$res['printer'] ?? null,'request_id'=>$res['request_id'] ?? '','output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '','duplex'=>!empty($res['duplex'])]);
     } else {
         echo json_encode(['ok'=>false,'error'=>$res['error'] ?? 'Falha desconhecida','printer'=>$res['printer'] ?? null,'output'=>$res['output'] ?? '','audit'=>$res['audit'] ?? '','detail'=>$res['detail'] ?? '']);
     }

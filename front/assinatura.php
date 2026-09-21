@@ -1012,7 +1012,7 @@ function amSigCancelFinal(){
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (1-2 páginas, A4, 1 cópia).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (A4, 1 cópia; frente e verso automático se passar de 2 páginas).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
@@ -1051,7 +1051,7 @@ async function amPrintHP(transferId) {
         if (j.ok) {
             const audit = j.audit || ('Transferência #' + String(transferId).padStart(4,'0') + ' | ' + new Date().toLocaleString('pt-BR') + ' | Impressora: ' + (j.printer || '-') + (j.request_id ? ' | Job: ' + j.request_id : ''));
             try { navigator.clipboard.writeText(audit); } catch(e) {}
-            alert('✅ Impressão enviada!\n' + audit + '\n\n1 cópia, A4, 1-2 páginas.\nSe não sair, abra "PDF Assinado" (Ctrl+P).\n\n[Log auditoria copiado]');
+            alert('✅ Impressão enviada!\n' + audit + '\n\n1 cópia, A4' + (j.duplex ? ', FRENTE E VERSO' : '') + '.\nSe não sair, abra "PDF Assinado" (Ctrl+P).\n\n[Log auditoria copiado]');
             console.log('[AUDIT OK]', audit, j);
             if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
         } else {

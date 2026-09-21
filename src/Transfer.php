@@ -1628,6 +1628,8 @@ class Transfer
             return ['ok' => false, 'error' => 'PDF muito grande — impressão bloqueada.', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Código: HUGE_PDF'];
         }
         // Conta páginas de forma leve (busca "/Type /Page" no PDF) — aborta se > 10 páginas
+        // Frente e verso automático quando passar de 2 páginas (economia de folha)
+        $pages = 0;
         try {
             $raw = @file_get_contents($pdf_path);
             if ($raw !== false) {
@@ -1646,6 +1648,8 @@ class Transfer
                 error_log('[assetmgrstatus] printOnServer: PDF ok transfer=' . $transfer_id . ' stage=' . $stage . ' size=' . $fsize . ' pages~' . $pages);
             }
         } catch (\Throwable $e) { /* ignora contagem, segue impressão */ }
+        $duplex = ((int)$pages > 2);
+        $sidesOpt = $duplex ? 'two-sided-long-edge' : 'one-sided';
 
         // Escolhe impressora
         $printer = null;
@@ -1685,6 +1689,8 @@ class Transfer
 
         // Se impressora escolhida não está na lista mas há impressoras, avisa mas tenta mesmo assim (pode ser nome com alias)
         // CORREÇÃO 60 folhas: sempre forçar 1 cópia, A4 e fit-to-page para não imprimir 60 páginas/cópias
+        // Frente e verso (duplex) automático quando o termo passa de 2 páginas
+        $stdOpts = '-n 1 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
         $output = [];
         $ret = -1;
         $cmd = '';
@@ -1697,7 +1703,7 @@ class Transfer
             $cmd = 'lp';
             if ($printer) $cmd .= ' -d ' . escapeshellarg($printer);
             $cmd .= ' -t ' . escapeshellarg($title);
-            $cmd .= ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5 -o ColorModel=Color';
+            $cmd .= ' ' . $stdOpts . ' -o ColorModel=Color';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
@@ -1708,7 +1714,7 @@ class Transfer
                 if (stripos($lastOut, 'Unknown destination') !== false || stripos($lastOut, 'unknown printer') !== false) {
                     $out2 = [];
                     $ret2 = -1;
-                    $cmd2 = 'lp -t ' . escapeshellarg($title) . ' -n 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5 ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd2 = 'lp -t ' . escapeshellarg($title) . ' ' . $stdOpts . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd2, $out2, $ret2);
                     if ($ret2 === 0) {
                         $printed = true;
@@ -1734,7 +1740,7 @@ class Transfer
             $output = [];
             $cmd = 'lpr';
             if ($printer) $cmd .= ' -P ' . escapeshellarg($printer);
-            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=one-sided -o Resolution=600dpi -o print-quality=5';
+            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
@@ -1768,21 +1774,22 @@ class Transfer
         }
 
         // Sucesso: registra no timeline e no chamado
+        $sidesLabel = $duplex ? ' — frente e verso (' . (int)$pages . ' págs)' : '';
         try {
-            self::logStatus($transfer_id, $transfer['status'], '🖨️ Impresso na HP (' . $printer . ') — fila CUPS' . ($request_id ? ' ' . $request_id : '') . ' por ' . self::getUserName(\Session::getLoginUserID()));
+            self::logStatus($transfer_id, $transfer['status'], '🖨️ Impresso na HP (' . $printer . ') — fila CUPS' . ($request_id ? ' ' . $request_id : '') . $sidesLabel . ' por ' . self::getUserName(\Session::getLoginUserID()));
         } catch (\Throwable $e) {}
         if (!empty($transfer['tickets_id'])) {
             try {
                 self::addTicketFollowup((int)$transfer['tickets_id'],
                     "🖨️ Termo da Transferência #" . str_pad($transfer_id, 4, '0', STR_PAD_LEFT) . " enviado para **impressão na HP** (fila CUPS do servidor).\n"
-                    . "Impressora: `" . $printer . "`" . ($request_id ? " — Job: $request_id" : "") . "\n"
+                    . "Impressora: `" . $printer . "`" . ($request_id ? " — Job: $request_id" : "") . ($duplex ? " — frente e verso (" . (int)$pages . " págs)" : "") . "\n"
                     . "Por: " . self::getUserName(\Session::getLoginUserID()) . " em " . date('d/m/Y H:i') . " — IP " . ($_SERVER['REMOTE_ADDR'] ?? '')
                 );
             } catch (\Throwable $e) {}
         }
 
-        $auditOk = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ($request_id ? ' | Job: ' . $request_id : '');
-        return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id, 'audit' => $auditOk];
+        $auditOk = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ($request_id ? ' | Job: ' . $request_id : '') . ($duplex ? ' | Frente e verso' : '');
+        return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id, 'audit' => $auditOk, 'duplex' => $duplex];
     }
 
     // HTML do termo (versão impressa p/ mPDF — sem CSS grid, só tabelas)
