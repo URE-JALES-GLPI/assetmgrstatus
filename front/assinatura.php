@@ -110,7 +110,7 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     @keyframes sigFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
     </style>
     <div class="sig-filter-toggle">
-        <button type="button" id="sig-filter-btn" class="sig-filter-btn" onclick="toggleSigFilters()">
+        <button type="button" id="sig-filter-btn" class="sig-filter-btn">
             <i class="ti ti-filter"></i> Filtros <span id="sig-filter-text">Expandir</span> <i id="sig-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
         </button>
         <small style="color:#6b7280;font-size:.78rem">Filtrando: <strong><?= htmlspecialchars(ucfirst($filter)) ?></strong> (<?= $filter==='pendente'?count($pendentes):($filter==='assinado'?count($assinados):count($all)) ?>)</small>
