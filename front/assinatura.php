@@ -1071,7 +1071,6 @@ async function amPrintHP(transferId) {
     }
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') amCloseAssinaturaModal(); });
-document.getElementById('am-modal-assinatura').addEventListener('click', (e)=>{ if(e.target.id==='am-modal-assinatura') amCloseAssinaturaModal(); });
 </script>
 <style>@keyframes amSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}</style>
 
