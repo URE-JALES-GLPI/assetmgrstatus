@@ -1628,7 +1628,7 @@ class Transfer
             return ['ok' => false, 'error' => 'PDF muito grande — impressão bloqueada.', 'audit' => 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Código: HUGE_PDF'];
         }
         // Conta páginas de forma leve (busca "/Type /Page" no PDF) — aborta se > 10 páginas
-        // Frente e verso automático quando passar de 2 páginas (economia de folha)
+        // Frente e verso automático com 2+ páginas (1 folha frente e verso em vez de 2 folhas)
         $pages = 0;
         try {
             $raw = @file_get_contents($pdf_path);
@@ -1648,7 +1648,7 @@ class Transfer
                 error_log('[assetmgrstatus] printOnServer: PDF ok transfer=' . $transfer_id . ' stage=' . $stage . ' size=' . $fsize . ' pages~' . $pages);
             }
         } catch (\Throwable $e) { /* ignora contagem, segue impressão */ }
-        $duplex = ((int)$pages > 2);
+        $duplex = ((int)$pages > 1);
         $sidesOpt = $duplex ? 'two-sided-long-edge' : 'one-sided';
 
         // Escolhe impressora

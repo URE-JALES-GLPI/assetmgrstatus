@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 include('../../../inc/includes.php');
 
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -1012,7 +1012,7 @@ function amSigCancelFinal(){
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (A4, 1 cópia; frente e verso automático se passar de 2 páginas).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (A4, 1 cópia; frente e verso automático com 2 ou mais páginas).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';

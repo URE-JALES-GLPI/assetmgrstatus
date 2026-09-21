@@ -242,7 +242,7 @@ const amStagePdf = "<?= htmlspecialchars($stage) ?>";
 async function amPrintHP() {
     const btn = document.getElementById('btn-hp');
     const old = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(amTransferIdPdf).padStart(6,'0') + ' para impressão na HP?\n\nSerá impresso exatamente este PDF (A4, 1 cópia) na HP padrão do servidor. Se passar de 2 páginas, sai frente e verso automaticamente.')) return;
+    if (!confirm('Enviar Termo #' + String(amTransferIdPdf).padStart(6,'0') + ' para impressão na HP?\n\nSerá impresso exatamente este PDF (A4, 1 cópia) na HP padrão do servidor. Com 2 ou mais páginas, sai frente e verso automaticamente (1 folha).')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Gerando PDF...'; }
     let pdfBase64 = null;
     try {
@@ -286,7 +286,7 @@ const amStagePdf = "<?= htmlspecialchars($stage) ?>";
 async function amPrintHP() {
     const btn = document.getElementById('btn-hp');
     const old = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(amTransferIdPdf).padStart(6,'0') + ' para impressão na HP?\n\nSerá impresso exatamente este PDF (A4, 1 cópia) na HP padrão do servidor. Se passar de 2 páginas, sai frente e verso automaticamente.')) return;
+    if (!confirm('Enviar Termo #' + String(amTransferIdPdf).padStart(6,'0') + ' para impressão na HP?\n\nSerá impresso exatamente este PDF (A4, 1 cópia) na HP padrão do servidor. Com 2 ou mais páginas, sai frente e verso automaticamente (1 folha).')) return;
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Enviando...'; }
     try {
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
