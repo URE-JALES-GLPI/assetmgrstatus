@@ -140,16 +140,30 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
         b.classList.add('active');
         if(t) t.textContent='Recolher';
         if(icon){ icon.classList.remove('ti-chevron-down'); icon.classList.add('ti-chevron-up'); }
+        try{ localStorage.setItem('sigFiltersOpen','1'); }catch(e){}
       } else {
         c.style.display='none'; c.classList.add('collapsed'); c.classList.remove('expanded');
         b.classList.remove('active');
         if(t) t.textContent='Expandir';
         if(icon){ icon.classList.remove('ti-chevron-up'); icon.classList.add('ti-chevron-down'); }
+        try{ localStorage.setItem('sigFiltersOpen','0'); }catch(e){}
       }
     }
     document.addEventListener('DOMContentLoaded', function(){
       var btn=document.getElementById('sig-filter-btn');
       if(btn) btn.addEventListener('click', function(e){ e.preventDefault(); toggleSigFilters(); });
+      // Mantem expandido ao trocar de filtro (a troca recarrega a pagina)
+      var open=false;
+      try{ open=localStorage.getItem('sigFiltersOpen')==='1'; }catch(e){}
+      if(open){
+        var c=document.getElementById('sig-filters-collapsible');
+        var t2=document.getElementById('sig-filter-text');
+        var icon2=document.getElementById('sig-filter-icon');
+        if(c){ c.style.display='block'; c.classList.remove('collapsed'); c.classList.add('expanded'); }
+        if(btn) btn.classList.add('active');
+        if(t2) t2.textContent='Recolher';
+        if(icon2){ icon2.classList.remove('ti-chevron-down'); icon2.classList.add('ti-chevron-up'); }
+      }
     });
     window.toggleSigFilters = toggleSigFilters;
     </script>
