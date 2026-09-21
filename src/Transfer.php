@@ -1722,10 +1722,10 @@ class Transfer
                         $printer = $default ?? 'default';
                     }
                 } else {
-                    // tenta sem fit-to-page como último recurso
+                    // último recurso: sem fit-to-page, mas MANTÉM sides (duplex) e 1 cópia
                     $out3 = [];
                     $ret3 = -1;
-                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' -n 1 -o sides=' . $sidesOpt . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd3, $out3, $ret3);
                     if ($ret3 === 0) {
                         $printed = true;
@@ -1788,7 +1788,7 @@ class Transfer
             } catch (\Throwable $e) {}
         }
 
-        $auditOk = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ($request_id ? ' | Job: ' . $request_id : '') . ($duplex ? ' | Frente e verso' : '');
+        $auditOk = 'Transferência #' . str_pad($transfer_id,4,'0',STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . ' | Usuário: ' . self::getUserName(\Session::getLoginUserID()) . ' | Impressora: ' . $printer . ($request_id ? ' | Job: ' . $request_id : '') . ((int)$pages > 0 ? ' | ' . (int)$pages . ' págs' : '') . ($duplex ? ' | Frente e verso' : '');
         return ['ok' => true, 'printer' => $printer, 'output' => $lastOut, 'request_id' => $request_id, 'audit' => $auditOk, 'duplex' => $duplex];
     }
 
