@@ -175,8 +175,8 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
             </a>
 
             <div style="display:flex;background:#f4f6fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:3px;gap:3px;">
-                <button id="am-view-grid-btn" class="am-view-btn" onclick="amSetView('grid')" title="Grade" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:transparent;color:#9ca3af;cursor:pointer;"><i class="ti ti-layout-grid"></i></button>
-                <button id="am-view-kanban-btn" class="am-view-btn active" onclick="amSetView('kanban')" title="Kanban" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:#fff;color:#4f46e5;box-shadow:0 2px 6px rgba(79,70,229,.15);cursor:pointer;"><i class="ti ti-layout-kanban"></i></button>
+                <button id="am-view-grid-btn" class="am-view-btn active" onclick="amSetView('grid')" title="Grade" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:#fff;color:#4f46e5;box-shadow:0 2px 6px rgba(79,70,229,.15);cursor:pointer;"><i class="ti ti-layout-grid"></i></button>
+                <button id="am-view-kanban-btn" class="am-view-btn" onclick="amSetView('kanban')" title="Kanban" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:transparent;color:#9ca3af;cursor:pointer;"><i class="ti ti-layout-kanban"></i></button>
             </div>
             <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
                 <i class="ti ti-refresh"></i> Atualizar
@@ -399,7 +399,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     <?php if (empty($combined_page)): ?>
     <div class="am-empty-state"><i class="ti ti-clipboard-off"></i><p>Nenhum card encontrado (transferência ou chamado) para os filtros atuais.</p></div>
     <?php else: ?>
-    <div class="am-tc-grid" id="am-grid-view" style="display:none;">
+    <div class="am-tc-grid" id="am-grid-view">
         <?php foreach ($combined_page as $item):
             if ($item['type'] === 'transfer'):
                 $t = $item['data'];
@@ -607,7 +607,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     </div>
 
     <!-- Kanban View (por etapa) - Trello style, colunas verticais lado a lado -->
-    <div id="am-kanban-view">
+    <div id="am-kanban-view" style="display:none;">
         <div class="am-kanban">
             <?php
                 $currentUserId = (int)Session::getLoginUserID();
@@ -1768,7 +1768,7 @@ function amSetView(view){
 }
 document.addEventListener('DOMContentLoaded', function(){
   try{
-    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'kanban';
+    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'grid';
     amSetView(v==='kanban'?'kanban':'grid');
   }catch(e){}
 });

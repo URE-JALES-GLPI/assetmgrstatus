@@ -69,7 +69,7 @@ if ($action === 'manutencao') {
     Session::addMessageAfterRedirect('Observação registrada com sucesso!', false, INFO);
 }
 
-$view = $_POST['view_mode'] ?? 'list';
+$view = $_POST['view_mode'] ?? 'grid';
 $raw_entity = $_POST['filter_entity'] ?? [];
 if (is_string($raw_entity)) $raw_entity = [$raw_entity];
 if (!is_array($raw_entity)) $raw_entity = [];

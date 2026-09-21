@@ -189,9 +189,9 @@
             }, { passive: true });
         });
 
-        // Preserva view mode em todos os forms de ação (POST) — respeita view já injetado pelo PHP e fallback igual ao PHP (list no desktop, grid no mobile)
+        // Preserva view mode em todos os forms de ação (POST) — respeita view já injetado pelo PHP e fallback igual ao PHP (grid padrão)
         var viewParam = new URLSearchParams(window.location.search).get('view');
-        var viewMode = viewParam || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches ? 'grid' : 'list');
+        var viewMode = viewParam || 'grid';
         // Se a página já tem um input view_mode injetado pelo PHP (maintenance.php), usa o valor de lá como fonte da verdade
         var phpViewInput = document.querySelector('input[name="view_mode"][value]');
         if (phpViewInput && phpViewInput.value) viewMode = phpViewInput.value;

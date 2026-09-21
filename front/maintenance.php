@@ -67,7 +67,7 @@ if ($can_admin_entity) {
     $filter_entity = Session::getActiveEntity();
 }
 $is_mobile_ua  = preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
-$view_mode     = $_GET['view']   ?? ($is_mobile_ua ? 'grid' : 'list');
+$view_mode     = $_GET['view']   ?? 'grid';
 if ($is_mobile_ua && $view_mode === 'list') $view_mode = 'grid'; // força grade no mobile mesmo se view=list na URL
 $page          = max(1, (int)($_GET['page'] ?? 1));
 
@@ -85,7 +85,7 @@ function am_qs(array $overrides = []): string {
     if (!is_array($cur_fab)) $cur_fab = [];
     $cur_fab    = array_values(array_filter(array_map('intval', $cur_fab)));
     $is_mobile_qs = preg_match('/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i', $_SERVER['HTTP_USER_AGENT'] ?? '');
-    $cur_view   = $_GET['view']   ?? ($is_mobile_qs ? 'grid' : 'list');
+    $cur_view   = $_GET['view']   ?? 'grid';
     if ($is_mobile_qs && $cur_view === 'list') $cur_view = 'grid';
     $cur_page   = max(1, (int)($_GET['page'] ?? 1));
     $can_admin_qs = Session::haveRight('plugin_assetmgrstatus_admin', READ);
