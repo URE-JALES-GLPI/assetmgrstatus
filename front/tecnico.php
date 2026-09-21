@@ -1598,11 +1598,19 @@ function amSoftRefresh() {
             var oldCount = document.querySelectorAll('.am-tc-card').length;
             var newCount = newContent.querySelectorAll ? newContent.querySelectorAll('.am-tc-card').length : 0;
 
+            // Preserva a view atual (Grade/Kanban) — o HTML fresco vem com Grade visível por padrão
+            var kanbanEl = document.getElementById('am-kanban-view');
+            var inKanban = !!(kanbanEl && kanbanEl.style.display !== 'none');
+
             // Fade out suave, troca conteúdo, fade in
             container.style.transition = 'opacity .25s ease';
             container.style.opacity = '0.3';
             setTimeout(function() {
                 container.parentNode.replaceChild(newContent, container);
+                // Reaplica a view: se estava em Kanban, mantém a grade nova escondida
+                if (inKanban && newContent.classList && newContent.classList.contains('am-tc-grid')) {
+                    newContent.style.display = 'none';
+                }
                 newContent.style.opacity = '0.3';
                 newContent.style.transition = 'opacity .25s ease';
                 requestAnimationFrame(function() {

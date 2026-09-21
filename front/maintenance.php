@@ -561,6 +561,34 @@ if ($can_admin_entity) {
     // fallback global
     window.toggleAmFilters = toggleAmFilters;
     </script>
+    <script>
+    // Persiste a escolha Lista/Grade (localStorage) — vale para F5, menu GLPI, links de outras telas e favoritos
+    (function(){
+      var KEY = 'am_inv_view';
+      try {
+        // Salva ao clicar no toggle
+        document.querySelectorAll('.am-view-toggle a').forEach(function(a){
+          a.addEventListener('click', function(){
+            try {
+              var h = a.getAttribute('href') || '';
+              localStorage.setItem(KEY, h.indexOf('view=list') !== -1 ? 'list' : 'grid');
+            } catch(e){}
+          });
+        });
+        // Restaura quando a URL não tem view (menu, outras telas, favorito): só Lista precisa de redirect, Grade já é o padrão
+        var p = new URLSearchParams(window.location.search);
+        if (!p.has('view')) {
+          var saved = null;
+          try { saved = localStorage.getItem(KEY); } catch(e){}
+          if (saved === 'list') {
+            p.set('view', 'list');
+            var u = window.location.pathname + (p.toString() ? '?' + p.toString() : '') + window.location.hash;
+            window.location.replace(u);
+          }
+        }
+      } catch(e){}
+    })();
+    </script>
 
     <!-- Barra de ação em massa -->
     <div id="am-bulk-bar" class="am-bulk-bar">

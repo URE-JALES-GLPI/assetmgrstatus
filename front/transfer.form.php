@@ -49,7 +49,8 @@ if (Transfer::$last_ticket_error !== '') {
 }
 
 $pdf_url      = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/transfer_pdf.php?id=' . $transfer_id . '&stage=transfer';
-$redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php';
+$view_mode    = ($_POST['view_mode'] ?? '') === 'list' ? 'list' : 'grid';
+$redirect_url = $CFG_GLPI['root_doc'] . '/plugins/assetmgrstatus/front/maintenance.php?view=' . $view_mode;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
