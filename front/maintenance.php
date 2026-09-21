@@ -277,10 +277,14 @@ if ($can_admin_entity) {
     $am_active_count = ($filter_type!==''?1:0)+($filter_status!==''?1:0)+($filter_search!==''?1:0)+(empty($filter_comp)?0:count($filter_comp))+(empty($filter_fabricante)?0:count($filter_fabricante))+(!empty($filter_entity)?1:0);
     ?>
     <div class="am-filter-toggle">
-        <button type="button" id="am-filter-toggle-btn" class="am-filter-toggle-btn" onclick="toggleAmFilters()">
+        <button type="button" id="am-filter-toggle-btn" class="am-filter-toggle-btn">
             <i class="ti ti-filter"></i> Filtros <?php if($am_has_active_filter) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$am_active_count</span>"; ?> <span id="am-filter-text">Expandir</span> <i id="am-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
         </button>
         <?php if($am_has_active_filter): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> <?= $am_active_count ?> filtro(s) ativo(s)</small><?php endif; ?>
+        <div class="am-view-toggle" style="margin-left:auto;">
+            <a href="?<?= am_qs(['view' => 'list']) ?>" class="am-view-btn <?= $view_mode==='list' ? 'active' : '' ?>" title="Lista"><i class="ti ti-list"></i></a>
+            <a href="?<?= am_qs(['view' => 'grid']) ?>" class="am-view-btn <?= $view_mode==='grid' ? 'active' : '' ?>" title="Grade"><i class="ti ti-layout-grid"></i></a>
+        </div>
     </div>
     <div id="am-filters-collapsible" class="am-filters-collapsible collapsed" style="display:none">
     <!-- Filtros -->

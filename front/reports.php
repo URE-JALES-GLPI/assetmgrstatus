@@ -144,7 +144,7 @@ $preview_count = match($report_mode) {
         $rep_active_count = ($filter_type!==''?1:0)+($filter_status!==''?1:0)+($period_start!==''?1:0)+($period_end!==''?1:0);
         ?>
         <div class="rep-filter-toggle">
-            <button type="button" id="rep-filter-btn" class="rep-filter-btn" onclick="toggleRepFilters()">
+            <button type="button" id="rep-filter-btn" class="rep-filter-btn">
                 <i class="ti ti-filter"></i> Filtros <?php if($rep_has_filter) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$rep_active_count</span>"; ?> <span id="rep-filter-text">Expandir</span> <i id="rep-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
             </button>
             <?php if($rep_has_filter): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> filtros ativos</small><?php endif; ?>

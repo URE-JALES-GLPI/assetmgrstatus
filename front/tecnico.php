@@ -174,6 +174,10 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
                 <i class="ti ti-external-link"></i> Kanban Externo
             </a>
 
+            <div style="display:flex;background:#f4f6fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:3px;gap:3px;">
+                <button id="am-view-grid-btn" class="am-view-btn" onclick="amSetView('grid')" title="Grade" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:transparent;color:#9ca3af;cursor:pointer;"><i class="ti ti-layout-grid"></i></button>
+                <button id="am-view-kanban-btn" class="am-view-btn active" onclick="amSetView('kanban')" title="Kanban" style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:7px;border:none;background:#fff;color:#4f46e5;box-shadow:0 2px 6px rgba(79,70,229,.15);cursor:pointer;"><i class="ti ti-layout-kanban"></i></button>
+            </div>
             <button id="am-refresh-btn" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;" onclick="amManualRefresh(this)" title="Atualizar agora">
                 <i class="ti ti-refresh"></i> Atualizar
             </button>
@@ -199,7 +203,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
     $tec_active_count = ($filter_status!==''?1:0)+($filter_tech?1:0)+($filter_date!==''?1:0)+($filter_sort!=='recent'?1:0)+($filter_tipo!=='all'?1:0)+($filter_cat?1:0)+($q!==''?1:0);
     ?>
     <div class="tec-filter-toggle">
-        <button type="button" id="tec-filter-btn" class="tec-filter-btn" onclick="toggleTecFilters()">
+        <button type="button" id="tec-filter-btn" class="tec-filter-btn">
             <i class="ti ti-filter"></i> Filtros <?php if($tec_has_active) echo "<span class='am-comp-filter-count' style='margin-left:4px'>$tec_active_count</span>"; ?> <span id="tec-filter-text">Expandir</span> <i id="tec-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
         </button>
         <?php if($tec_has_active): ?><small style="color:#6b7280;font-size:.78rem"><i class="ti ti-info-circle"></i> <?= $tec_active_count ?> filtro(s) ativo(s)</small><?php endif; ?>
@@ -1764,11 +1768,8 @@ function amSetView(view){
 }
 document.addEventListener('DOMContentLoaded', function(){
   try{
-    var v=new URLSearchParams(window.location.search).get('view') || 'kanban';
+    var v=new URLSearchParams(window.location.search).get('view') || localStorage.getItem('am_tec_view') || 'kanban';
     amSetView(v==='kanban'?'kanban':'grid');
-    // força kanban como padrão visual tipo Trello
-    document.getElementById('am-grid-view').style.display='none';
-    document.getElementById('am-kanban-view').style.display='block';
   }catch(e){}
 });
 function amTogglePegoTodos(btn){
