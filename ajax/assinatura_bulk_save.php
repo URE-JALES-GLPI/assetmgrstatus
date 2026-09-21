@@ -1,5 +1,5 @@
 <?php
-// Endpoint assinatura em lote — assina N transferências da mesma entidade com mesma assinatura
+// Endpoint assinatura em lote — assina N transferências com a mesma assinatura (vale para escolas diferentes)
 // Aceita JSON ou FormData, sempre retorna JSON
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
@@ -81,7 +81,7 @@ try {
         exit;
     }
     if (count($transfer_ids) < 2) {
-        echo json_encode(['ok' => false, 'error' => 'Selecione pelo menos 2 transferências da mesma entidade para assinatura em lote']);
+        echo json_encode(['ok' => false, 'error' => 'Selecione pelo menos 2 transferências para assinatura em lote']);
         exit;
     }
 
