@@ -169,14 +169,25 @@ Html::header('Assinatura', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'ass
     </script>
 
     <?php if ($filter==='pendente' && count($pendentes) >= 2): ?>
+    <?php
+        // Agrupa pendentes por entidade para hint
+        $pendPorEnt = [];
+        foreach ($pendentes as $pp) { $k = $pp['origin_entity_name'] ?: 'Sem entidade'; $pendPorEnt[$k] = ($pendPorEnt[$k] ?? 0) + 1; }
+        $temMesmaEnt = count(array_filter($pendPorEnt, fn($c)=>$c>=2))>0;
+    ?>
     <div id="am-sig-bulk-toggle-wrap" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:12px 16px;">
         <div style="flex:1;min-width:200px;">
             <div style="font-weight:800;font-size:.9rem;color:#1e1b4b;display:flex;align-items:center;gap:8px;"><i class="ti ti-copy" style="color:#4f46e5;"></i> Assinatura em lote</div>
             <div style="font-size:.82rem;color:#6b7280;margin-top:2px;">
-                Tem <strong style="color:#4f46e5;"><?= count($pendentes) ?> pendentes</strong> — selecione 2+ para assinar de uma vez (1 wizard, 1 assinatura), mesmo de escolas diferentes.
+                <?php if ($temMesmaEnt): ?>
+                Tem <strong style="color:#4f46e5;"><?= count($pendentes) ?> pendentes</strong> — selecione 2+ da <strong>mesma escola</strong> para assinar de uma vez (1 wizard, 1 assinatura).
+                <?php else: ?>
+                Selecione 2+ da mesma escola quando houver — o lote exige mesma entidade.
+                <?php endif; ?>
             </div>
         </div>
         <button id="am-sig-bulk-toggle-btn" class="am-btn am-btn-secondary" style="padding:9px 16px;font-size:.85rem;white-space:nowrap;" onclick="amSigToggleBulkMode()"><i class="ti ti-checkbox"></i> Selecionar em lote</button>
+        <?php if ($temMesmaEnt): ?><span style="font-size:.72rem;color:#059669;font-weight:700;background:#d1fae5;border:1px solid #a7f3d0;border-radius:20px;padding:3px 10px;"><?= count(array_filter($pendPorEnt, fn($c)=>$c>=2)) ?> escola(s) com 2+</span><?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -398,11 +409,8 @@ let amSigTecnicosCache = null;
 // Bulk seleção estado
 let amSigBulkActive = false;
 let amSigSelected = new Map(); // id -> {originId, originName}
-function amSigBulkSchools(){
-  var names=[];
-  amSigSelected.forEach(function(v){ var n=(v.originName||'').trim()||'Sem entidade'; if(names.indexOf(n)===-1) names.push(n); });
-  return names;
-}
+let amSigSelectedOriginId = null;
+let amSigSelectedOriginName = '';
 
 function amSigToggleBulkMode(){
   amSigBulkActive = !amSigBulkActive;
@@ -412,7 +420,7 @@ function amSigToggleBulkMode(){
   if(amSigBulkActive){
     if(btn){ btn.innerHTML='<i class="ti ti-x"></i> Cancelar seleção'; btn.style.background='linear-gradient(135deg,#dc2626,#ef4444)'; btn.style.color='#fff'; }
     cards.forEach(function(c){ c.classList.add('am-bulk-mode'); });
-    amSigToast('Modo lote ativado — toque nos cards para selecionar (vale para escolas diferentes)', true);
+    amSigToast('Modo lote ativado — toque nos cards da MESMA escola para selecionar', true);
   } else {
     if(btn){ btn.innerHTML='<i class="ti ti-checkbox"></i> Selecionar em lote'; btn.style.background=''; btn.style.color=''; }
     cards.forEach(function(c){ c.classList.remove('am-bulk-mode'); c.classList.remove('am-sig-selected'); var cb=c.querySelector('.am-sig-checkbox'); if(cb) cb.checked=false; });
@@ -439,8 +447,26 @@ function amSigToggleSelect(id, originId, originName, cbEl){
   var exists = amSigSelected.has(id);
   if(exists){
     amSigSelected.delete(id);
+    if(amSigSelected.size===0){ amSigSelectedOriginId=null; amSigSelectedOriginName=''; }
+    else if(amSigSelected.size===1){
+      // recalcula origem do restante
+      var first=[...amSigSelected.values()][0];
+      amSigSelectedOriginId=first.originId;
+      amSigSelectedOriginName=first.originName;
+    }
   } else {
-    // lote permite escolas diferentes — uma única assinatura vale para todos os termos
+    if(amSigSelected.size===0){
+      amSigSelectedOriginId=originId;
+      amSigSelectedOriginName=originName;
+    } else {
+      // valida mesma entidade
+      var same = (originId!==0 && amSigSelectedOriginId!==0) ? (originId===amSigSelectedOriginId) : (originName===amSigSelectedOriginName);
+      if(!same){
+        amSigToast('Selecione apenas da mesma escola: "'+amSigSelectedOriginName+'" . Você clicou em "'+originName+'"', false);
+        if(cbEl) cbEl.checked=false;
+        return;
+      }
+    }
     amSigSelected.set(id, {originId:originId, originName:originName});
   }
   // atualiza card visual
@@ -459,10 +485,7 @@ function amSigUpdateBulkBar(){
   var entEl=document.getElementById('am-sig-bulk-ent');
   var n=amSigSelected.size;
   if(cntEl) cntEl.textContent=String(n);
-  if(entEl){
-    var schools=amSigBulkSchools();
-    entEl.textContent = schools.length ? (schools.length+' escola(s): '+schools.slice(0,3).join(' • ')+(schools.length>3?' +'+(schools.length-3):'')) : '';
-  }
+  if(entEl) entEl.textContent= amSigSelectedOriginName ? 'Escola: '+amSigSelectedOriginName : '';
   if(!bar) return;
   if(amSigBulkActive && n>0){ bar.classList.add('open'); bar.style.display='flex'; }
   else if(n>=2 && !amSigBulkActive){
@@ -476,17 +499,19 @@ function amSigUpdateBulkBar(){
   }
   // habilita/desabilita botão assinar em lote
   var btn = bar ? bar.querySelector('button') : null;
-  if(btn){ btn.disabled = n < 2; btn.style.opacity = n < 2 ? '.5' : '1'; btn.style.pointerEvents = n < 2 ? 'none' : 'auto'; if(n<2) btn.title='Selecione pelo menos 2 termos'; else btn.title=''; }
+  if(btn){ btn.disabled = n < 2; btn.style.opacity = n < 2 ? '.5' : '1'; btn.style.pointerEvents = n < 2 ? 'none' : 'auto'; if(n<2) btn.title='Selecione pelo menos 2 da mesma escola'; else btn.title=''; }
 }
 function amSigClearSelection(keepMode){
   amSigSelected.clear();
+  amSigSelectedOriginId=null; amSigSelectedOriginName='';
   document.querySelectorAll('.am-sig-card.am-sig-selected').forEach(function(c){ c.classList.remove('am-sig-selected'); var cb=c.querySelector('.am-sig-checkbox'); if(cb) cb.checked=false; });
   amSigUpdateBulkBar();
   if(keepMode===false && amSigBulkActive){ /* mantém modo */ } else if(keepMode!==false) { /* default limpa barra */ }
 }
 function amSigOpenBulkModal(){
-  if(amSigSelected.size < 2){ amSigToast('Selecione pelo menos 2 termos.'); return; }
+  if(amSigSelected.size < 2){ amSigToast('Selecione pelo menos 2 termos da mesma escola.'); return; }
   var ids=[...amSigSelected.keys()];
+  // valida mesma entidade já garantido, mas re-checa
   amSigBulkMode = true;
   amSigTransferIds = ids.slice();
   amSigTransferId = ids[0];
@@ -517,23 +542,18 @@ async function amOpenAssinaturaModalBulk(ids){
   setTimeout(amSigInitCanvas,120);
   amLoadTecnicos();
   var ttl=document.getElementById('am-sig-modal-title');
-  if(ttl) ttl.textContent='Assinatura em LOTE — '+ids.length+' termos';
+  if(ttl) ttl.textContent='Assinatura em LOTE — '+ids.length+' termos — '+ (amSigSelectedOriginName||'');
   // mostra banner lote no wizard 1
   var wiz1=document.getElementById('am-wiz-1');
-  var schools=amSigBulkSchools();
-  var schoolsTxt=schools.length ? schools.slice(0,4).join(' • ')+(schools.length>4 ? ' +'+(schools.length-4) : '') : '';
   if(wiz1 && !document.getElementById('am-bulk-banner')){
     var b=document.createElement('div');
     b.id='am-bulk-banner';
     b.style.cssText='margin-bottom:12px;background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 12px;font-size:.85rem;color:#3730a3;display:flex;align-items:center;gap:8px;';
-    b.innerHTML='<i class="ti ti-copy" style="font-size:1.1rem;"></i><div><strong>'+ids.length+' termos selecionados</strong> de <strong>'+schools.length+' escola(s)</strong><br><span style="font-size:.78rem;">'+schoolsTxt+'</span><br><span style="font-size:.78rem;color:#6b7280;">Uma única assinatura será aplicada a todos. Após salvar, os PDFs abrirão para impressão.</span></div>';
+    b.innerHTML='<i class="ti ti-copy" style="font-size:1.1rem;"></i><div><strong>'+ids.length+' termos selecionados</strong> da escola <strong>'+(amSigSelectedOriginName||'')+'</strong><br><span style="font-size:.78rem;color:#6b7280;">Uma única assinatura será aplicada a todos. Após salvar, os PDFs abrirão para impressão.</span></div>';
     wiz1.insertBefore(b, wiz1.firstChild.nextSibling ? wiz1.firstChild.nextSibling : wiz1.firstChild);
   } else if(wiz1){
     var ex=document.getElementById('am-bulk-banner');
-    if(ex){
-      ex.innerHTML='<i class="ti ti-copy" style="font-size:1.1rem;"></i><div><strong>'+ids.length+' termos selecionados</strong> de <strong>'+schools.length+' escola(s)</strong><br><span style="font-size:.78rem;">'+schoolsTxt+'</span><br><span style="font-size:.78rem;color:#6b7280;">Uma única assinatura será aplicada a todos. Após salvar, os PDFs abrirão para impressão.</span></div>';
-      ex.style.display='flex';
-    }
+    if(ex) ex.style.display='flex';
   }
 }
 function amSigOpenBulkPdfs(ids){
@@ -666,7 +686,7 @@ function amWizGo(n){
   var title=document.getElementById('am-sig-modal-title');
   if(title){
     if(amSigBulkMode && amSigTransferIds.length>1){
-      title.textContent='Assinatura em LOTE ('+amSigTransferIds.length+') — Etapa '+n+' de 7';
+      title.textContent='Assinatura em LOTE ('+amSigTransferIds.length+') — Etapa '+n+' de 7 — '+(amSigSelectedOriginName||'');
     } else {
       title.textContent='Assinatura — Etapa '+n+' de 7';
     }
@@ -910,9 +930,7 @@ async function amSigSave() {
                 amWizGo(7);
                 var info=document.getElementById('am-wiz-7-info');
                 if(info){
-                  var sch=amSigBulkSchools();
-                  var schTxt=sch.length ? sch.slice(0,5).join(' • ')+(sch.length>5 ? ' +'+(sch.length-5) : '') : '';
-                  info.innerHTML='<div style="font-weight:800;color:#065f46;font-size:1rem;">✅ '+amSigTransferIds.length+' termos assinados!</div><div style="margin-top:6px;font-size:.85rem;color:#065f46;">Escolas ('+sch.length+'): <strong>'+schTxt+'</strong><br>Recebedor: '+(nome||'')+' — '+(amSigDocType||'')+' '+amSigDocNumber+'<br>Técnico: '+(tecNome||'')+'</div><div style="margin-top:10px;font-size:.82rem;color:#6b7280;">Os PDFs abrirão em abas separadas para impressão. Se o navegador bloquear, use os botões abaixo.</div>';
+                  info.innerHTML='<div style="font-weight:800;color:#065f46;font-size:1rem;">✅ '+amSigTransferIds.length+' termos assinados!</div><div style="margin-top:6px;font-size:.85rem;color:#065f46;">Escola: <strong>'+(amSigSelectedOriginName||'')+'</strong><br>Recebedor: '+(nome||'')+' — '+(amSigDocType||'')+' '+amSigDocNumber+'<br>Técnico: '+(tecNome||'')+'</div><div style="margin-top:10px;font-size:.82rem;color:#6b7280;">Os PDFs abrirão em abas separadas para impressão. Se o navegador bloquear, use os botões abaixo.</div>';
                 }
                 var titleEl=document.getElementById('am-sig-modal-title'); if(titleEl) titleEl.textContent='Assinatura em LOTE — Concluído!';
                 amSigToast('✅ '+amSigTransferIds.length+' assinaturas salvas! Abrindo PDFs...', true);

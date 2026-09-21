@@ -3124,9 +3124,8 @@ class Transfer
     }
 
     /**
-     * Assinatura em lote: mesma assinatura (recebedor + técnico) para N transferências,
-     * mesmo de entidades/escolas diferentes (1 wizard, 1 assinatura aplicada a todos os termos).
-     * Valida status precisaAssinatura e delega para salvarAssinatura individual.
+     * Assinatura em lote: mesma assinatura (recebedor + técnico) para N transferências da mesma entidade.
+     * Valida mesma origem, status precisaAssinatura e delega para salvarAssinatura individual.
      * @return array{ok:bool, results:array<int, array{id:int, ok:bool, error:string}>, error?:string}
      */
     public static function salvarAssinaturaBulk(array $transfer_ids, string $doc_type, string $doc_number, string $nome, string $image_base64, ?string $tec_doc_type = null, ?string $tec_doc_number = null, ?string $tec_nome = null, ?string $tec_image_base64 = null): array
@@ -3139,7 +3138,9 @@ class Transfer
         if (count($ids) < 2) {
             // permite 1 para compat, mas ideal 2+
         }
-        // Carrega todas e valida que estão pendentes de assinatura (vale para entidades diferentes)
+        // Carrega todas e valida mesma origem
+        $originId = null;
+        $originName = '';
         $transfers = [];
         foreach ($ids as $tid) {
             $tr = self::getById($tid);
@@ -3148,6 +3149,29 @@ class Transfer
             }
             if (!self::precisaAssinatura($tr)) {
                 return ['ok' => false, 'results' => [], 'error' => "Transferência #$tid não está pendente de assinatura (status: {$tr['status']})"];
+            }
+            // origem via itens
+            $items = self::getItems($tid);
+            $first = reset($items);
+            $curOriginId = (int)($first['origin_entity_id'] ?? 0);
+            $curOriginName = (string)($first['origin_entity_name'] ?? '');
+            if ($curOriginId === 0 && $curOriginName === '' && !empty($items)) {
+                // fallback via getAll origem se necessário
+                try {
+                    $all = self::getAll();
+                    foreach ($all as $a) { if ((int)$a['id'] === $tid) { $curOriginId = (int)($a['origin_entity_id'] ?? 0); $curOriginName = (string)($a['origin_entity_name'] ?? ''); break; } }
+                } catch (\Throwable $e) {}
+            }
+            if ($originId === null) {
+                $originId = $curOriginId;
+                $originName = $curOriginName;
+            } elseif ($curOriginId !== $originId) {
+                // compara também por nome se id for 0
+                if ($curOriginId !== 0 || $originId !== 0) {
+                    return ['ok' => false, 'results' => [], 'error' => "Todas as transferências devem ser da mesma entidade. ID $tid é de '" . ($curOriginName ?: 'Entidade #'.$curOriginId) . "' diferente de '" . ($originName ?: 'Entidade #'.$originId) . "'"];
+                } elseif ($curOriginName !== $originName) {
+                    return ['ok' => false, 'results' => [], 'error' => "Todas devem ser da mesma entidade ('$curOriginName' vs '$originName')"];
+                }
             }
             $transfers[$tid] = $tr;
         }
