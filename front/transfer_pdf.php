@@ -65,6 +65,52 @@ if ($isKanPro) {
     $displayCreator = $creator_name;
 }
 
+// KanPro: # = numero da maquina (seq do plugin KanPro) — SOMENTE termos vindos do KanPro.
+// Demais termos do assetmgrstatus nao passam por aqui.
+$kanproSeqMap = [];
+if ($isKanPro && !empty($items)) {
+    try {
+        $kIds = [];
+        foreach ($items as $it) {
+            if (($it['itemtype'] ?? '') === 'KanPro') $kIds[] = (int)($it['items_id'] ?? 0);
+        }
+        $kIds = array_values(array_unique(array_filter($kIds)));
+        if (!empty($kIds) && $DB->tableExists('glpi_plugin_kanpro_maintenance_machines')) {
+            foreach ($DB->request(['SELECT' => ['id', 'seq'], 'FROM' => 'glpi_plugin_kanpro_maintenance_machines', 'WHERE' => ['id' => $kIds]]) as $kr) {
+                $kanproSeqMap[(int)$kr['id']] = (int)$kr['seq'];
+            }
+        }
+        foreach ($items as $it) {
+            if (($it['itemtype'] ?? '') !== 'KanPro') continue;
+            $iid = (int)($it['items_id'] ?? 0);
+            if ($iid <= 0 || isset($kanproSeqMap[$iid])) continue;
+            if (preg_match('/M[aá]quina\s+(\d+)/iu', (string)($it['item_name'] ?? ''), $km)) {
+                $kanproSeqMap[$iid] = (int)$km[1];
+            }
+        }
+        // Ordena pela numeracao da maquina (1..N)
+        if (!empty($kanproSeqMap)) {
+            $pos = 0; $ord = [];
+            foreach ($items as $it) $ord[] = [$pos++, $it];
+            usort($ord, function ($a, $b) use ($kanproSeqMap) {
+                $sa = $kanproSeqMap[(int)($a[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                $sb = $kanproSeqMap[(int)($b[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                if ($sa === $sb) return $a[0] <=> $b[0];
+                return $sa <=> $sb;
+            });
+            $items = array_values(array_map(fn($e) => $e[1], $ord));
+        }
+    } catch (Throwable $e) {}
+}
+$kanproRowNum = function ($item, $i) use ($kanproSeqMap) {
+    if (($item['itemtype'] ?? '') === 'KanPro') {
+        $iid = (int)($item['items_id'] ?? 0);
+        if ($iid > 0 && isset($kanproSeqMap[$iid]) && $kanproSeqMap[$iid] > 0) return (string)$kanproSeqMap[$iid];
+        if (preg_match('/M[aá]quina\s+(\d+)/iu', (string)($item['item_name'] ?? ''), $m)) return (string)(int)$m[1];
+    }
+    return (string)($i + 1);
+};
+
 // Assinatura digital dual (recebedor + técnico) — coleta via tablet
 $assinatura_image         = $transfer['assinatura_image'] ?? '';
 $assinatura_doc_type      = $transfer['assinatura_document_type'] ?? '';
@@ -328,7 +374,7 @@ async function amPrintHP() {
         <tbody>
         <?php foreach ($items as $i => $item): ?>
         <tr>
-            <td><?= $i + 1 ?></td>
+            <td><?= $isKanPro ? $kanproRowNum($item, $i) : ($i + 1) ?></td>
             <td><strong><?= htmlspecialchars($item['item_name']) ?></strong></td>
             <td style="color:#6b7280;font-size:10px;"><?= htmlspecialchars(str_replace(['Glpi\\CustomAsset\\','Asset'], '', $item['itemtype'])) ?></td>
         </tr>
@@ -405,6 +451,43 @@ async function amPrintHP() {
 
     <!-- Equipamentos com status final -->
     <div class="section-title">Equipamento(s) Devolvido(s)</div>
+    <?php if ($isKanPro): ?>
+    <!-- KanPro (assinatura vinda do KanPro): sem coluna Componentes — espaco para O Que Foi Feito; # = numero da maquina -->
+    <table>
+        <thead>
+            <tr>
+                <th style="width:5%">#</th>
+                <th style="width:20%">Nome do Equipamento</th>
+                <th style="width:10%">Tipo</th>
+                <th style="width:13%">Status Final</th>
+                <th style="width:20%">Motivo / Observação</th>
+                <th style="width:32%">O Que Foi Feito</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($items as $i => $item):
+            $wrow_iter = $DB->request(['SELECT'=>['work_log'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$item['items_id']],'LIMIT'=>1]);
+            $wrow = $wrow_iter->count() > 0 ? $wrow_iter->current() : null;
+            $wlog   = $wrow['work_log'] ?? '';
+        ?>
+        <tr>
+            <td><?= $kanproRowNum($item, $i) ?></td>
+            <td><strong><?= htmlspecialchars($item['item_name']) ?></strong></td>
+            <td style="color:#6b7280;font-size:10px;"><?= htmlspecialchars(str_replace(['Glpi\\CustomAsset\\','Asset'], '', $item['itemtype'])) ?></td>
+            <td>
+                <?php if ($item['final_status']): ?>
+                <span class="badge badge-<?= $item['final_status'] ?>"><?= MaintenanceRecord::getStatusLabel($item['final_status']) ?></span>
+                <?php else: ?><span style="color:#9ca3af;">—</span><?php endif; ?>
+            </td>
+            <td style="font-size:10.5px;color:#4b5563;"><?= htmlspecialchars($item['final_reason'] ?? '—') ?></td>
+            <td style="font-size:10.5px;color:#4b5563;">
+                <?= $wlog ? nl2br(htmlspecialchars($wlog)) : '<span style="color:#9ca3af;">—</span>' ?>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <?php else: ?>
     <table>
         <thead>
             <tr>
@@ -475,6 +558,7 @@ async function amPrintHP() {
         <?php endforeach; ?>
         </tbody>
     </table>
+    <?php endif; // isKanPro — tabela original assetmgrstatus preservada acima ?>
     <?php endif; ?>
 
     <!-- Assinaturas — dual via tablet (recebedor + técnico) -->

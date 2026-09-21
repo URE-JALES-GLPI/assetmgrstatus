@@ -56,6 +56,64 @@ class Transfer
         return $text;
     }
 
+    /**
+     * Mapa items_id => seq (número da máquina no KanPro).
+     * Usado SOMENTE para termos vindos do KanPro (reason contém [KanPro).
+     * Fallback: extrai "Máquina N" do item_name quando a tabela do KanPro não existir.
+     */
+    private static function getKanProSeqMap(array $items): array
+    {
+        global $DB;
+        $map = [];
+        $ids = [];
+        foreach ($items as $it) {
+            if (($it['itemtype'] ?? '') === 'KanPro') {
+                $ids[] = (int)($it['items_id'] ?? 0);
+            }
+        }
+        $ids = array_values(array_unique(array_filter($ids)));
+        if (empty($ids)) return $map;
+        try {
+            if (isset($DB) && method_exists($DB, 'tableExists') && $DB->tableExists('glpi_plugin_kanpro_maintenance_machines')) {
+                $iter = $DB->request([
+                    'SELECT' => ['id', 'seq'],
+                    'FROM'   => 'glpi_plugin_kanpro_maintenance_machines',
+                    'WHERE'  => ['id' => $ids],
+                ]);
+                foreach ($iter as $r) {
+                    $map[(int)$r['id']] = (int)$r['seq'];
+                }
+            }
+        } catch (\Throwable $e) {}
+        // Fallback: "Máquina {seq} - ..." no item_name
+        foreach ($items as $it) {
+            if (($it['itemtype'] ?? '') !== 'KanPro') continue;
+            $iid = (int)($it['items_id'] ?? 0);
+            if ($iid <= 0 || isset($map[$iid])) continue;
+            if (preg_match('/M[aá]quina\s+(\d+)/iu', (string)($it['item_name'] ?? ''), $m)) {
+                $map[$iid] = (int)$m[1];
+            }
+        }
+        return $map;
+    }
+
+    /**
+     * Número da linha para o termo KanPro: seq da máquina; fallback = posição ($i+1).
+     */
+    private static function getKanProRowNum(array $item, int $i, array $seqMap): string
+    {
+        if (($item['itemtype'] ?? '') === 'KanPro') {
+            $iid = (int)($item['items_id'] ?? 0);
+            if ($iid > 0 && isset($seqMap[$iid]) && $seqMap[$iid] > 0) {
+                return (string)$seqMap[$iid];
+            }
+            if (preg_match('/M[aá]quina\s+(\d+)/iu', (string)($item['item_name'] ?? ''), $m)) {
+                return (string)(int)$m[1];
+            }
+        }
+        return (string)($i + 1);
+    }
+
     public static function getStatusOptions(): array
     {
         return [
@@ -944,7 +1002,8 @@ class Transfer
                 $lines[] = '';
                 $lines[] = 'Equipamentos Retirados:';
                 $lines[] = str_repeat('-', 85);
-                foreach ($items as $i => $it) { $lines[] = ($i+1) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']'; }
+                $seqMapSimpleRet = $isKanProSimple ? self::getKanProSeqMap($items) : [];
+                foreach ($items as $i => $it) { $lines[] = ($isKanProSimple ? self::getKanProRowNum($it, $i, $seqMapSimpleRet) : ($i+1)) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']'; }
             } else {
                 $lines[] = 'Declaracao: equipamentos devolvidos apos manutencao. Condicoes verificadas na devolucao.';
                 $lines[] = '';
@@ -957,8 +1016,9 @@ class Transfer
                 $lines[] = '';
                 $lines[] = 'Equipamentos Devolvidos:';
                 $lines[] = str_repeat('-', 85);
+                $seqMapSimple = $isKanProSimple ? self::getKanProSeqMap($items) : [];
                 foreach ($items as $i => $it) {
-                    $lines[] = ($i+1) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']  Status: ' . ($it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-') ;
+                    $lines[] = ($isKanProSimple ? self::getKanProRowNum($it, $i, $seqMapSimple) : ($i+1)) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']  Status: ' . ($it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-') ;
                     if (!empty($it['final_reason'])) $lines[] = '   Motivo: ' . $it['final_reason'];
                     global $DB;
                     try {
@@ -1125,27 +1185,54 @@ class Transfer
             $pdf->Cell(70, 6, 'Tipo', 1, 1, 'L', true);
             $pdf->SetTextColor(45, 45, 45);
             $pdf->SetFont('Helvetica', '', 7);
+            // KanPro: # = número da máquina (seq do KanPro), não posição na lista
+            $seqMapRet = $isKanProFpdf ? self::getKanProSeqMap($items) : [];
             foreach ($items as $i => $it) {
-                $pdf->Cell(10, 5, (string)($i+1), 1, 0, 'C');
+                $rowNumRet = $isKanProFpdf ? self::getKanProRowNum($it, $i, $seqMapRet) : (string)($i+1);
+                $pdf->Cell(10, 5, $rowNumRet, 1, 0, 'C');
                 $pdf->Cell(110, 5, $toIso(mb_substr($it['item_name'], 0, 50)), 1, 0, 'L');
                 $pdf->Cell(70, 5, $toIso(mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,30)), 1, 1, 'L');
             }
         } else {
+            // KanPro (assinatura vinda do KanPro): sem coluna "Componentes" — espaço vai para "O Que Foi Feito".
+            // Demais termos do assetmgrstatus mantêm as 7 colunas originais.
+            $isKanProTerm = $isKanProFpdf;
+            $seqMapFpdf = $isKanProTerm ? self::getKanProSeqMap($items) : [];
+            // Ordena por número da máquina para o termo KanPro (1..N)
+            if ($isKanProTerm && !empty($seqMapFpdf)) {
+                $pos = 0; $order = [];
+                foreach ($items as $it) $order[] = [$pos++, $it];
+                usort($order, function ($a, $b) use ($seqMapFpdf) {
+                    $sa = $seqMapFpdf[(int)($a[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                    $sb = $seqMapFpdf[(int)($b[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                    if ($sa === $sb) return $a[0] <=> $b[0];
+                    return $sa <=> $sb;
+                });
+                $items = array_map(fn($e) => $e[1], $order);
+            }
             // 7 colunas idênticas ao transfer_pdf.php (pronto): #, Nome, Tipo, Status, Motivo, Componentes, Feito
+            // KanPro: 6 colunas (# KanPro, Nome, Tipo, Status, Motivo, O Que Foi Feito largo)
             $pdf->Cell(7, 6, '#', 1, 0, 'C', true);
             $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
             $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
             $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
-            $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
-            $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
-            $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+            if ($isKanProTerm) {
+                $pdf->Cell(38, 6, 'Motivo', 1, 0, 'L', true);
+                $pdf->Cell(75, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+            } else {
+                $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
+                $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
+                $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+            }
             $pdf->SetTextColor(45, 45, 45);
             $pdf->SetFont('Helvetica', '', 5);
             $compList = \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getComponents();
             foreach ($items as $i => $it) {
                 $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,12);
                 $statusLabel = $it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-';
-                $reason = mb_substr($it['final_reason'] ?? '-',0,28);
+                // KanPro: sem coluna Componentes — Motivo e Feito ganham mais caracteres
+                $reasonLen = $isKanProTerm ? 40 : 28;
+                $reason = mb_substr($it['final_reason'] ?? '-',0,$reasonLen);
                 // Componentes: final_components + work_components resolved — KanPro mostra só diário sem prefixo
                 global $DB;
                 $wrow = null; $wlog = ''; $wcomps = [];
@@ -1177,7 +1264,9 @@ class Transfer
                     foreach ($resolved as $rl) { $compTxt[] = $rl . '(ok)'; }
                     $compStr = !empty($compTxt) ? mb_substr(implode('; ', $compTxt),0,32) : '-';
                 }
-                $wlogShort = $wlog !== '' ? mb_substr($wlog,0,35) : '-';
+                $wlogLen = $isKanProTerm ? 75 : 35;
+                $wlogShort = $wlog !== '' ? mb_substr($wlog,0,$wlogLen) : '-';
+                $rowNumFpdf = $isKanProTerm ? self::getKanProRowNum($it, $i, $seqMapFpdf) : (string)($i+1);
                 // Evita overflow vertical: se Y > 265, nova página e reimprime cabeçalho
                 if ($pdf->GetY() > 265) {
                     $pdf->AddPage();
@@ -1187,18 +1276,28 @@ class Transfer
                     $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
                     $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
                     $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
-                    $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
-                    $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
-                    $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                    if ($isKanProTerm) {
+                        $pdf->Cell(38, 6, 'Motivo', 1, 0, 'L', true);
+                        $pdf->Cell(75, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                    } else {
+                        $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
+                        $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
+                        $pdf->Cell(48, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                    }
                     $pdf->SetTextColor(45,45,45); $pdf->SetFont('Helvetica','',5);
                 }
-                $pdf->Cell(7, 5, (string)($i+1), 1, 0, 'C');
+                $pdf->Cell(7, 5, $rowNumFpdf, 1, 0, 'C');
                 $pdf->Cell(30, 5, $toIso(mb_substr($it['item_name'],0,22)), 1, 0, 'L');
                 $pdf->Cell(18, 5, $toIso($typeShort), 1, 0, 'L');
                 $pdf->Cell(22, 5, $toIso(mb_substr($statusLabel,0,13)), 1, 0, 'L');
-                $pdf->Cell(30, 5, $toIso($reason), 1, 0, 'L');
-                $pdf->Cell(35, 5, $toIso($compStr), 1, 0, 'L');
-                $pdf->Cell(48, 5, $toIso($wlogShort), 1, 1, 'L');
+                if ($isKanProTerm) {
+                    $pdf->Cell(38, 5, $toIso($reason), 1, 0, 'L');
+                    $pdf->Cell(75, 5, $toIso($wlogShort), 1, 1, 'L');
+                } else {
+                    $pdf->Cell(30, 5, $toIso($reason), 1, 0, 'L');
+                    $pdf->Cell(35, 5, $toIso($compStr), 1, 0, 'L');
+                    $pdf->Cell(48, 5, $toIso($wlogShort), 1, 1, 'L');
+                }
             }
         }
         $pdf->Ln(4);
@@ -1791,8 +1890,11 @@ class Transfer
             $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
             $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'] ?? '', 200)) . '</td></tr></table>';
             $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th style="width:6%">#</th><th style="width:62%">Nome do Equipamento</th><th style="width:32%">Tipo</th></tr>';
+            // KanPro: # = número da máquina (seq do KanPro)
+            $seqMapRetHtml = $isKanPro ? self::getKanProSeqMap($items) : [];
             foreach ($items as $i => $item) {
-                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 60)) . '</b></td><td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 20)) . '</td></tr>';
+                $rowNumRetHtml = $isKanPro ? self::getKanProRowNum($item, $i, $seqMapRetHtml) : (string)($i + 1);
+                $h .= '<tr><td>' . $rowNumRetHtml . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 60)) . '</b></td><td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 20)) . '</td></tr>';
             }
             $h .= '</table>';
         } else {
@@ -1806,7 +1908,25 @@ class Transfer
             $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Escola de origem', 60)) . '</td></tr>';
             if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
             $h .= '</table>';
-            $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:16%">Nome</th><th style="width:10%">Tipo</th><th style="width:11%">Status Final</th><th style="width:20%">Motivo / Observação</th><th style="width:19%">Componentes</th><th style="width:20%">O Que Foi Feito</th></tr>';
+            // KanPro (assinatura vinda do KanPro): sem coluna "Componentes" — espaço vai para "O Que Foi Feito".
+            // Demais termos do assetmgrstatus mantêm as 7 colunas originais.
+            $seqMapHtml = $isKanPro ? self::getKanProSeqMap($items) : [];
+            if ($isKanPro && !empty($seqMapHtml)) {
+                $pos = 0; $order = [];
+                foreach ($items as $it) $order[] = [$pos++, $it];
+                usort($order, function ($a, $b) use ($seqMapHtml) {
+                    $sa = $seqMapHtml[(int)($a[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                    $sb = $seqMapHtml[(int)($b[1]['items_id'] ?? 0)] ?? PHP_INT_MAX;
+                    if ($sa === $sb) return $a[0] <=> $b[0];
+                    return $sa <=> $sb;
+                });
+                $items = array_map(fn($e) => $e[1], $order);
+            }
+            if ($isKanPro) {
+                $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:17%">Nome</th><th style="width:10%">Tipo</th><th style="width:12%">Status Final</th><th style="width:22%">Motivo / Observação</th><th style="width:35%">O Que Foi Feito</th></tr>';
+            } else {
+                $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:16%">Nome</th><th style="width:10%">Tipo</th><th style="width:11%">Status Final</th><th style="width:20%">Motivo / Observação</th><th style="width:19%">Componentes</th><th style="width:20%">O Que Foi Feito</th></tr>';
+            }
             foreach ($items as $i => $item) {
                 $wrow = $DB->request(['SELECT' => ['work_log', 'work_components'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => (int)$item['items_id']], 'LIMIT' => 1])->current();
                 $wlog   = $wrow['work_log'] ?? '';
@@ -1834,16 +1954,22 @@ class Transfer
                     $comp_str = !empty($comp_txt) ? implode('; ', $comp_txt) : '—';
                 }
                 $final_reason_raw = $item['final_reason'] ?? '—';
-                $final_reason_trunc = ($final_reason_raw === '—' || $final_reason_raw === '') ? '—' : self::truncPdf($final_reason_raw, 90);
+                // KanPro sem coluna Componentes: Motivo e Feito ganham mais espaço
+                $reasonMax = $isKanPro ? 120 : 90;
+                $wlogMax = $isKanPro ? 200 : 110;
+                $final_reason_trunc = ($final_reason_raw === '—' || $final_reason_raw === '') ? '—' : self::truncPdf($final_reason_raw, $reasonMax);
                 $comp_trunc = ($comp_str === '—') ? '—' : self::truncPdf($comp_str, 90);
-                $wlog_trunc = ($wlog === '' ? '—' : self::truncPdf($wlog, 110));
+                $wlog_trunc = ($wlog === '' ? '—' : self::truncPdf($wlog, $wlogMax));
 
-                $h .= '<tr><td>' . ($i + 1) . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 40)) . '</b></td>'
+                $rowNumHtml = $isKanPro ? self::getKanProRowNum($item, $i, $seqMapHtml) : (string)($i + 1);
+                $h .= '<tr><td>' . $rowNumHtml . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 40)) . '</b></td>'
                     . '<td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 15)) . '</td>'
                     . '<td>' . ($item['final_status'] ? htmlspecialchars(MaintenanceRecord::getStatusLabel($item['final_status'])) : '—') . '</td>'
-                    . '<td>' . htmlspecialchars($final_reason_trunc) . '</td>'
-                    . '<td>' . htmlspecialchars($comp_trunc) . '</td>'
-                    . '<td>' . ($wlog_trunc !== '—' ? nl2br(htmlspecialchars($wlog_trunc)) : '—') . '</td></tr>';
+                    . '<td>' . htmlspecialchars($final_reason_trunc) . '</td>';
+                if (!$isKanPro) {
+                    $h .= '<td>' . htmlspecialchars($comp_trunc) . '</td>';
+                }
+                $h .= '<td>' . ($wlog_trunc !== '—' ? nl2br(htmlspecialchars($wlog_trunc)) : '—') . '</td></tr>';
             }
             $h .= '</table>';
         }
