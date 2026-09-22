@@ -1688,9 +1688,9 @@ class Transfer
         @chmod($pdf_path, 0644);
 
         // Se impressora escolhida não está na lista mas há impressoras, avisa mas tenta mesmo assim (pode ser nome com alias)
-        // CORREÇÃO 60 folhas: sempre forçar 1 cópia, A4 e fit-to-page para não imprimir 60 páginas/cópias
-        // Frente e verso (duplex) automático quando o termo passa de 2 páginas
-        $stdOpts = '-n 1 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
+        // CORREÇÃO 60 folhas: sempre forçar A4 e fit-to-page para não imprimir 60 páginas/cópias
+        // 2 cópias de tudo que for imprimir. Frente e verso (duplex) automático quando o termo passa de 2 páginas
+        $stdOpts = '-n 2 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
         $output = [];
         $ret = -1;
         $cmd = '';
@@ -1722,10 +1722,10 @@ class Transfer
                         $printer = $default ?? 'default';
                     }
                 } else {
-                    // último recurso: sem fit-to-page, mas MANTÉM sides (duplex) e 1 cópia
+                    // último recurso: sem fit-to-page, mas MANTÉM sides (duplex) e 2 cópias
                     $out3 = [];
                     $ret3 = -1;
-                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' -n 1 -o sides=' . $sidesOpt . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
+                    $cmd3 = 'lp -d ' . escapeshellarg($printer) . ' -t ' . escapeshellarg($title) . ' -n 2 -o sides=' . $sidesOpt . ' ' . escapeshellarg($pdf_path) . ' 2>&1';
                     @exec($cmd3, $out3, $ret3);
                     if ($ret3 === 0) {
                         $printed = true;
@@ -1735,12 +1735,12 @@ class Transfer
             }
         }
 
-        // Se ainda não imprimiu e lpr disponível, tenta lpr com 1 cópia e alta resolução
+        // Se ainda não imprimiu e lpr disponível, tenta lpr com 2 cópias e alta resolução
         if (!$printed && $hasLpr) {
             $output = [];
             $cmd = 'lpr';
             if ($printer) $cmd .= ' -P ' . escapeshellarg($printer);
-            $cmd .= ' -# 1 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
+            $cmd .= ' -# 2 -o media=A4 -o fit-to-page -o sides=' . $sidesOpt . ' -o Resolution=600dpi -o print-quality=5';
             $cmd .= ' ' . escapeshellarg($pdf_path) . ' 2>&1';
             @exec($cmd, $output, $ret);
             $lastOut = implode("\n", $output);
