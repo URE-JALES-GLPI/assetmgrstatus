@@ -1211,14 +1211,13 @@ class Transfer
                 $items = array_map(fn($e) => $e[1], $order);
             }
             // 7 colunas idênticas ao transfer_pdf.php (pronto): #, Nome, Tipo, Status, Motivo, Componentes, Feito
-            // KanPro: 6 colunas (# KanPro, Nome, Tipo, Status, Motivo, O Que Foi Feito largo)
+            // KanPro: 5 colunas (# KanPro, Nome, Tipo, Status, O Que Foi Feito largo) — sem Motivo
             $pdf->Cell(7, 6, '#', 1, 0, 'C', true);
             $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
             $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
             $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
             if ($isKanProTerm) {
-                $pdf->Cell(38, 6, 'Motivo', 1, 0, 'L', true);
-                $pdf->Cell(75, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                $pdf->Cell(113, 6, 'O Que Foi Feito', 1, 1, 'L', true);
             } else {
                 $pdf->Cell(30, 6, 'Motivo', 1, 0, 'L', true);
                 $pdf->Cell(35, 6, 'Componentes', 1, 0, 'L', true);
@@ -1264,7 +1263,7 @@ class Transfer
                     foreach ($resolved as $rl) { $compTxt[] = $rl . '(ok)'; }
                     $compStr = !empty($compTxt) ? mb_substr(implode('; ', $compTxt),0,32) : '-';
                 }
-                $wlogLen = $isKanProTerm ? 75 : 35;
+                $wlogLen = $isKanProTerm ? 110 : 35;
                 $wlogShort = $wlog !== '' ? mb_substr($wlog,0,$wlogLen) : '-';
                 $rowNumFpdf = $isKanProTerm ? self::getKanProRowNum($it, $i, $seqMapFpdf) : (string)($i+1);
                 // Evita overflow vertical: se Y > 265, nova página e reimprime cabeçalho
@@ -1291,8 +1290,7 @@ class Transfer
                 $pdf->Cell(18, 5, $toIso($typeShort), 1, 0, 'L');
                 $pdf->Cell(22, 5, $toIso(mb_substr($statusLabel,0,13)), 1, 0, 'L');
                 if ($isKanProTerm) {
-                    $pdf->Cell(38, 5, $toIso($reason), 1, 0, 'L');
-                    $pdf->Cell(75, 5, $toIso($wlogShort), 1, 1, 'L');
+                    $pdf->Cell(113, 5, $toIso($wlogShort), 1, 1, 'L');
                 } else {
                     $pdf->Cell(30, 5, $toIso($reason), 1, 0, 'L');
                     $pdf->Cell(35, 5, $toIso($compStr), 1, 0, 'L');
@@ -1895,7 +1893,8 @@ class Transfer
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) retirado(s) pelo responsável identificado abaixo. O responsável está ciente de que retirou exatamente o(s) equipamento(s) que foi(ram) apresentado(s) ao suporte técnico, conforme verificado no momento da retirada.</div>';
             $h .= '<p style="font-size:10.5px;">Eu, <b>' . htmlspecialchars($isKanPro ? $displayCreator : $creator_name) . '</b>, portador(a) do documento de identidade, em cumprimento às normas e procedimentos da Unidade Regional de Ensino – Região de <b>JALES</b>, declaro para os devidos fins que realizei a retirada do(s) equipamento(s) descrito(s) abaixo:</p>';
             $h .= '<table class="info"><tr><td><b>Data de Retirada</b>' . date('d/m/Y', strtotime($transfer['date_creation'])) . '</td><td><b>Escola / URE de Destino</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
-            $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'] ?? '', 200)) . '</td></tr></table>';
+            if (!$isKanPro) $h .= '<tr><td colspan="2"><b>Motivo da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'] ?? '', 200)) . '</td></tr>';
+            $h .= '</table>';
             $h .= '<h3>Equipamento(s) Retirado(s)</h3><table class="eq"><tr><th style="width:6%">#</th><th style="width:62%">Nome do Equipamento</th><th style="width:32%">Tipo</th></tr>';
             // KanPro: # = número da máquina (seq do KanPro)
             $seqMapRetHtml = $isKanPro ? self::getKanProSeqMap($items) : [];
@@ -1913,7 +1912,7 @@ class Transfer
             $h .= '<tr><td><b>Técnico Responsável</b>' . htmlspecialchars(self::truncPdf($tecDisplayName, 40)) . ($tec_masked ? ' — ' . htmlspecialchars($tec_type . ' ' . $tec_masked) : '') . '</td><td><b>Responsável pela Retirada</b>' . htmlspecialchars(self::truncPdf($displayCreator, 40)) . '</td></tr>';
             $h .= '<tr><td><b>Escola de Origem</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Não informada', 50)) . '</td><td><b>Local da Manutenção</b>' . htmlspecialchars(self::truncPdf($dest_name, 50)) . '</td></tr>';
             $h .= '<tr><td colspan="2"><b>Retornando para</b>' . htmlspecialchars(self::truncPdf($origin_name ?: 'Escola de origem', 60)) . '</td></tr>';
-            if ($transfer['reason']) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
+            if ($transfer['reason'] && !$isKanPro) $h .= '<tr><td colspan="2"><b>Motivo Original da Transferência</b>' . htmlspecialchars(self::truncPdf($transfer['reason'], 200)) . '</td></tr>';
             $h .= '</table>';
             // KanPro (assinatura vinda do KanPro): sem coluna "Componentes" — espaço vai para "O Que Foi Feito".
             // Demais termos do assetmgrstatus mantêm as 7 colunas originais.
@@ -1930,7 +1929,7 @@ class Transfer
                 $items = array_map(fn($e) => $e[1], $order);
             }
             if ($isKanPro) {
-                $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:17%">Nome</th><th style="width:10%">Tipo</th><th style="width:12%">Status Final</th><th style="width:22%">Motivo / Observação</th><th style="width:35%">O Que Foi Feito</th></tr>';
+                $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:17%">Nome</th><th style="width:10%">Tipo</th><th style="width:12%">Status Final</th><th style="width:57%">O Que Foi Feito</th></tr>';
             } else {
                 $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:16%">Nome</th><th style="width:10%">Tipo</th><th style="width:11%">Status Final</th><th style="width:20%">Motivo / Observação</th><th style="width:19%">Componentes</th><th style="width:20%">O Que Foi Feito</th></tr>';
             }
@@ -1971,8 +1970,12 @@ class Transfer
                 $rowNumHtml = $isKanPro ? self::getKanProRowNum($item, $i, $seqMapHtml) : (string)($i + 1);
                 $h .= '<tr><td>' . $rowNumHtml . '</td><td><b>' . htmlspecialchars(self::truncPdf($item['item_name'], 40)) . '</b></td>'
                     . '<td>' . htmlspecialchars(self::truncPdf(str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', $item['itemtype']), 15)) . '</td>'
-                    . '<td>' . ($item['final_status'] ? htmlspecialchars(MaintenanceRecord::getStatusLabel($item['final_status'])) : '—') . '</td>'
-                    . '<td>' . htmlspecialchars($final_reason_trunc) . '</td>';
+                    . '<td>' . ($item['final_status'] ? htmlspecialchars(MaintenanceRecord::getStatusLabel($item['final_status'])) : '—') . '</td>';
+                if ($isKanPro) {
+                    $wlog_trunc = ($wlog === '' ? '—' : self::truncPdf($wlog, 300));
+                } else {
+                    $h .= '<td>' . htmlspecialchars($final_reason_trunc) . '</td>';
+                }
                 if (!$isKanPro) {
                     $h .= '<td>' . htmlspecialchars($comp_trunc) . '</td>';
                 }

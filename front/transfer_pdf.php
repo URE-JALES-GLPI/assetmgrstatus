@@ -425,7 +425,7 @@ async function amPrintHP() {
             <label style="color:#0369a1;">↩️ Retornando para</label>
             <span style="color:#0369a1;font-size:13px;"><?= htmlspecialchars($origin_entity_name ?: 'Escola de origem') ?></span>
         </div>
-        <?php if ($transfer['reason']): ?>
+        <?php if ($transfer['reason'] && !$isKanPro): ?>
         <div class="info-box" style="grid-column:1/-1;">
             <label>Motivo Original da Transferência</label>
             <span style="font-weight:400;"><?= htmlspecialchars($transfer['reason']) ?></span>
@@ -460,8 +460,7 @@ async function amPrintHP() {
                 <th style="width:20%">Nome do Equipamento</th>
                 <th style="width:10%">Tipo</th>
                 <th style="width:13%">Status Final</th>
-                <th style="width:20%">Motivo / Observação</th>
-                <th style="width:32%">O Que Foi Feito</th>
+                <th style="width:52%">O Que Foi Feito</th>
             </tr>
         </thead>
         <tbody>
@@ -479,7 +478,6 @@ async function amPrintHP() {
                 <span class="badge badge-<?= $item['final_status'] ?>"><?= MaintenanceRecord::getStatusLabel($item['final_status']) ?></span>
                 <?php else: ?><span style="color:#9ca3af;">—</span><?php endif; ?>
             </td>
-            <td style="font-size:10.5px;color:#4b5563;"><?= htmlspecialchars($item['final_reason'] ?? '—') ?></td>
             <td style="font-size:10.5px;color:#4b5563;">
                 <?= $wlog ? nl2br(htmlspecialchars($wlog)) : '<span style="color:#9ca3af;">—</span>' ?>
             </td>
