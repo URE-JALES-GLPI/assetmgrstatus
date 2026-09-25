@@ -120,11 +120,11 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
         <div id="am-tec-body" style="display:none;padding:0 16px 16px;border-top:1px solid #f0f2f8;">
             <div id="am-tec-list" style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;">
                 <?php foreach ($__am_tecnicos as $tec): ?>
-                <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;" data-tec-id="<?= (int)$tec['id'] ?>">
+                <div style="background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;" data-tec-id="<?= (int)$tec['id'] ?>" data-tec-name="<?= htmlspecialchars($tec['name'] ?? '') ?>">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <?php if (!empty($tec['image'])): ?><img src="<?= htmlspecialchars($tec['image']) ?>" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;" alt="ass"><?php else: ?><span style="width:56px;height:36px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span><?php endif; ?>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tec['name']) ?></div>
+                            <div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?= htmlspecialchars($tec['name']) ?> <span style="font-weight:400;color:#9ca3af;font-size:.70rem;">#<?= (int)$tec['id'] ?></span></div>
                             <div style="font-size:.75rem;color:#6b7280;"><?= htmlspecialchars(($tec['document_type'] ?? '') . ' ' . ($tec['doc_masked'] ?? $tec['document'] ?? '')) ?></div>
                         </div>
                     </div>
@@ -1185,8 +1185,9 @@ async function amRefreshTecList(){
         var d=document.createElement('div');
         d.style.cssText='background:#fff;border:1.5px solid #e8eaf0;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;';
         d.setAttribute('data-tec-id', tec.id);
+        d.setAttribute('data-tec-name', tec.name||'');
         var img=tec.image?'<img src="'+tec.image+'" style="width:56px;height:36px;object-fit:contain;background:#fff;border:1px solid #e8eaf0;border-radius:6px;" alt="ass">':'<span style="width:56px;height:36px;background:#f3f4f6;border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-signature" style="color:#9ca3af;"></i></span>';
-        d.innerHTML='<div style="display:flex;align-items:center;gap:10px;">'+img+'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+String(tec.name||'').replace(/</g,'&lt;')+'</div><div style="font-size:.75rem;color:#6b7280;">'+String((tec.document_type||'')+' '+(tec.doc_masked||tec.document||'')).replace(/</g,'&lt;')+'</div></div></div><div style="display:flex;gap:6px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amEditTec('+tec.id+')"><i class="ti ti-pencil"></i> Editar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;color:#dc2626;border-color:#fecaca;" onclick="amDeleteTec('+tec.id+')"><i class="ti ti-trash"></i> Excluir</button></div>';
+        d.innerHTML='<div style="display:flex;align-items:center;gap:10px;">'+img+'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:#1e1b4b;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+String(tec.name||'').replace(/</g,'&lt;')+' <span style="font-weight:400;color:#9ca3af;font-size:.70rem;">#'+tec.id+'</span></div><div style="font-size:.75rem;color:#6b7280;">'+String((tec.document_type||'')+' '+(tec.doc_masked||tec.document||'')).replace(/</g,'&lt;')+'</div></div></div><div style="display:flex;gap:6px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;" onclick="amEditTec('+tec.id+')"><i class="ti ti-pencil"></i> Editar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;padding:6px 8px;font-size:.75rem;color:#dc2626;border-color:#fecaca;" onclick="amDeleteTec('+tec.id+')"><i class="ti ti-trash"></i> Excluir</button></div>';
         list.appendChild(d);
       });
     }
@@ -1326,7 +1327,7 @@ async function amTecCadSave(){
   // em edição sem redesenhar, busca imagem atual do cache
   if(!dataUrl && amTecCadEditId){
     try{
-      var found=(amSigTecnicosCache||[]).find(function(x){ return String(x.id)===String(amTecCadEditId); });
+      var found=(amSigTecnicosCache||[]).find(function(x){ return Number(x.id)===Number(amTecCadEditId); });
       if(found && found.image) dataUrl=found.image;
     }catch(e){}
   }
@@ -1360,16 +1361,32 @@ async function amTecCadSave(){
 }
 async function amEditTec(id){
   try{
-    var list=amSigTecnicosCache;
+    var wantedId = Number(id);
+    console.log('[amEditTec] solicitado id=', id, 'normalizado=', wantedId);
+    // busca SEMPRE fresca do servidor para evitar cache obsoleto (ex: outro tablet cadastrou depois do F5)
+    var list = null;
+    try{
+      var r=await fetch(amTecBase()+'/ajax/tecnico_signature.php?action=list&_t='+Date.now(),{credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest','Cache-Control':'no-cache'}});
+      var t=await r.text(); var j; try{ j=JSON.parse(t); }catch(e){ j={ok:false}; }
+      var fresh=(j.ok&&j.data)?j.data:[];
+      if(!Array.isArray(fresh) && fresh && typeof fresh==='object') fresh=Object.values(fresh);
+      if(fresh.length){ list=fresh; amSigTecnicosCache=fresh.slice(); if(typeof amInitialTecCache!=='undefined') amInitialTecCache=fresh.slice(); }
+    }catch(e){ console.warn('[amEditTec] fetch fresco falhou, usando cache', e); }
     if(!list||!list.length){
-      var r=await fetch(amTecBase()+'/ajax/tecnico_signature.php?action=list',{credentials:'same-origin',headers:{'X-Requested-With':'XMLHttpRequest'}});
-      var t=await r.text(); var j=JSON.parse(t); list=(j.ok&&Array.isArray(j.data))?j.data:[];
-      amSigTecnicosCache=list.slice();
+      list=amSigTecnicosCache||[];
+      if(!list.length && typeof amInitialTecCache!=='undefined' && Array.isArray(amInitialTecCache)) list=amInitialTecCache;
     }
-    var tec=list.find(function(x){ return String(x.id)===String(id); });
-    if(!tec) return amSigToast('Técnico não encontrado.');
+    console.log('[amEditTec] lista ids=', (list||[]).map(function(x){ return x.id+':'+x.name; }));
+    var tec=(list||[]).find(function(x){ return Number(x.id)===wantedId; });
+    if(!tec){
+      // fallback: tenta ler direto do card renderizado no DOM
+      var card=document.querySelector('[data-tec-id="'+wantedId+'"]');
+      console.warn('[amEditTec] nao achou na lista, card DOM=', card);
+      return amSigToast('Técnico #'+wantedId+' não encontrado na lista atual. Recarregue a página (F5).');
+    }
+    console.log('[amEditTec] abrindo tec=', tec.id, tec.name);
     amOpenTecCadastroModal(false);
-    amTecCadEditId=id;
+    amTecCadEditId=Number(tec.id);
     amTecCadNome=tec.name||''; amTecCadDocType=tec.document_type||'CPF'; amTecCadDocNumber=(tec.document||'').replace(/\D/g,'');
     var n=document.getElementById('am-tec-cad-nome'); if(n) n.value=amTecCadNome;
     var pv=document.getElementById('am-tec-cad-nome-preview'); if(pv) pv.textContent=amTecCadNome;
@@ -1377,7 +1394,7 @@ async function amEditTec(id){
     var badge=document.getElementById('am-tec-cad-doc-badge'); if(badge) badge.textContent=amTecCadDocType;
     var dv=document.getElementById('am-tec-cad-doc-value'); if(dv) dv.value=amTecCadDocNumber;
     amTecCadUpdateDisplay();
-    var ttl=document.getElementById('am-tec-cad-title'); if(ttl) ttl.textContent='Editar Técnico';
+    var ttl=document.getElementById('am-tec-cad-title'); if(ttl) ttl.textContent='Editar Técnico #' + String(amTecCadEditId) + ' — ' + amTecCadNome;
     var sb=document.getElementById('am-tec-cad-save-btn'); if(sb) sb.innerHTML='<i class="ti ti-device-floppy"></i> Salvar Edição';
     // pula para assinatura (mostra dados já preenchidos, permite só refazer assinatura ou voltar p/ editar)
     amTecCadShow('canvas');
