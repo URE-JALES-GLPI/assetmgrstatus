@@ -40,8 +40,8 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
                 'links' => ['search' => $base . '/tecnico.php'],
             ];
         }
-        // Assinatura — ao lado de Técnico, só quem tem permissão
-        if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ)) {
+        // Assinatura — ao lado de Técnico; mesma regra da página (quem pode abrir, vê no menu)
+        if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ) || Session::haveRight('plugin_assetmgrstatus_tecnico', READ) || Session::haveRight('plugin_assetmgrstatus_admin', READ) || Session::haveRight('plugin_assetmgrstatus', READ)) {
             $options['assinatura'] = [
                 'title' => 'Assinatura',
                 'page'  => $base . '/assinatura.php',
