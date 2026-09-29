@@ -85,7 +85,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
     public function getTabNameForItem(CommonGLPI $item, $withtemplate = 0)
     {
         if ($item instanceof Profile && $item->getField('id')) {
-            return "<span class='d-inline-flex align-items-center gap-1'><i class='ti ti-tool'></i><span>Manutenção</span></span>";
+            return "<span class='d-inline-flex align-items-center gap-1'><i class='ti ti-clipboard-list'></i><span>Inventário</span></span>";
         }
         return '';
     }
