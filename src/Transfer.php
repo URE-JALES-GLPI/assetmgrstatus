@@ -192,6 +192,36 @@ class Transfer
         return mb_substr(implode(', ', $nums), 0, 24);
     }
 
+    /**
+     * ID do card KanPro na reason ("[KanPro #97] ...", "[KanPro #97 - Retirada ...]").
+     * 0 = termo não veio do KanPro.
+     */
+    public static function kanproCardId($transfer): int
+    {
+        try {
+            $reason = is_array($transfer) ? (string)($transfer['reason'] ?? '') : (string)$transfer;
+            if ($reason !== '' && preg_match('/\[KanPro\s*#(\d+)/', $reason, $m)) {
+                $kid = (int)$m[1];
+                if ($kid > 0) return $kid;
+            }
+        } catch (\Throwable $e) {}
+        return 0;
+    }
+
+    /**
+     * Número impresso no termo: se veio do KanPro, acompanha o card (K97 p/ card 97);
+     * demais termos usam o ID da transferência com 6 dígitos (000080).
+     */
+    public static function termNumber(int $transfer_id, $transfer = null): string
+    {
+        try {
+            if ($transfer === null) $transfer = self::getById($transfer_id);
+            $kid = self::kanproCardId($transfer);
+            if ($kid > 0) return 'K' . $kid;
+        } catch (\Throwable $e) {}
+        return str_pad($transfer_id, 6, '0', STR_PAD_LEFT);
+    }
+
     public static function getStatusOptions(): array
     {
         return [
@@ -1067,7 +1097,7 @@ class Transfer
             }
             $lines = [];
             $lines[] = 'UNIDADE REGIONAL DE ENSINO - REGIAO DE JALES';
-            $lines[] = $title . '  -  #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '  -  ' . date('d/m/Y H:i');
+            $lines[] = $title . '  -  #' . self::termNumber($transfer_id, $transfer) . '  -  ' . date('d/m/Y H:i');
             $lines[] = str_repeat('=', 85);
             $lines[] = '';
             if (!$is_pronto) {
@@ -1119,7 +1149,7 @@ class Transfer
             $lines[] = '';
             $lines[] = str_repeat('-', 85);
             $lines[] = 'Assinaturas: ___________________________      Recebimento: ___________________________';
-            $lines[] = 'Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales';
+            $lines[] = 'Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . self::termNumber($transfer_id, $transfer) . ' | URE Jales';
             return self::buildSimplePdfFromLines($lines, $outPath);
         } catch (\Throwable $e) {
             error_log('[assetmgrstatus] simple fallback exception: ' . $e->getMessage());
@@ -1184,7 +1214,7 @@ class Transfer
         $pdf->SetFont('Helvetica', '', 7);
         $pdf->SetTextColor(156, 163, 175);
         $pdf->SetXY(42, 22);
-        $pdf->Cell(0, 4, $toIso('N ' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i')), 0, 1, 'L');
+        $pdf->Cell(0, 4, $toIso('N ' . self::termNumber($transfer_id, $transfer) . ' | ' . date('d/m/Y H:i')), 0, 1, 'L');
         $pdf->SetDrawColor(26, 115, 181);
         $pdf->Line(10, 28, 200, 28);
         $pdf->Ln(8);
@@ -1460,7 +1490,7 @@ class Transfer
         // Rodape
         $pdf->SetFont('Helvetica', '', 6);
         $pdf->SetTextColor(156, 163, 175);
-        $pdf->Cell(0, 4, $toIso('Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . str_pad($transfer_id,6,'0',STR_PAD_LEFT) . ' | URE Jales - Suporte Tecnico'), 0, 1, 'C');
+        $pdf->Cell(0, 4, $toIso('Gerado em ' . date('d/m/Y H:i') . ' | Transferencia #' . self::termNumber($transfer_id, $transfer) . ' | URE Jales - Suporte Tecnico'), 0, 1, 'C');
         if ($tmpTec && file_exists($tmpTec)) @unlink($tmpTec);
         if ($tmpRec && file_exists($tmpRec)) @unlink($tmpRec);
         try { $pdf->Output('F', $outPath); return file_exists($outPath) && filesize($outPath) > 800; } catch (\Throwable $e) { error_log('[assetmgrstatus] FPDF Output fail: ' . $e->getMessage()); return false; }
@@ -2003,7 +2033,7 @@ class Transfer
         $h .= $logo_b64
             ? '<img src="' . $logo_b64 . '" style="height:52px;">'
             : '<b style="font-size:13px;color:#1a73b5;">UNIDADE REGIONAL DE ENSINO — REGIÃO DE JALES</b>';
-        $h .= '</td><td class="t2"><div class="t1">' . $doc_title . '</div>Nº ' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . ' | ' . date('d/m/Y H:i') . '</td></tr></table>';
+        $h .= '</td><td class="t2"><div class="t1">' . $doc_title . '</div>Nº ' . self::termNumber($transfer_id, $transfer) . ' | ' . date('d/m/Y H:i') . '</td></tr></table>';
 
         if (!$is_pronto) {
             $h .= '<div class="decl">A Unidade Regional de Ensino – Região de Jales declara que o(s) equipamento(s) abaixo mencionado(s) foi(ram) retirado(s) pelo responsável identificado abaixo. O responsável está ciente de que retirou exatamente o(s) equipamento(s) que foi(ram) apresentado(s) ao suporte técnico, conforme verificado no momento da retirada.</div>';
@@ -2154,7 +2184,7 @@ class Transfer
                 . '<div style="margin-top:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px;text-align:center;font-size:8px;color:#92400e;">⚠️ Termo ainda não assinado — colete na aba Assinatura (RG/CPF + assinatura recebedor + técnico).</div>';
         }
 
-        $h .= '<table class="ftr"><tr><td>Unidade Regional de Ensino — Região de Jales | Suporte Técnico</td><td style="text-align:right;">Gerado em ' . date('d/m/Y \à\s H:i') . ' | Transferência #' . str_pad($transfer_id, 6, '0', STR_PAD_LEFT) . '</td></tr></table>';
+        $h .= '<table class="ftr"><tr><td>Unidade Regional de Ensino — Região de Jales | Suporte Técnico</td><td style="text-align:right;">Gerado em ' . date('d/m/Y \à\s H:i') . ' | Transferência #' . self::termNumber($transfer_id, $transfer) . '</td></tr></table>';
         $h .= '</body></html>';
         return $h;
     }

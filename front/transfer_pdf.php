@@ -326,7 +326,7 @@ async function amPrintHP() {
         <div class="doc-header-right">
             <div class="org">Unidade Regional de Ensino — Região de Jales</div>
             <div class="doc-title"><?= htmlspecialchars($doc_title) ?></div>
-            <div class="doc-number">Nº <?= str_pad($transfer_id, 6, '0', STR_PAD_LEFT) ?> &nbsp;|&nbsp; <?= date('d/m/Y H:i') ?></div>
+            <div class="doc-number">Nº <?= Transfer::termNumber($transfer_id, $transfer) ?> &nbsp;|&nbsp; <?= date('d/m/Y H:i') ?></div>
         </div>
     </div>
 
@@ -614,7 +614,7 @@ async function amPrintHP() {
     <!-- Rodapé -->
     <div class="doc-footer">
         <span>Unidade Regional de Ensino — Região de Jales &nbsp;|&nbsp; Suporte Técnico</span>
-        <span>Gerado em <?= date('d/m/Y \à\s H:i') ?> &nbsp;|&nbsp; Transferência #<?= str_pad($transfer_id, 6, '0', STR_PAD_LEFT) ?></span>
+        <span>Gerado em <?= date('d/m/Y \à\s H:i') ?> &nbsp;|&nbsp; Transferência #<?= Transfer::termNumber($transfer_id, $transfer) ?></span>
     </div>
 
 </div><!-- .page -->
