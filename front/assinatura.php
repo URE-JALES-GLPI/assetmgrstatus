@@ -150,11 +150,17 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
     .sig-filters-collapsible.expanded{display:block;animation:sigFadeIn .2s ease}
     @keyframes sigFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
     </style>
-    <div class="sig-filter-toggle">
+    <div class="sig-filter-toggle" style="flex-wrap:wrap;">
         <button type="button" id="sig-filter-btn" class="sig-filter-btn">
             <i class="ti ti-filter"></i> Filtros <span id="sig-filter-text">Expandir</span> <i id="sig-filter-icon" class="ti ti-chevron-down" style="margin-left:4px"></i>
         </button>
         <small style="color:#6b7280;font-size:.78rem">Filtrando: <strong><?= htmlspecialchars(ucfirst($filter)) ?></strong> (<?= $filter==='pendente'?count($pendentes):($filter==='assinado'?count($assinados):count($all)) ?>)</small>
+        <div style="position:relative;flex:1;min-width:220px;max-width:380px;margin-left:auto;">
+            <i class="ti ti-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9ca3af;"></i>
+            <input type="text" id="am-sig-search" placeholder="🔍 Buscar por nome da escola..." autocomplete="off" style="width:100%;padding:9px 34px 9px 34px;border:1.5px solid #e8eaf0;border-radius:8px;font-size:.85rem;outline:none;box-sizing:border-box;" oninput="amSigFilterCards()">
+            <button type="button" id="am-sig-search-clear" onclick="amSigClearSearch()" title="Limpar busca" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#9ca3af;font-size:1rem;line-height:1;">✕</button>
+        </div>
+        <small id="am-sig-search-count" style="display:none;color:#4f46e5;font-size:.78rem;font-weight:700;"></small>
     </div>
     <div id="sig-filters-collapsible" class="sig-filters-collapsible collapsed" style="display:none">
     <div class="am-filters-bar" style="margin-bottom:20px;">
@@ -290,6 +296,60 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
             </div>
             <?php endforeach; ?>
         </div>
+        <div id="am-sig-no-result" style="display:none;text-align:center;padding:40px 20px;background:#fff;border:1.5px dashed #e8eaf0;border-radius:12px;color:#6b7280;">
+            <i class="ti ti-search-off" style="font-size:2rem;display:block;margin-bottom:8px;color:#9ca3af;"></i>
+            <div style="font-weight:700;color:#374151;">Nenhum termo encontrado para "<span id="am-sig-no-result-q"></span>"</div>
+            <div style="font-size:.82rem;margin-top:4px;">Tente outro nome de escola ou <a href="#" onclick="amSigClearSearch();return false;">limpe a busca</a>.</div>
+        </div>
+        <script>
+        function amSigNorm(s){
+          s = String(s || '').toLowerCase();
+          try { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch(e){}
+          return s;
+        }
+        function amSigFilterCards(){
+          var inp = document.getElementById('am-sig-search');
+          var clearBtn = document.getElementById('am-sig-search-clear');
+          var countEl = document.getElementById('am-sig-search-count');
+          var noRes = document.getElementById('am-sig-no-result');
+          if(!inp) return;
+          var q = amSigNorm(inp.value.trim());
+          if(clearBtn) clearBtn.style.display = inp.value ? 'block' : 'none';
+          var cards = document.querySelectorAll('.am-sig-grid .am-sig-card');
+          var vis = 0;
+          cards.forEach(function(c){
+            var hay = amSigNorm(
+              (c.getAttribute('data-origin-name') || '') + ' ' +
+              (c.getAttribute('data-id') || '') + ' ' +
+              (c.innerText || c.textContent || '')
+            );
+            var show = (!q || hay.indexOf(q) !== -1);
+            c.style.display = show ? '' : 'none';
+            if(show) vis++;
+          });
+          if(noRes){
+            noRes.style.display = (q && vis === 0) ? 'block' : 'none';
+            var qEl = document.getElementById('am-sig-no-result-q');
+            if(qEl) qEl.textContent = inp.value.trim();
+          }
+          if(countEl){
+            if(q){
+              countEl.style.display = '';
+              countEl.textContent = vis + ' resultado(s)';
+            } else {
+              countEl.style.display = 'none';
+              countEl.textContent = '';
+            }
+          }
+        }
+        function amSigClearSearch(){
+          var inp = document.getElementById('am-sig-search');
+          if(inp){ inp.value = ''; inp.focus(); }
+          amSigFilterCards();
+        }
+        window.amSigFilterCards = amSigFilterCards;
+        window.amSigClearSearch = amSigClearSearch;
+        </script>
     <?php endif; ?>
 </div>
 
