@@ -114,6 +114,84 @@ class Transfer
         return (string)($i + 1);
     }
 
+    /**
+     * work_log de todos os itens da transferência de uma vez (evita N queries no termo).
+     * Retorna [items_id => work_log aparado].
+     */
+    private static function kanproTermWorkLogs(int $transfer_id): array
+    {
+        global $DB;
+        $out = [];
+        try {
+            if (isset($DB) && method_exists($DB, 'tableExists') && $DB->tableExists('glpi_plugin_assetmgrstatus_transfer_items')) {
+                foreach ($DB->request(['SELECT' => ['items_id', 'work_log'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id]]) as $r) {
+                    $out[(int)$r['items_id']] = trim((string)($r['work_log'] ?? ''));
+                }
+            }
+        } catch (\Throwable $e) {}
+        return $out;
+    }
+
+    /**
+     * Agrupa itens KanPro CONSECUTIVOS com mesmo status final E mesmo relatório
+     * (work_log) p/ o termo ocupar menos linhas. Cada grupo: nums (nºs das
+     * máquinas), names/types (únicos, na ordem), status (raw) e report.
+     */
+    private static function groupKanProTermItems(array $items, array $wlogs, array $seqMap): array
+    {
+        $norm = function ($s) {
+            $s = mb_strtolower(trim((string)$s), 'UTF-8');
+            $s = preg_replace('/\s+/', ' ', $s);
+            return $s;
+        };
+        $groups = [];
+        foreach ($items as $i => $it) {
+            $st = $norm($it['final_status'] ?? '');
+            $rep = $norm($wlogs[(int)($it['items_id'] ?? 0)] ?? '');
+            $num = self::getKanProRowNum($it, $i, $seqMap);
+            $last = count($groups) - 1;
+            if ($last >= 0 && $groups[$last]['skey'] === $st && $groups[$last]['rkey'] === $rep) {
+                $groups[$last]['nums'][] = $num;
+                $nm = trim((string)($it['item_name'] ?? ''));
+                if ($nm !== '' && !in_array($nm, $groups[$last]['names'], true)) $groups[$last]['names'][] = $nm;
+                $tp = str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', (string)($it['itemtype'] ?? ''));
+                if ($tp !== '' && !in_array($tp, $groups[$last]['types'], true)) $groups[$last]['types'][] = $tp;
+            } else {
+                $groups[] = [
+                    'skey'   => $st,
+                    'rkey'   => $rep,
+                    'nums'   => [$num],
+                    'names'  => [trim((string)($it['item_name'] ?? ''))],
+                    'types'  => [str_replace(['Glpi\\CustomAsset\\', 'Asset'], '', (string)($it['itemtype'] ?? ''))],
+                    'status' => (string)($it['final_status'] ?? ''),
+                    'report' => trim((string)($wlogs[(int)($it['items_id'] ?? 0)] ?? '')),
+                ];
+            }
+        }
+        return $groups;
+    }
+
+    /**
+     * Rótulo da coluna # p/ grupo: "1-5" se sequência numérica, senão "1, 2, 3".
+     */
+    private static function kanproGroupNumsLabel(array $nums): string
+    {
+        $nums = array_values($nums);
+        if (count($nums) === 1) return (string)$nums[0];
+        $ints = [];
+        foreach ($nums as $n) {
+            if (!ctype_digit((string)$n)) return mb_substr(implode(', ', $nums), 0, 24);
+            $ints[] = (int)$n;
+        }
+        $first = $ints[0]; $prev = $first; $ok = true;
+        foreach (array_slice($ints, 1) as $v) {
+            if ($v !== $prev + 1) { $ok = false; break; }
+            $prev = $v;
+        }
+        if ($ok) return $first . '-' . $prev;
+        return mb_substr(implode(', ', $nums), 0, 24);
+    }
+
     public static function getStatusOptions(): array
     {
         return [
@@ -1017,6 +1095,15 @@ class Transfer
                 $lines[] = 'Equipamentos Devolvidos:';
                 $lines[] = str_repeat('-', 85);
                 $seqMapSimple = $isKanProSimple ? self::getKanProSeqMap($items) : [];
+                if ($isKanProSimple) {
+                    // KanPro: máquinas consecutivas com mesmo status + mesmo relatório viram 1 linha
+                    $wlogsSimple = self::kanproTermWorkLogs($transfer_id);
+                    foreach (self::groupKanProTermItems($items, $wlogsSimple, $seqMapSimple) as $g) {
+                        $stLbl = $g['status'] !== '' ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($g['status']) : '-';
+                        $lines[] = self::kanproGroupNumsLabel($g['nums']) . '. ' . implode(' / ', array_filter($g['names'])) . '  [' . implode('/', array_filter($g['types'])) . ']  Status: ' . $stLbl;
+                        if ($g['report'] !== '') $lines[] = '   Feito: ' . mb_substr($g['report'], 0, 200);
+                    }
+                } else {
                 foreach ($items as $i => $it) {
                     $lines[] = ($isKanProSimple ? self::getKanProRowNum($it, $i, $seqMapSimple) : ($i+1)) . '. ' . $it['item_name'] . '  [' . str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']) . ']  Status: ' . ($it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-') ;
                     if (!empty($it['final_reason'])) $lines[] = '   Motivo: ' . $it['final_reason'];
@@ -1026,6 +1113,7 @@ class Transfer
                         $wlog = trim($wrow['work_log'] ?? '');
                         if ($wlog !== '') $lines[] = '   Feito: ' . mb_substr($wlog,0,200);
                     } catch (\Throwable $e) {}
+                }
                 }
             }
             $lines[] = '';
@@ -1226,6 +1314,33 @@ class Transfer
             $pdf->SetTextColor(45, 45, 45);
             $pdf->SetFont('Helvetica', '', 5);
             $compList = \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getComponents();
+            if ($isKanProTerm) {
+                // KanPro: máquinas consecutivas com mesmo status + mesmo relatório viram 1 linha
+                $kanproWlogsFpdf = self::kanproTermWorkLogs($transfer_id);
+                foreach (self::groupKanProTermItems($items, $kanproWlogsFpdf, $seqMapFpdf) as $g) {
+                    $rowNumFpdf = self::kanproGroupNumsLabel($g['nums']);
+                    $statusLabel = $g['status'] !== '' ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($g['status']) : '-';
+                    $wlogShort = $g['report'] !== '' ? mb_substr($g['report'], 0, 110) : '-';
+                    // Evita overflow vertical: se Y > 265, nova página e reimprime cabeçalho
+                    if ($pdf->GetY() > 265) {
+                        $pdf->AddPage();
+                        $pdf->SetFont('Helvetica', 'B', 5);
+                        $pdf->SetFillColor(26, 115, 181); $pdf->SetTextColor(255,255,255);
+                        $pdf->Cell(7, 6, '#', 1, 0, 'C', true);
+                        $pdf->Cell(30, 6, 'Equipamento', 1, 0, 'L', true);
+                        $pdf->Cell(18, 6, 'Tipo', 1, 0, 'L', true);
+                        $pdf->Cell(22, 6, 'Status', 1, 0, 'L', true);
+                        $pdf->Cell(113, 6, 'O Que Foi Feito', 1, 1, 'L', true);
+                        $pdf->SetTextColor(45,45,45); $pdf->SetFont('Helvetica','',5);
+                    }
+                    $pdf->Cell(7, 5, $rowNumFpdf, 1, 0, 'C');
+                    $pdf->Cell(30, 5, $toIso(mb_substr(implode(' / ', array_filter($g['names'])), 0, 22)), 1, 0, 'L');
+                    $pdf->Cell(18, 5, $toIso(mb_substr(implode(' / ', array_filter($g['types'])), 0, 12)), 1, 0, 'L');
+                    $pdf->Cell(22, 5, $toIso(mb_substr($statusLabel, 0, 13)), 1, 0, 'L');
+                    $pdf->Cell(113, 5, $toIso($wlogShort), 1, 1, 'L');
+                }
+            }
+            if (!$isKanProTerm) {
             foreach ($items as $i => $it) {
                 $typeShort = mb_substr(str_replace(['Glpi\\CustomAsset\\','Asset'],'',$it['itemtype']),0,12);
                 $statusLabel = $it['final_status'] ? \GlpiPlugin\Assetmgrstatus\MaintenanceRecord::getStatusLabel($it['final_status']) : '-';
@@ -1296,6 +1411,7 @@ class Transfer
                     $pdf->Cell(35, 5, $toIso($compStr), 1, 0, 'L');
                     $pdf->Cell(48, 5, $toIso($wlogShort), 1, 1, 'L');
                 }
+            }
             }
         }
         $pdf->Ln(4);
@@ -1933,6 +2049,19 @@ class Transfer
             } else {
                 $h .= '<h3>Equipamento(s) Devolvido(s)</h3><table class="eq"><tr><th style="width:4%">#</th><th style="width:16%">Nome</th><th style="width:10%">Tipo</th><th style="width:11%">Status Final</th><th style="width:20%">Motivo / Observação</th><th style="width:19%">Componentes</th><th style="width:20%">O Que Foi Feito</th></tr>';
             }
+            if ($isKanPro) {
+                // KanPro: máquinas consecutivas com mesmo status + mesmo relatório viram 1 linha
+                $kanproWlogsHtml = self::kanproTermWorkLogs($transfer_id);
+                foreach (self::groupKanProTermItems($items, $kanproWlogsHtml, $seqMapHtml) as $g) {
+                    $rowNumHtml = self::kanproGroupNumsLabel($g['nums']);
+                    $h .= '<tr><td>' . $rowNumHtml . '</td><td><b>' . htmlspecialchars(self::truncPdf(implode(' / ', array_filter($g['names'])), 40)) . '</b></td>'
+                        . '<td>' . htmlspecialchars(self::truncPdf(implode(' / ', array_filter($g['types'])), 15)) . '</td>'
+                        . '<td>' . ($g['status'] !== '' ? htmlspecialchars(MaintenanceRecord::getStatusLabel($g['status'])) : '—') . '</td>';
+                    $wlog_trunc = ($g['report'] === '' ? '—' : self::truncPdf($g['report'], 300));
+                    $h .= '<td>' . ($wlog_trunc !== '—' ? nl2br(htmlspecialchars($wlog_trunc)) : '—') . '</td></tr>';
+                }
+            }
+            if (!$isKanPro) {
             foreach ($items as $i => $item) {
                 $wrow = $DB->request(['SELECT' => ['work_log', 'work_components'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => (int)$item['items_id']], 'LIMIT' => 1])->current();
                 $wlog   = $wrow['work_log'] ?? '';
@@ -1980,6 +2109,7 @@ class Transfer
                     $h .= '<td>' . htmlspecialchars($comp_trunc) . '</td>';
                 }
                 $h .= '<td>' . ($wlog_trunc !== '—' ? nl2br(htmlspecialchars($wlog_trunc)) : '—') . '</td></tr>';
+            }
             }
             $h .= '</table>';
         }
