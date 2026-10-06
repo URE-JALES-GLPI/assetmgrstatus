@@ -111,6 +111,44 @@ $kanproRowNum = function ($item, $i) use ($kanproSeqMap) {
     return (string)($i + 1);
 };
 
+// KanPro: stacka linhas iguais (modelo + status + diário) — ex. 70 tablets OK viram 1 linha.
+// 1 query só p/ os diários (o loop antigo fazia 1 por linha). Falhou? null = loop original.
+$kanproGroups = null;
+if ($isKanPro && !empty($items)) {
+    try {
+        $gkIds = [];
+        foreach ($items as $it) {
+            if (($it['itemtype'] ?? '') === 'KanPro') $gkIds[] = (int)($it['items_id'] ?? 0);
+        }
+        $gkIds = array_values(array_unique(array_filter($gkIds)));
+        $wlogs = [];
+        if (!empty($gkIds)) {
+            foreach ($DB->request(['SELECT' => ['items_id', 'work_log'], 'FROM' => 'glpi_plugin_assetmgrstatus_transfer_items', 'WHERE' => ['transfers_id' => $transfer_id, 'items_id' => $gkIds]]) as $wr) {
+                $wlogs[(int)$wr['items_id']] = (string)($wr['work_log'] ?? '');
+            }
+        }
+        $kanproGroups = [];
+        $gidx = [];
+        foreach ($items as $it) {
+            $iid = (int)($it['items_id'] ?? 0);
+            if (($it['itemtype'] ?? '') !== 'KanPro') {
+                $kanproGroups[] = ['name' => (string)($it['item_name'] ?? ''), 'status' => (string)($it['final_status'] ?? ''), 'diary' => trim($wlogs[$iid] ?? ''), 'type' => (string)($it['itemtype'] ?? ''), 'seqs' => [], 'count' => 1, 'solo' => true];
+                continue;
+            }
+            $diary = trim($wlogs[$iid] ?? '');
+            $key = (string)($it['item_name'] ?? '') . "\0" . (string)($it['final_status'] ?? '') . "\0" . $diary;
+            if (!isset($gidx[$key])) {
+                $gidx[$key] = count($kanproGroups);
+                $kanproGroups[] = ['name' => (string)($it['item_name'] ?? ''), 'status' => (string)($it['final_status'] ?? ''), 'diary' => $diary, 'type' => (string)($it['itemtype'] ?? ''), 'seqs' => [], 'count' => 0, 'solo' => false];
+            }
+            $gi = $gidx[$key];
+            $kanproGroups[$gi]['count']++;
+            $sq = $kanproSeqMap[$iid] ?? 0;
+            if ($sq > 0) $kanproGroups[$gi]['seqs'][] = $sq;
+        }
+    } catch (Throwable $e) { $kanproGroups = null; }
+}
+
 // Assinatura digital dual (recebedor + técnico) — coleta via tablet
 $assinatura_image         = $transfer['assinatura_image'] ?? '';
 $assinatura_doc_type      = $transfer['assinatura_document_type'] ?? '';
@@ -464,6 +502,31 @@ async function amPrintHP() {
             </tr>
         </thead>
         <tbody>
+        <?php if ($kanproGroups !== null): ?>
+        <?php foreach ($kanproGroups as $g):
+            $gseqs = $g['seqs'];
+            if (!empty($gseqs)) sort($gseqs, SORT_NUMERIC);
+            $gfirst = !empty($gseqs) ? $gseqs[0] : 0;
+            $glast = !empty($gseqs) ? $gseqs[count($gseqs) - 1] : 0;
+            $gmulti = !$g['solo'] && $g['count'] > 1;
+            $ghash = $gmulti ? ($gfirst > 0 ? $gfirst . '–' . $glast : $g['count'] . ' itens') : (string)$gfirst;
+            $ghname = $gmulti ? $g['count'] . 'x ' . $g['name'] : $g['name'];
+        ?>
+        <tr>
+            <td><?= htmlspecialchars($ghash) ?></td>
+            <td><strong><?= htmlspecialchars($ghname) ?></strong></td>
+            <td style="color:#6b7280;font-size:10px;"><?= htmlspecialchars(str_replace(['Glpi\\CustomAsset\\','Asset'], '', $g['type'])) ?></td>
+            <td>
+                <?php if ($g['status']): ?>
+                <span class="badge badge-<?= $g['status'] ?>"><?= MaintenanceRecord::getStatusLabel($g['status']) ?></span>
+                <?php else: ?><span style="color:#9ca3af;">—</span><?php endif; ?>
+            </td>
+            <td style="font-size:10.5px;color:#4b5563;">
+                <?= $g['diary'] !== '' ? nl2br(htmlspecialchars($g['diary'])) : '<span style="color:#9ca3af;">—</span>' ?>
+            </td>
+        </tr>
+        <?php endforeach; ?>
+        <?php else: ?>
         <?php foreach ($items as $i => $item):
             $wrow_iter = $DB->request(['SELECT'=>['work_log'],'FROM'=>'glpi_plugin_assetmgrstatus_transfer_items','WHERE'=>['transfers_id'=>$transfer_id,'items_id'=>(int)$item['items_id']],'LIMIT'=>1]);
             $wrow = $wrow_iter->count() > 0 ? $wrow_iter->current() : null;
@@ -483,6 +546,7 @@ async function amPrintHP() {
             </td>
         </tr>
         <?php endforeach; ?>
+        <?php endif; ?>
         </tbody>
     </table>
     <?php else: ?>
