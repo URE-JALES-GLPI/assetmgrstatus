@@ -415,7 +415,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
 
         <!-- WIZ 5: Digita documento -->
         <div id="am-wiz-5" class="am-modal-body" style="display:none;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;"><button type="button" class="am-btn am-btn-secondary" style="padding:6px 10px;font-size:.78rem;" onclick="amWizPrev(5)"><i class="ti ti-arrow-left"></i> Voltar</button><span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span></div>
+            <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:12px;"><span id="am-sig-doc-badge" style="background:#4f46e5;color:#fff;padding:4px 10px;border-radius:8px;font-weight:700;font-size:.78rem;">CPF</span></div>
             <label class="am-form-label">Número do documento <span class="am-required">*</span> <small style="font-weight:400;text-transform:none;letter-spacing:0;">(<span id="am-sig-doc-hint">11 dígitos</span>)</small></label>
             <div id="am-sig-display" class="am-sig-display empty">Toque no teclado abaixo</div>
             <input type="hidden" id="am-sig-doc-value">
@@ -425,7 +425,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
                 <button type="button" onclick="amSigPress('7')">7</button><button type="button" onclick="amSigPress('8')">8</button><button type="button" onclick="amSigPress('9')">9</button>
                 <button type="button" class="am-numpad-del" onclick="amSigPress('del')"><i class="ti ti-backspace"></i></button><button type="button" onclick="amSigPress('0')">0</button><button type="button" class="am-numpad-action" onclick="amWizNext(5)"><i class="ti ti-check"></i> Ok</button>
             </div>
-            <div style="display:flex;gap:8px;margin-top:10px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button></div>
+            <div style="display:flex;gap:8px;margin-top:10px;"><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amWizPrev(5)"><i class="ti ti-arrow-left"></i> Voltar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigClear()"><i class="ti ti-trash"></i> Limpar</button><button type="button" class="am-btn am-btn-secondary" style="flex:1;" onclick="amSigBackspace()"><i class="ti ti-backspace"></i> Apagar</button></div>
         </div>
 
         <!-- WIZ 6: Assina -->
