@@ -1,6 +1,25 @@
 (function () {
     'use strict';
 
+    // Fecha overlay por clique fora — SÓ clique genuíno: tem que COMEÇAR no
+    // overlay (arrasto de seleção que termina fora gera click no overlay e
+    // nunca fecha) e não pode haver texto selecionado.
+    document.addEventListener('mousedown', function (e) {
+        try {
+            var ovs = document.querySelectorAll('.am-modal-overlay');
+            for (var i = 0; i < ovs.length; i++) { ovs[i]._amDownOnOverlay = (e.target === ovs[i]); }
+        } catch (_) {}
+    }, true);
+    window.amOverlayClick = function (ev, overlay, closeFn) {
+        if (!ev || ev.target !== overlay) return;
+        if (overlay._amDownOnOverlay === false) return;
+        try {
+            var s = window.getSelection();
+            if (s && !s.isCollapsed && String(s.toString()).length > 0) return;
+        } catch (_) {}
+        closeFn();
+    };
+
     var _ajaxBase = '';
 
     function amDetectAjaxBase() {

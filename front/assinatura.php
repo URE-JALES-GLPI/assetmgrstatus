@@ -365,7 +365,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
 </div>
 
 <!-- Modal Assinatura Wizard 7 telas -->
-<div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;" onclick="if(event.target===this) amSigConfirmCancel()">
+<div id="am-modal-assinatura" class="am-modal-overlay" style="z-index:10001;" onclick="amOverlayClick(event, this, amSigConfirmCancel)">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;max-height:92vh;display:flex;flex-direction:column;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#1a73b5,#4f46e5);">
             <div class="am-modal-title"><i class="ti ti-signature"></i><span id="am-sig-modal-title">Assinatura — Etapa 1 de 7</span></div>
@@ -460,7 +460,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
 </div>
 
 <!-- Modal Cadastro Técnico (assinatura salva para reuso) -->
-<div id="am-modal-tec-cadastro" class="am-modal-overlay" style="z-index:10004;display:none;align-items:center;justify-content:center;" onclick="if(event.target===this) amCloseTecCadastroModal()">
+<div id="am-modal-tec-cadastro" class="am-modal-overlay" style="z-index:10004;display:none;align-items:center;justify-content:center;" onclick="amOverlayClick(event, this, amCloseTecCadastroModal)">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:540px;max-height:92vh;display:flex;flex-direction:column;width:94%;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#059669,#10b981);">
             <div class="am-modal-title"><i class="ti ti-user-plus"></i><span id="am-tec-cad-title">Cadastrar Técnico</span></div>
@@ -507,7 +507,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
 </div>
 
 <!-- Confirmacao 2 etapas para Cancelar -->
-<div id="am-sig-cancel-confirm" class="am-modal-overlay" style="z-index:10002;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="if(event.target===this) amSigCancelClose()">
+<div id="am-sig-cancel-confirm" class="am-modal-overlay" style="z-index:10002;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="amOverlayClick(event, this, amSigCancelClose)">
     <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#fef2f2,#fee2e2);border:2px solid #fecaca;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-alert-triangle" style="font-size:1.8rem;color:#dc2626;"></i></div>
         <div style="font-weight:800;font-size:1.1rem;color:#991b1b;">Tem certeza que deseja cancelar?</div>
@@ -519,7 +519,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
         </div>
     </div>
 </div>
-<div id="am-sig-cancel-confirm2" class="am-modal-overlay" style="z-index:10003;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="if(event.target===this) amSigCancelClose2()">
+<div id="am-sig-cancel-confirm2" class="am-modal-overlay" style="z-index:10003;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.85);" onclick="amOverlayClick(event, this, amSigCancelClose2)">
     <div class="am-modal" style="max-width:420px;width:90%;text-align:center;" onclick="event.stopPropagation()">
         <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:20px auto 12px;"><i class="ti ti-x" style="font-size:1.8rem;color:#fff;"></i></div>
         <div style="font-weight:800;font-size:1.1rem;color:#dc2626;">Última confirmação</div>

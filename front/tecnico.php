@@ -821,7 +821,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <!-- Maximized Kanban Overlay -->
-<div id="am-kanban-maximized-overlay" class="am-modal-overlay" style="z-index:10001;align-items:stretch;overflow-y:auto;padding:8px;" onclick="if(event.target===this) amKanbanMaximizeClose()">
+<div id="am-kanban-maximized-overlay" class="am-modal-overlay" style="z-index:10001;align-items:stretch;overflow-y:auto;padding:8px;" onclick="amOverlayClick(event, this, amKanbanMaximizeClose)">
     <div class="am-modal" style="max-width:98vw;width:98vw;margin:4px auto;max-height:96vh;height:96vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
         <div class="am-modal-header" id="am-maximized-header" style="background:linear-gradient(135deg,#1e293b,#334155);">
             <div class="am-modal-title"><i class="ti ti-maximize"></i><span id="am-maximized-title">PENDENTE</span> <span id="am-maximized-count" class="am-kanban-count" style="background:#fff;color:#1e293b;margin-left:8px;"></span></div>
@@ -879,7 +879,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <!-- Modal Detalhes do Card -->
-<div id="am-modal-card-details" class="am-modal-overlay" onclick="if(event.target===this) amCloseCardModal()" style="z-index:10002;">
+<div id="am-modal-card-details" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseCardModal)" style="z-index:10002;">
     <div class="am-modal" style="max-width:680px;width:95%;max-height:90vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
         <div class="am-modal-header" id="am-card-details-header" style="background:linear-gradient(135deg,#2563eb,#3b82f6);">
             <div class="am-modal-title"><i class="ti ti-info-circle"></i><span id="am-card-details-title">Detalhes</span></div>
@@ -894,7 +894,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <!-- Modal Pegar -->
-<div id="am-modal-pegar" class="am-modal-overlay" onclick="if(event.target===this) amClosePegarModal()" style="z-index:10003;">
+<div id="am-modal-pegar" class="am-modal-overlay" onclick="amOverlayClick(event, this, amClosePegarModal)" style="z-index:10003;">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
             <div class="am-modal-title"><i class="ti ti-hand-grab"></i><span>Assumir Manutenção</span></div>
@@ -1004,7 +1004,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
 </div>
 
 <!-- Modal Pegar Chamado -->
-<div id="am-modal-pegar-ticket" class="am-modal-overlay" onclick="if(event.target===this) amClosePegarTicketModal()" style="z-index:10003;">
+<div id="am-modal-pegar-ticket" class="am-modal-overlay" onclick="amOverlayClick(event, this, amClosePegarTicketModal)" style="z-index:10003;">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
             <div class="am-modal-title"><i class="ti ti-hand-grab"></i><span>Assumir Chamado</span></div>

@@ -944,7 +944,7 @@ if ($can_admin_entity) {
 </div>
 
 <!-- Modal Status -->
-<div id="am-modal-overlay" class="am-modal-overlay" onclick="amCloseModal(event)">
+<div id="am-modal-overlay" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseModal)">
     <div class="am-modal" onclick="event.stopPropagation()">
         <div class="am-modal-header"><div class="am-modal-title"><i class="ti ti-edit"></i><span id="am-modal-asset-name">Alterar Status</span></div><button class="am-modal-close" onclick="amCloseModal()"><i class="ti ti-x"></i></button></div>
         <form id="am-maintenance-form" method="POST" action="<?= $form_action ?>" enctype="multipart/form-data">
@@ -1029,7 +1029,7 @@ if ($can_admin_entity) {
 </div>
 
 <!-- Modal Manutenção Realizada -->
-<div id="am-modal-manutencao" class="am-modal-overlay" onclick="amCloseManutencao(event)">
+<div id="am-modal-manutencao" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseManutencao)">
     <div class="am-modal" onclick="event.stopPropagation()">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#059669,#10b981);">
             <div class="am-modal-title"><i class="ti ti-tools"></i><span id="am-manut-title">Registrar Manutenção Realizada</span></div>
@@ -1060,7 +1060,7 @@ if ($can_admin_entity) {
 </div>
 
 <!-- Modal Baixa -->
-<div id="am-modal-baixa" class="am-modal-overlay" onclick="amCloseBaixa(event)">
+<div id="am-modal-baixa" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseBaixa)">
     <div class="am-modal" onclick="event.stopPropagation()">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#dc2626,#ef4444);">
             <div class="am-modal-title"><i class="ti ti-package-off"></i><span id="am-baixa-title">Registrar Baixa</span></div>
@@ -1098,7 +1098,7 @@ if ($can_admin_entity) {
 </div>
 
 <!-- Modal Observação Avulsa -->
-<div id="am-modal-note" class="am-modal-overlay" onclick="amCloseNote(event)">
+<div id="am-modal-note" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseNote)">
     <div class="am-modal" onclick="event.stopPropagation()">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
             <div class="am-modal-title"><i class="ti ti-note"></i><span id="am-note-title">Adicionar Observação</span></div>
@@ -1127,7 +1127,7 @@ if ($can_admin_entity) {
 </div>
 
 <!-- Modal Bulk Status -->
-<div id="am-modal-bulk" class="am-modal-overlay" onclick="amCloseBulkModal(event)">
+<div id="am-modal-bulk" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseBulkModal)">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:680px;">
         <div class="am-modal-header">
             <div class="am-modal-title"><i class="ti ti-checks"></i><span>Alterar Status em Massa</span></div>
@@ -1232,7 +1232,7 @@ if ($can_admin_entity) {
 
 <!-- Modal de Transferência (reuso na aba Inventário) -->
 <?php if ($can_transfer): ?>
-<div id="am-modal-transfer" class="am-modal-overlay" onclick="amCloseTransferModal(event)">
+<div id="am-modal-transfer" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseTransferModal)">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:580px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#0f172a,#1e40af);">
             <div class="am-modal-title"><i class="ti ti-transfer"></i><span>Nova Transferência</span></div>
@@ -1352,7 +1352,7 @@ if ($can_admin_entity) {
 
 <!-- Modal Excluir em Massa (GLPI + Plugin) -->
 <?php if ($can_delete): ?>
-<div id="am-modal-bulk-delete" class="am-modal-overlay" onclick="amCloseBulkDeleteModal(event)">
+<div id="am-modal-bulk-delete" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseBulkDeleteModal)">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:520px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#dc2626,#ef4444);">
             <div class="am-modal-title"><i class="ti ti-trash"></i><span>Excluir Ativos</span></div>

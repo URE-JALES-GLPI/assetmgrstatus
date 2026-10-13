@@ -462,7 +462,7 @@ html,body{margin:0;padding:0;background:#f1f5f9;font-family:'Inter',system-ui,-a
 </div>
 
 <!-- Modais reutilizados (mesmos de tecnico.php) -->
-<div id="am-modal-card-details" class="am-modal-overlay" onclick="if(event.target===this) amCloseCardModal()" style="z-index:10002;">
+<div id="am-modal-card-details" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseCardModal)" style="z-index:10002;">
     <div class="am-modal" style="max-width:680px;width:95%;max-height:90vh;display:flex;flex-direction:column;" onclick="event.stopPropagation()">
         <div class="am-modal-header" id="am-card-details-header" style="background:linear-gradient(135deg,#2563eb,#3b82f6);">
             <div class="am-modal-title"><i class="ti ti-info-circle"></i><span id="am-card-details-title">Detalhes</span></div>
@@ -475,7 +475,7 @@ html,body{margin:0;padding:0;background:#f1f5f9;font-family:'Inter',system-ui,-a
         </div>
     </div>
 </div>
-<div id="am-modal-pegar" class="am-modal-overlay" onclick="if(event.target===this) amClosePegarModal()" style="z-index:10003;">
+<div id="am-modal-pegar" class="am-modal-overlay" onclick="amOverlayClick(event, this, amClosePegarModal)" style="z-index:10003;">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
             <div class="am-modal-title"><i class="ti ti-hand-grab"></i><span>Assumir Manutenção</span></div>
@@ -497,7 +497,7 @@ html,body{margin:0;padding:0;background:#f1f5f9;font-family:'Inter',system-ui,-a
         </form>
     </div>
 </div>
-<div id="am-modal-pegar-ticket" class="am-modal-overlay" onclick="if(event.target===this) amClosePegarTicketModal()" style="z-index:10003;">
+<div id="am-modal-pegar-ticket" class="am-modal-overlay" onclick="amOverlayClick(event, this, amClosePegarTicketModal)" style="z-index:10003;">
     <div class="am-modal" onclick="event.stopPropagation()" style="max-width:460px;">
         <div class="am-modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);">
             <div class="am-modal-title"><i class="ti ti-hand-grab"></i><span>Assumir Chamado</span></div>

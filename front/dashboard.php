@@ -214,7 +214,7 @@ $alert_list = Stats::getAlertAssets($entity_id);
     </form>
 
     <!-- Modal de confirmação de reversão com diff visual -->
-    <div id="am-modal-undo-confirm" class="am-modal-overlay" onclick="amCloseUndoConfirm(event)">
+    <div id="am-modal-undo-confirm" class="am-modal-overlay" onclick="amOverlayClick(event, this, amCloseUndoConfirm)">
         <div class="am-modal" onclick="event.stopPropagation()" style="max-width:540px;">
             <div class="am-modal-header" style="background:linear-gradient(135deg,#4b5563,#374151);">
                 <div class="am-modal-title"><i class="ti ti-arrow-back-up"></i><span>Reverter Status</span></div>
