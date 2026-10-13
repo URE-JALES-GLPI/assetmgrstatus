@@ -1,8 +1,10 @@
 <?php
 
-define('PLUGIN_ASSETMGRSTATUS_VERSION', '2.0.7');
+require_once __DIR__ . '/src/compat.php';
+
+define('PLUGIN_ASSETMGRSTATUS_VERSION', '2.1.0');
 define('PLUGIN_ASSETMGRSTATUS_MIN_GLPI', '10.0.0');
-define('PLUGIN_ASSETMGRSTATUS_MAX_GLPI', '12.0.0');
+define('PLUGIN_ASSETMGRSTATUS_MAX_GLPI', '12.0.99');
 
 function plugin_version_assetmgrstatus(): array
 {
@@ -31,7 +33,11 @@ function plugin_init_assetmgrstatus(): void
 {
     global $PLUGIN_HOOKS;
 
-    $PLUGIN_HOOKS['csrf_compliant']['assetmgrstatus'] = true;
+    // CSRF compliance - no GLPI 12 o hook foi removido (CheckCsrfListener cuida);
+    // mantém true apenas no GLPI <12 para proteger POST (mesmo esquema do kanpro/protocolo).
+    if (!ams_is_glpi12_plus()) {
+        $PLUGIN_HOOKS['csrf_compliant']['assetmgrstatus'] = true;
+    }
     $PLUGIN_HOOKS['change_profile']['assetmgrstatus'] = ['PluginAssetmgrstatusProfile', 'changeProfile'];
     $PLUGIN_HOOKS['cron']['assetmgrstatus'] = ['GlpiPlugin\Assetmgrstatus\Transfer', 'cronCleanupPdfs'];
 

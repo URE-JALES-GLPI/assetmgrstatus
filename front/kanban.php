@@ -5,6 +5,7 @@
  * Reusa mesma lógica de dados de tecnico.php mas com layout expandido
  */
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -482,7 +483,7 @@ html,body{margin:0;padding:0;background:#f1f5f9;font-family:'Inter',system-ui,-a
         </div>
         <form id="am-pegar-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php" onsubmit="return amSubmitPegar(event)">
             <input type="hidden" name="action" value="pegar"><input type="hidden" name="transfer_id" id="am-pegar-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;text-align:center">
                 <div style="width:56px;height:56px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-hand-grab" style="font-size:1.8rem;color:#fff;"></i></div>
                 <div style="font-weight:700;color:#1e1b4b;">Assumir esta transferência?</div>
@@ -504,7 +505,7 @@ html,body{margin:0;padding:0;background:#f1f5f9;font-family:'Inter',system-ui,-a
         </div>
         <form id="am-pegar-ticket-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php" onsubmit="return amSubmitPegarTicket(event)">
             <input type="hidden" name="action" value="pegar_ticket"><input type="hidden" name="tickets_id" id="am-pegar-ticket-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;text-align:center">
                 <div style="font-weight:700;color:#1e1b4b;">Assumir este chamado?</div>
                 <div id="am-pegar-ticket-info" style="font-size:.85rem;color:#6b7280;margin-top:6px;"></div>

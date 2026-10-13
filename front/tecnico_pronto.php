@@ -1,6 +1,7 @@
 <?php
 
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -58,7 +59,7 @@ Html::header('Marcar como Pronto', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatu
 
     <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico_pronto.form.php" id="am-pronto-form">
         <input type="hidden" name="transfer_id" value="<?= $transfer_id ?>">
-        <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+        <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
 
         <!-- Classificação de cada ativo -->
         <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px;">

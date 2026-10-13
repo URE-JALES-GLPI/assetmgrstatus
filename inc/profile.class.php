@@ -2,9 +2,11 @@
 
 if (!defined('GLPI_ROOT')) die("Sorry. You can't access this file directly");
 
+require_once __DIR__ . '/../src/compat.php';
+
 class PluginAssetmgrstatusProfile extends CommonDBTM
 {
-    public static $rightname = 'profile';
+    public static string $rightname = 'profile';
 
     public const RIGHT_MANUTENCAO = 'plugin_assetmgrstatus';
     public const RIGHT_TECNICO    = 'plugin_assetmgrstatus_tecnico';
@@ -214,7 +216,7 @@ class PluginAssetmgrstatusProfile extends CommonDBTM
         if ($canedit) {
             echo "<tr class='tab_bg_2'><td colspan='2' class='center' style='padding:12px;'>";
             echo Html::hidden('profiles_id', ['value' => $pid]);
-            echo Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]);
+            echo Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]);
             echo "<button type='submit' name='update' value='1' class='btn btn-primary'><i class='ti ti-device-floppy'></i> Salvar Permissões</button>";
             echo "</td></tr>";
         }

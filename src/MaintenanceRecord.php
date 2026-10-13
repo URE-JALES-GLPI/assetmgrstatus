@@ -14,7 +14,7 @@ if (!defined('GLPI_ROOT')) {
 
 class MaintenanceRecord extends CommonDBTM
 {
-    public static $rightname = 'plugin_assetmgrstatus';
+    public static string $rightname = 'plugin_assetmgrstatus';
 
     const STATUS_ESTOQUE    = 'estoque';
     const STATUS_ATIVO      = 'ativo';

@@ -1,6 +1,7 @@
 <?php
 
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -274,7 +275,7 @@ header('Content-Type: text/html; charset=UTF-8');
     <button onclick="window.close()" style="padding:9px 22px;background:#f3f4f6;color:#374151;border:none;border-radius:8px;cursor:pointer;font-size:13px;">✕ Fechar</button>
 </div>
 <script>
-const amCsrfTokenPdf = "<?= Session::getNewCSRFToken() ?>";
+const amCsrfTokenPdf = "<?= ams_csrf_token() ?>";
 const amTransferIdPdf = <?= (int)$transfer_id ?>;
 const amStagePdf = "<?= htmlspecialchars($stage) ?>";
 async function amPrintHP() {
@@ -318,7 +319,7 @@ async function amPrintHP() {
 }
 </script>
 <script>
-const amCsrfTokenPdf = "<?= Session::getNewCSRFToken() ?>";
+const amCsrfTokenPdf = "<?= ams_csrf_token() ?>";
 const amTransferIdPdf = <?= (int)$transfer_id ?>;
 const amStagePdf = "<?= htmlspecialchars($stage) ?>";
 async function amPrintHP() {

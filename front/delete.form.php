@@ -2,6 +2,8 @@
 
 include('../../../inc/includes.php');
 
+global $DB, $CFG_GLPI;
+
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 

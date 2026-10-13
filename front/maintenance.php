@@ -1,6 +1,7 @@
 <?php
 
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Stats;
@@ -949,7 +950,7 @@ if ($can_admin_entity) {
         <form id="am-maintenance-form" method="POST" action="<?= $form_action ?>" enctype="multipart/form-data">
             <input type="hidden" name="itemtype" id="am-f-itemtype">
             <input type="hidden" name="items_id" id="am-f-items-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body">
 
                 <!-- Foto + timeline + quem viu -->
@@ -1022,7 +1023,7 @@ if ($can_admin_entity) {
         <form id="am-delete-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/delete.form.php" style="display:none">
             <input type="hidden" name="itemtype" id="am-del-itemtype">
             <input type="hidden" name="items_id" id="am-del-items-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
         </form>
     </div>
 </div>
@@ -1038,7 +1039,7 @@ if ($can_admin_entity) {
             <input type="hidden" name="action"   value="manutencao">
             <input type="hidden" name="itemtype" id="am-manut-itemtype">
             <input type="hidden" name="items_id" id="am-manut-items-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body">
                 <div class="am-form-section">
                     <label class="am-form-label">O que foi feito? <span class="am-required">*</span></label>
@@ -1069,7 +1070,7 @@ if ($can_admin_entity) {
             <input type="hidden" name="action"   value="baixa">
             <input type="hidden" name="itemtype" id="am-baixa-itemtype">
             <input type="hidden" name="items_id" id="am-baixa-items-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body">
                 <div style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.88rem;color:#dc2626;">
                     <i class="ti ti-alert-triangle"></i> <strong>Atenção:</strong> Esta ação registrará a baixa do ativo e alterará o status para <strong>Inservível</strong>.
@@ -1107,7 +1108,7 @@ if ($can_admin_entity) {
             <input type="hidden" name="action"   value="note">
             <input type="hidden" name="itemtype" id="am-note-itemtype">
             <input type="hidden" name="items_id" id="am-note-items-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body">
                 <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:.85rem;color:#92400e;">
                     <i class="ti ti-info-circle"></i> A observação é registrada no histórico, mas <strong>não altera o status</strong> do ativo.
@@ -1134,7 +1135,7 @@ if ($can_admin_entity) {
         </div>
         <form id="am-bulk-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk.form.php" novalidate>
             <input type="hidden" name="selected_assets" id="am-bulk-selected-assets">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
             <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="filter_entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
             <input type="hidden" name="filter_type" value="<?= htmlspecialchars($filter_type) ?>">
@@ -1239,7 +1240,7 @@ if ($can_admin_entity) {
         </div>
         <form id="am-transfer-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/transfer.form.php" novalidate>
             <input type="hidden" name="selected_assets" id="am-tr-selected-assets">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body">
                 <div id="am-tr-asset-list" style="background:#f8f9fb;border:1.5px solid #e8eaf0;border-radius:10px;padding:10px 14px;margin-bottom:18px;font-size:.85rem;color:#4b5563;max-height:100px;overflow-y:auto;"></div>
                 <div class="am-form-section">
@@ -1359,7 +1360,7 @@ if ($can_admin_entity) {
         </div>
         <form id="am-bulk-delete-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/bulk_delete.form.php">
             <input type="hidden" name="selected_assets" id="am-bulk-delete-selected-assets">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <input type="hidden" name="view_mode" value="<?= htmlspecialchars($view_mode) ?>">
             <?php if ($can_admin_entity): foreach ($filter_entity as $eid): ?><input type="hidden" name="filter_entity[]" value="<?= (int)$eid ?>"><?php endforeach; endif; ?>
             <div class="am-modal-body" style="padding:24px;">

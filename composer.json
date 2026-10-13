@@ -1,6 +1,6 @@
 {
     "name": "glpi-plugin/assetmgrstatus",
-    "description": "Asset Maintenance & Status plugin for GLPI 11",
+    "description": "Asset Maintenance & Status plugin for GLPI 10 / 11 / 12",
     "type": "library",
     "license": "GPL-2.0-or-later",
     "require": {

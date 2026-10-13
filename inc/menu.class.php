@@ -6,7 +6,7 @@ if (!defined('GLPI_ROOT')) {
 
 class PluginAssetmgrstatusMenu extends CommonGLPI
 {
-    static $rightname = 'plugin_assetmgrstatus';
+    static string $rightname = 'plugin_assetmgrstatus';
 
     static function getTypeName($nb = 0): string { return 'Inventário'; }
     static function getMenuName(): string { return 'Inventário'; }
@@ -14,8 +14,11 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
 
     static function getMenuContent(): array
     {
-        // Mesmo padrão do whatsappsimples que funciona no servidor
-        $base = '../glpi/plugins/assetmgrstatus/front';
+        // Caminho absoluto sem root_doc (o GLPI prepend root_doc internamente,
+        // mesmo padrão do protocolo que funciona com root_doc '' ou '/glpi').
+        // Antes era '../glpi/...' relativo, que quebrava com root_doc vazio (docroot).
+        $plugdir = (defined('GLPI_ROOT') && @is_dir(GLPI_ROOT . '/marketplace/assetmgrstatus')) ? 'marketplace' : 'plugins';
+        $base = '/' . $plugdir . '/assetmgrstatus/front';
 
         $options = [
             'maintenance' => [

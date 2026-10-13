@@ -1,5 +1,6 @@
 <?php
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\Transfer;
 
@@ -539,7 +540,7 @@ function amSigToast(msg, ok){
   clearTimeout(window._amSigToastT);
   window._amSigToastT=setTimeout(function(){ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(function(){ t.style.display='none'; },300); }, ok?2500:3500);
 }
-const amCsrfToken = "<?= Session::getNewCSRFToken() ?>";
+const amCsrfToken = "<?= ams_csrf_token() ?>";
 function amGetCsrfAssinatura(){
   try{
     var el=document.querySelector('#am-modal-assinatura input[name="_glpi_csrf_token"]')||document.querySelector('input[name="_glpi_csrf_token"]');

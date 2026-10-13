@@ -1,6 +1,7 @@
 <?php
 
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Stats;
@@ -209,7 +210,7 @@ $alert_list = Stats::getAlertAssets($entity_id);
         <input type="hidden" name="itemtype" id="am-undo-itemtype">
         <input type="hidden" name="items_id" id="am-undo-items-id">
         <input type="hidden" name="return_to" value="dashboard">
-        <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+        <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
     </form>
 
     <!-- Modal de confirmação de reversão com diff visual -->

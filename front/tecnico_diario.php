@@ -1,5 +1,6 @@
 <?php
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
 Session::checkLoginUser();
@@ -141,7 +142,7 @@ Html::header('Diário — Inventário', $_SERVER['PHP_SELF'], 'tools', 'assetmgr
 </style>
 <script>
 var _diarioBase='../ajax/diario_save.php';
-var _csrf='<?= Session::getNewCSRFToken() ?>';
+var _csrf='<?= ams_csrf_token() ?>';
 function amToggleDiarioCard(id){var b=document.getElementById('body-'+id),c=document.getElementById('chevron-'+id),h=b.style.display==='none';b.style.display=h?'block':'none';c.style.transform=h?'rotate(180deg)':'';}
 function amAddQuickAction(id,txt){var ta=document.getElementById('log-'+id);if(ta.value&&!ta.value.endsWith('\n'))ta.value+='\n';ta.value+='• '+txt+'\n';}
 function amToggleComp(cb){var id=cb.dataset.itemId,comp=cb.dataset.comp,lbl=document.getElementById('comp-label-'+id+'-'+comp),icon=lbl.querySelector('.ti');if(cb.checked){lbl.className='am-diario-comp-toggle resolved';icon.className='ti ti-circle-check';}else{lbl.className='am-diario-comp-toggle problem';icon.className='ti ti-alert-triangle';}}

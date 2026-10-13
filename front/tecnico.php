@@ -1,6 +1,7 @@
 <?php
 
 include('../../../inc/includes.php');
+require_once __DIR__ . '/../src/compat.php';
 
 use GlpiPlugin\Assetmgrstatus\MaintenanceRecord;
 use GlpiPlugin\Assetmgrstatus\Transfer;
@@ -902,7 +903,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <form id="am-pegar-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php" onsubmit="return amSubmitPegar(event)">
             <input type="hidden" name="action" value="pegar">
             <input type="hidden" name="transfer_id" id="am-pegar-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="width:56px;height:56px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
@@ -935,7 +936,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php">
             <input type="hidden" name="action" value="finalizar">
             <input type="hidden" name="transfer_id" id="am-finalizar-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="width:56px;height:56px;background:linear-gradient(135deg,#4f46e5,#7c3aed);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
@@ -971,7 +972,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <form method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php">
             <input type="hidden" name="action" value="cancelar">
             <input type="hidden" name="transfer_id" id="am-cancelar-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="width:56px;height:56px;background:linear-gradient(135deg,#dc2626,#ef4444);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
@@ -1012,7 +1013,7 @@ Html::header('Técnico', $_SERVER['PHP_SELF'], 'tools', 'assetmgrstatus', 'tecni
         <form id="am-pegar-ticket-form" method="POST" action="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.form.php" onsubmit="return amSubmitPegarTicket(event)">
             <input type="hidden" name="action" value="pegar_ticket">
             <input type="hidden" name="tickets_id" id="am-pegar-ticket-id">
-            <?= Html::hidden('_glpi_csrf_token', ['value' => Session::getNewCSRFToken()]) ?>
+            <?= Html::hidden('_glpi_csrf_token', ['value' => ams_csrf_token()]) ?>
             <div class="am-modal-body" style="padding:24px;">
                 <div style="text-align:center;margin-bottom:20px;">
                     <div style="width:56px;height:56px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:16px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
@@ -1865,7 +1866,7 @@ function amKanbanConfirmGo(){
   fd.append('type', pending.type);
   fd.append('id', pending.id);
   fd.append('to', pending.to);
-  var csrf3=amGetCsrfToken() || '<?= Session::getNewCSRFToken() ?>';
+  var csrf3=amGetCsrfToken() || '<?= ams_csrf_token() ?>';
   fd.append('_glpi_csrf_token', csrf3);
   var h3={'X-Requested-With':'XMLHttpRequest'}; if(csrf3) h3['X-Glpi-Csrf-Token']=csrf3;
   fetch('<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/ajax/kanban_move.php', {method:'POST', body:fd, credentials:'same-origin', headers:h3})
