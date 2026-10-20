@@ -451,6 +451,7 @@ try { $__am_tecnicos = Transfer::getTecnicosAssinaturas(true); } catch (Throwabl
             <div style="font-size:.9rem;color:#6b7280;margin:8px 0 16px;">Assinatura salva com sucesso.<br>O termo foi atualizado e já pode ser impresso.</div>
             <div id="am-wiz-7-info" style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;padding:12px;font-size:.85rem;color:#065f46;margin-bottom:16px;"></div>
             <button type="button" id="am-wiz-7-print-bulk" class="am-btn" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;display:none;" onclick="amSigPrintBulkHP()"><i class="ti ti-printer"></i> <span id="am-wiz-7-print-bulk-label">Mandar as impressões</span></button>
+            <button type="button" id="am-wiz-7-open-pdfs" class="am-btn" style="width:100%;margin-bottom:8px;background:#fff;border:1.5px solid #c7d2fe;color:#4f46e5;display:none;" onclick="amSigOpenWiz7Pdfs()"><i class="ti ti-file-type-pdf"></i> <span id="am-wiz-7-open-pdfs-label">Abrir os PDFs</span></button>
             <button type="button" id="am-wiz-7-reload" class="am-btn" style="width:100%;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;" onclick="location.reload()"><i class="ti ti-refresh"></i> Fechar e atualizar</button>
         </div>
 
@@ -724,6 +725,43 @@ function amSigOpenBulkPdfs(ids){
     }
   }, 800);
 }
+// Abre os PDFs do wizard final somente quando o usuário clicar (sem auto-open).
+function amSigOpenWiz7Pdfs(){
+  var ids=(window._amWiz7PrintIds||[]).slice();
+  if(!ids.length) return;
+  var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+  // o primeiro abre direto no clique (evita bloqueio de pop-up); os demais com atraso
+  window.open(base+'/front/transfer_pdf.php?id='+encodeURIComponent(String(ids[0]))+'&stage=pronto','_blank');
+  amSigOpenBulkPdfs(ids.slice(1));
+}
+// Gera o PDF no cliente exatamente como o botão "Imprimir na HP" da página do termo
+// (html2pdf sobre o .page dentro de iframe oculto) para sair com o MESMO design.
+// Retorna base64 ou null (aí a impressão cai no PDF gerado pelo servidor).
+async function amSigRenderPdfBase64(id){
+  var base=(window.location.pathname.split('/plugins/assetmgrstatus')[0]||'')+'/plugins/assetmgrstatus';
+  var html;
+  try{ html=await (await fetch(base+'/front/transfer_pdf.php?id='+encodeURIComponent(String(id))+'&stage=pronto', {credentials:'same-origin'})).text(); }
+  catch(e){ console.warn('[amSigRenderPdfBase64] fetch falhou', id, e); return null; }
+  var iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;left:-10000px;top:0;width:900px;height:1400px;border:0;';
+  document.body.appendChild(iframe);
+  try{
+    var iwin=iframe.contentWindow, idoc=iframe.contentDocument||(iwin&&iwin.document);
+    if(!iwin || !idoc) return null;
+    idoc.open(); idoc.write(html); idoc.close();
+    var waited=0;
+    while(!iwin.html2pdf && waited<8000){ await new Promise(function(r){ setTimeout(r,200); }); waited+=200; }
+    if(!iwin.html2pdf){ console.warn('[amSigRenderPdfBase64] html2pdf não carregou', id); return null; }
+    try{ if(idoc.fonts && idoc.fonts.ready) await idoc.fonts.ready; }catch(e){}
+    await new Promise(function(r){ setTimeout(r,250); });
+    var pageEl=idoc.querySelector('.page');
+    if(!pageEl) return null;
+    var opt={ margin:[10,10,10,10], filename:'Termo-'+String(id).padStart(6,'0')+'.pdf', image:{type:'jpeg',quality:1}, html2canvas:{scale:3,useCORS:true,scrollY:0,logging:false,letterRendering:true,dpi:300}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} };
+    var dataUri=await iwin.html2pdf().set(opt).from(pageEl).outputPdf('datauristring');
+    return (String(dataUri).split(',')[1]||null);
+  }catch(e){ console.warn('[amSigRenderPdfBase64] falha ao gerar PDF', id, e); return null; }
+  finally{ try{ iframe.remove(); }catch(e){} }
+}
 // Envia cada PDF assinado SEPARADAMENTE para a impressora (mesmo endpoint do "Imprimir na HP"),
 // sem abrir diálogo: 2+ termos viram 2+ jobs de impressão independentes na fila CUPS.
 async function amSigPrintBulkHP(){
@@ -737,11 +775,15 @@ async function amSigPrintBulkHP(){
   var okCount=0, fails=[];
   for(var i=0;i<ids.length;i++){
     var id=ids[i];
+    if(label) label.textContent='Gerando PDF '+(i+1)+'/'+ids.length+'...';
+    var pdfBase64=await amSigRenderPdfBase64(id);
     if(label) label.textContent='Enviando '+(i+1)+'/'+ids.length+'...';
     try{
-      var res=await fetch(base+'/front/print_hp.form.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams({transfer_id:String(id), stage:'pronto', _glpi_csrf_token:amCsrfToken})});
+      var params={transfer_id:String(id), stage:'pronto', _glpi_csrf_token:amCsrfToken};
+      if(pdfBase64) params.pdf_base64=pdfBase64;
+      var res=await fetch(base+'/front/print_hp.form.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams(params)});
       if (!res.ok && (res.status===403 || res.status===404)) {
-        res=await fetch(base+'/ajax/print_hp.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams({transfer_id:String(id), stage:'pronto', _glpi_csrf_token:amCsrfToken})});
+        res=await fetch(base+'/ajax/print_hp.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams(params)});
       }
       if (!res.ok && (res.status===403 || res.status===404)) {
         res=await fetch(base+'/front/print_hp.form.php?transfer_id='+encodeURIComponent(String(id))+'&stage=pronto&_glpi_csrf_token='+encodeURIComponent(amCsrfToken), {credentials:'same-origin', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}});
@@ -886,8 +928,9 @@ function amWizGo(n){
   }
   // mantém banner lote visível só na etapa 1
   var bulkB=document.getElementById('am-bulk-banner'); if(bulkB) bulkB.style.display = (amSigBulkMode && n===1) ? 'flex' : 'none';
-  // botão de impressão em lote só existe na etapa final (wiz 7)
+  // botões de impressão/abertura só existem na etapa final (wiz 7)
   var printBulkBtn=document.getElementById('am-wiz-7-print-bulk'); if(printBulkBtn && n!==7) printBulkBtn.style.display='none';
+  var openPdfsBtn=document.getElementById('am-wiz-7-open-pdfs'); if(openPdfsBtn && n!==7) openPdfsBtn.style.display='none';
 }
 function amWizNext(n){
   if(n===1){
@@ -1116,30 +1159,31 @@ async function amSigSave() {
                 return;
             }
             if (j.ok) {
-                // sucesso lote: mostra wiz 7 com lista e abre PDFs
+                // sucesso lote: mostra wiz 7 com lista; PDFs só abrem se clicar no botão
                 amWizGo(7);
                 var info=document.getElementById('am-wiz-7-info');
                 if(info){
-                  info.innerHTML='<div style="font-weight:800;color:#065f46;font-size:1rem;">✅ '+amSigTransferIds.length+' termos assinados!</div><div style="margin-top:6px;font-size:.85rem;color:#065f46;">Escola: <strong>'+(amSigSelectedOriginName||'')+'</strong><br>Recebedor: '+(nome||'')+' — '+(amSigDocType||'')+' '+amSigDocNumber+'<br>Técnico: '+(tecNome||'')+'</div><div style="margin-top:10px;font-size:.82rem;color:#6b7280;">Os PDFs abrirão em abas separadas para impressão. Se o navegador bloquear, use os botões abaixo.</div>';
+                  info.innerHTML='<div style="font-weight:800;color:#065f46;font-size:1rem;">✅ '+amSigTransferIds.length+' termos assinados!</div><div style="margin-top:6px;font-size:.85rem;color:#065f46;">Escola: <strong>'+(amSigSelectedOriginName||'')+'</strong><br>Recebedor: '+(nome||'')+' — '+(amSigDocType||'')+' '+amSigDocNumber+'<br>Técnico: '+(tecNome||'')+'</div><div style="margin-top:10px;font-size:.82rem;color:#6b7280;">Use os botões abaixo para abrir os PDFs ou mandar as impressões direto para a HP.</div>';
                 }
                 var titleEl=document.getElementById('am-sig-modal-title'); if(titleEl) titleEl.textContent='Assinatura em LOTE — Concluído!';
-                amSigToast('✅ '+amSigTransferIds.length+' assinaturas salvas! Abrindo PDFs...', true);
+                amSigToast('✅ '+amSigTransferIds.length+' assinaturas salvas!', true);
                 // botão "Mandar as N impressões": envia cada PDF assinado separado direto pra HP
                 window._amWiz7PrintIds = amSigTransferIds.slice();
                 var printBulkBtn=document.getElementById('am-wiz-7-print-bulk');
                 var printBulkLabel=document.getElementById('am-wiz-7-print-bulk-label');
                 if(printBulkLabel) printBulkLabel.textContent = amSigTransferIds.length>1 ? ('Mandar as '+amSigTransferIds.length+' impressões') : 'Mandar a impressão';
                 if(printBulkBtn) printBulkBtn.style.display='block';
-                // abre PDFs
-                setTimeout(function(){ amSigOpenBulkPdfs(amSigTransferIds); }, 600);
+                // botão "Abrir os PDFs" (nada abre automático)
+                var openPdfsBtn=document.getElementById('am-wiz-7-open-pdfs');
+                var openPdfsLabel=document.getElementById('am-wiz-7-open-pdfs-label');
+                if(openPdfsLabel) openPdfsLabel.textContent = amSigTransferIds.length>1 ? ('Abrir os '+amSigTransferIds.length+' PDFs') : 'Abrir o PDF';
+                if(openPdfsBtn) openPdfsBtn.style.display='block';
                 // atualiza wiz7 botão para recarregar e limpar seleção
                 var btnReload=document.getElementById('am-wiz-7-reload');
                 if(btnReload){
-                  btnReload.innerHTML='<i class="ti ti-printer"></i> PDFs abertos — Fechar e atualizar';
+                  btnReload.innerHTML='<i class="ti ti-refresh"></i> Fechar e atualizar';
                   btnReload.onclick=function(){ amSigClearSelection(); location.reload(); };
                 }
-                // não recarrega automático rápido para dar tempo de ver PDFs; recarrega após 12s se usuário não clicar
-                setTimeout(function(){ try{ if(document.getElementById('am-modal-assinatura').classList.contains('open')){ amSigClearSelection(); location.reload(); } }catch(e){} }, 12000);
             } else {
                 amSigToast('❌ ' + (j.error || 'Falha ao salvar lote.'));
                 console.error(j);
@@ -1187,8 +1231,10 @@ async function amSigSave() {
             var printBulkLabel1=document.getElementById('am-wiz-7-print-bulk-label');
             if(printBulkLabel1) printBulkLabel1.textContent='Mandar a impressão';
             if(printBulkBtn1) printBulkBtn1.style.display='block';
-            setTimeout(function(){ amSigOpenBulkPdfs([amSigTransferId]); }, 700);
-            setTimeout(function(){ location.reload(); }, 2500);
+            var openPdfsBtn1=document.getElementById('am-wiz-7-open-pdfs');
+            var openPdfsLabel1=document.getElementById('am-wiz-7-open-pdfs-label');
+            if(openPdfsLabel1) openPdfsLabel1.textContent='Abrir o PDF';
+            if(openPdfsBtn1) openPdfsBtn1.style.display='block';
         } else {
             amSigToast('❌ ' + (j.error || 'Falha ao salvar.'));
             console.error(j);
