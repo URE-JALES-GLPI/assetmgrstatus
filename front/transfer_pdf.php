@@ -288,7 +288,7 @@ async function amPrintHP() {
         const pageEl = document.querySelector('.page');
         if (!pageEl) throw new Error('Elemento .page não encontrado');
         if (!window.html2pdf) throw new Error('html2pdf não carregou (CDN bloqueado?)');
-        const opt = { margin: [10, 10, 10, 10], filename: 'Termo-' + String(amTransferIdPdf).padStart(6,'0') + '.pdf', image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 3, useCORS: true, scrollY: 0, logging: false, letterRendering: true, dpi: 300 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+        const opt = { margin: 10, filename: 'Termo-' + String(amTransferIdPdf).padStart(6,'0') + '.pdf', image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 3, useCORS: true, scrollY: 0, logging: false, letterRendering: true, dpi: 300 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
         const dataUri = await html2pdf().set(opt).from(pageEl).outputPdf('datauristring');
         const parts = dataUri.split(','); pdfBase64 = parts[1] || null;
         if (!pdfBase64) throw new Error('PDF vazio');

@@ -756,7 +756,7 @@ async function amSigRenderPdfBase64(id){
     await new Promise(function(r){ setTimeout(r,250); });
     var pageEl=idoc.querySelector('.page');
     if(!pageEl) return null;
-    var opt={ margin:[10,10,10,10], filename:'Termo-'+String(id).padStart(6,'0')+'.pdf', image:{type:'jpeg',quality:1}, html2canvas:{scale:3,useCORS:true,scrollY:0,logging:false,letterRendering:true,dpi:300}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} };
+    var opt={ margin:10, filename:'Termo-'+String(id).padStart(6,'0')+'.pdf', image:{type:'jpeg',quality:1}, html2canvas:{scale:3,useCORS:true,scrollY:0,logging:false,letterRendering:true,dpi:300}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} };
     var dataUri=await iwin.html2pdf().set(opt).from(pageEl).outputPdf('datauristring');
     return (String(dataUri).split(',')[1]||null);
   }catch(e){ console.warn('[amSigRenderPdfBase64] falha ao gerar PDF', id, e); return null; }
@@ -1581,6 +1581,40 @@ try{
     if(!amSigTecnicosCache||!amSigTecnicosCache.length) amSigTecnicosCache=amInitialTecCache.slice();
   }
 }catch(e){}
+// Auto-atualizacao: compara o hash da lista (ajax/assinatura_check.php) e recarrega quando muda.
+(function(){
+  var filter = <?= json_encode($filter) ?>;
+  var base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
+  var lastHash = null, reloading = false;
+  function busy(){
+    try{
+      var m = document.getElementById('am-modal-assinatura');
+      if(m && m.classList.contains('open')) return true;
+      if(document.querySelector('.am-sig-bulk-bar.open')) return true;
+      var ae = document.activeElement;
+      if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
+    }catch(e){}
+    return false;
+  }
+  async function check(){
+    if(reloading) return;
+    try{
+      var r = await fetch(base + '/ajax/assinatura_check.php?f=' + encodeURIComponent(filter) + '&_t=' + Date.now(), {credentials:'same-origin', headers:{'X-Requested-With':'XMLHttpRequest'}});
+      var j = await r.json();
+      if(!j || typeof j.hash !== 'string') return;
+      if(lastHash === null){ lastHash = j.hash; return; }
+      if(j.hash === lastHash) return;
+      if(document.hidden || busy()) return;
+      reloading = true;
+      try{ amSigToast('Atualizando lista de assinaturas...', true); }catch(e){}
+      setTimeout(function(){ location.reload(); }, 700);
+    }catch(e){}
+  }
+  setInterval(check, 15000);
+  window.addEventListener('focus', check);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(); });
+  check();
+})();
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ try{amCloseTecCadastroModal();}catch(_e){} amCloseAssinaturaModal(); } });
 </script>
 <style>@keyframes amSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}</style>
