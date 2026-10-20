@@ -777,16 +777,13 @@ async function amSigPrintBulkHP(){
     var id=ids[i];
     if(label) label.textContent='Gerando PDF '+(i+1)+'/'+ids.length+'...';
     var pdfBase64=await amSigRenderPdfBase64(id);
+    if(!pdfBase64){ fails.push('#'+String(id).padStart(4,'0')+': não foi possível gerar o PDF idêntico ao termo'); continue; }
     if(label) label.textContent='Enviando '+(i+1)+'/'+ids.length+'...';
     try{
-      var params={transfer_id:String(id), stage:'pronto', _glpi_csrf_token:amCsrfToken};
-      if(pdfBase64) params.pdf_base64=pdfBase64;
+      var params={transfer_id:String(id), stage:'pronto', pdf_base64:pdfBase64, _glpi_csrf_token:amCsrfToken};
       var res=await fetch(base+'/front/print_hp.form.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams(params)});
       if (!res.ok && (res.status===403 || res.status===404)) {
         res=await fetch(base+'/ajax/print_hp.php', {method:'POST', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', body:new URLSearchParams(params)});
-      }
-      if (!res.ok && (res.status===403 || res.status===404)) {
-        res=await fetch(base+'/front/print_hp.form.php?transfer_id='+encodeURIComponent(String(id))+'&stage=pronto&_glpi_csrf_token='+encodeURIComponent(amCsrfToken), {credentials:'same-origin', headers:{'X-Glpi-Csrf-Token':amCsrfToken,'X-Requested-With':'XMLHttpRequest'}});
       }
       var text=await res.text();
       var j; try{ j=JSON.parse(text); }catch(e){ j={ok:false, error:'Resposta inválida (HTTP '+res.status+')'}; }
@@ -1259,11 +1256,18 @@ function amSigCancelFinal(){
 async function amPrintHP(transferId) {
     const btn = document.getElementById('am-print-hp-' + transferId);
     const oldHtml = btn ? btn.innerHTML : '';
-    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' (PDF assinado) para impressão na HP?\n\nSerá impresso EXATAMENTE o mesmo arquivo que abre em "PDF Assinado" (A4, 1 cópia; frente e verso automático com 2 ou mais páginas).\nO PDF é gerado no servidor Ubuntu (GLPI) e enviado para a fila CUPS da HP padrão.')) return;
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...'; }
+    if (!confirm('Enviar Termo #' + String(transferId).padStart(4,'0') + ' para impressão na HP?\n\nO PDF é gerado no navegador com o MESMO design do termo (A4, 1 cópia; frente e verso automático com 2 ou mais páginas) e enviado para a fila CUPS da HP padrão.')) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Gerando PDF...'; }
     try {
+        const pdfBase64 = await amSigRenderPdfBase64(transferId);
+        if (!pdfBase64) {
+            alert('❌ Não foi possível gerar o PDF idêntico ao termo neste navegador.\n\nAbra o "PDF Assinado" e use "Imprimir na HP" na própria página do termo.');
+            if (btn) { btn.disabled=false; btn.innerHTML=oldHtml; }
+            return;
+        }
+        if (btn) btn.innerHTML = '<i class="ti ti-loader-2" style="animation:amSpin .8s linear infinite;display:inline-block;"></i> Enviando...';
         const base = (window.location.pathname.split('/plugins/assetmgrstatus')[0] || '') + '/plugins/assetmgrstatus';
-        const formBody = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', _glpi_csrf_token: amCsrfToken});
+        const formBody = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', pdf_base64: pdfBase64, _glpi_csrf_token: amCsrfToken});
         let res = await fetch(base + '/front/print_hp.form.php', {
             method: 'POST',
             headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'},
@@ -1272,19 +1276,12 @@ async function amPrintHP(transferId) {
         });
         if (!res.ok && (res.status===403 || res.status===404)) {
             // fallback ajax com POST form-encoded
-            const formBody2 = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', _glpi_csrf_token: amCsrfToken});
+            const formBody2 = new URLSearchParams({transfer_id: String(transferId), stage: 'pronto', pdf_base64: pdfBase64, _glpi_csrf_token: amCsrfToken});
             res = await fetch(base + '/ajax/print_hp.php', {
                 method: 'POST',
                 headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'},
                 credentials: 'same-origin',
                 body: formBody2
-            });
-        }
-        if (!res.ok && (res.status===403 || res.status===404)) {
-            // último fallback via GET (bypass CSRF POST)
-            res = await fetch(base + '/front/print_hp.form.php?transfer_id=' + encodeURIComponent(String(transferId)) + '&stage=pronto&_glpi_csrf_token=' + encodeURIComponent(amCsrfToken), {
-                credentials: 'same-origin',
-                headers: {'X-Glpi-Csrf-Token': amCsrfToken, 'X-Requested-With': 'XMLHttpRequest'}
             });
         }
         const text = await res.text();
