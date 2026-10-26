@@ -26,7 +26,7 @@ Desenvolvido para ambientes com grande volume de ativos distribuídos entre sede
 
 ## Tecnologias
 
-GLPI 10–12 · PHP 8 · MySQL/MariaDB · GLPI Custom Assets
+GLPI 12 · PHP 8 · MySQL/MariaDB · GLPI Custom Assets
 
 ## Licença
 
