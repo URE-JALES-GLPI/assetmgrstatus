@@ -83,7 +83,7 @@ $preview_count = match($report_mode) {
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/dashboard.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-dashboard"></i> Dashboard</a>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-clipboard-list"></i> Inventário</a>
             <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/tralla/front/kanban.php?boards_id=1" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-tools"></i> Técnico</a>
             <?php endif; ?>
             <a href="http://10.180.152.27/glpi/plugins/cadastroativos/Cadastro" target="_blank" class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;"><i class="ti ti-plus"></i> Cadastrar</a>
             <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/maintenance.php" class="am-btn am-btn-secondary" style="padding:8px 16px;font-size:.82rem;"><i class="ti ti-arrow-left"></i> Voltar</a>

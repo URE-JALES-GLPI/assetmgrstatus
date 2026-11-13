@@ -38,18 +38,18 @@ class PluginAssetmgrstatusMenu extends CommonGLPI
         if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)) {
             $options['tecnico'] = [
                 'title' => 'Técnico',
-                'page'  => $base . '/tecnico.php',
+                'page'  => '/plugins/tralla/front/kanban.php?boards_id=1',
                 'icon'  => 'ti ti-tools',
-                'links' => ['search' => $base . '/tecnico.php'],
+                'links' => ['search' => '/plugins/tralla/front/kanban.php?boards_id=1'],
             ];
         }
         // Assinatura — ao lado de Técnico; mesma regra da página (quem pode abrir, vê no menu)
         if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ) || Session::haveRight('plugin_assetmgrstatus_tecnico', READ) || Session::haveRight('plugin_assetmgrstatus_admin', READ) || Session::haveRight('plugin_assetmgrstatus', READ)) {
             $options['assinatura'] = [
                 'title' => 'Assinatura',
-                'page'  => $base . '/assinatura.php',
+                'page'  => '/plugins/assignature/front/index.php',
                 'icon'  => 'ti ti-signature',
-                'links' => ['search' => $base . '/assinatura.php'],
+                'links' => ['search' => '/plugins/assignature/front/index.php'],
             ];
         }
         $options['reports'] = [

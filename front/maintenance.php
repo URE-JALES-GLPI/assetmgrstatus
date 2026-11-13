@@ -221,13 +221,13 @@ if ($can_admin_entity) {
                 <i class="ti ti-dashboard"></i> Dashboard
             </a>
             <?php if (Session::haveRight('plugin_assetmgrstatus_tecnico', READ)): ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/tecnico.php"
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/tralla/front/kanban.php?boards_id=1"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-tools"></i> Técnico
             </a>
             <?php endif; ?>
             <?php if (Session::haveRight('plugin_assetmgrstatus_assinatura', READ)): ?>
-            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assetmgrstatus/front/assinatura.php"
+            <a href="<?= $CFG_GLPI['root_doc'] ?>/plugins/assignature/front/index.php"
                class="am-btn am-btn-secondary" style="padding:8px 14px;font-size:.82rem;">
                 <i class="ti ti-signature"></i> Assinatura
             </a>
