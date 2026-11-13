@@ -268,7 +268,7 @@ class MaintenanceRecord extends CommonDBTM
         $iter = $DB->request([
             'SELECT' => ['date_creation'],
             'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
-            'WHERE'  => ['items_id' => $items_id, 'record_type' => self::RECORD_MANUTENCAO],
+            'WHERE'  => ['items_id' => $items_id, 'record_type' => [self::RECORD_MANUTENCAO, self::RECORD_TRALLA_LINK]],
             'ORDER'  => ['date_creation DESC'],
             'LIMIT'  => 1,
         ]);
@@ -601,7 +601,7 @@ class MaintenanceRecord extends CommonDBTM
             $iter_m = $DB->request([
                 'SELECT' => ['items_id', 'date_creation'],
                 'FROM'   => 'glpi_plugin_assetmgrstatus_histories',
-                'WHERE'  => ['items_id' => $ids, 'record_type' => self::RECORD_MANUTENCAO],
+                'WHERE'  => ['items_id' => $ids, 'record_type' => [self::RECORD_MANUTENCAO, self::RECORD_TRALLA_LINK]],
                 'ORDER'  => ['date_creation DESC'],
             ]);
             foreach ($iter_m as $m) {
@@ -1031,6 +1031,12 @@ class MaintenanceRecord extends CommonDBTM
     public static function logTrallaMaintenance(string $itemtype, int $items_id, string $description, int $cardId = 0): bool
     {
         return self::insertTrallaEntry($itemtype, $items_id, self::RECORD_MANUTENCAO, $description, $cardId);
+    }
+
+    /** Desvínculo: só observação no histórico (não reinicia o contador de dias sem manutenção). */
+    public static function logTrallaUnlink(string $itemtype, int $items_id, string $description, int $cardId = 0): bool
+    {
+        return self::insertTrallaEntry($itemtype, $items_id, self::RECORD_NOTE, $description, $cardId);
     }
 
     private static function insertTrallaEntry(string $itemtype, int $items_id, string $record_type, string $description, int $cardId): bool
