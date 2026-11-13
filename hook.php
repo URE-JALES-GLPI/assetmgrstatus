@@ -75,6 +75,7 @@ function plugin_assetmgrstatus_schema(): bool
         ") or die($DB->error());
     } else {
         plugin_assetmgrstatus_add_columns('glpi_plugin_assetmgrstatus_histories', [
+            'tralla_cards_id' => "ALTER TABLE `glpi_plugin_assetmgrstatus_histories` ADD COLUMN `tralla_cards_id` INT {$sign} NOT NULL DEFAULT '0'",
             'record_type'        => "ALTER TABLE `glpi_plugin_assetmgrstatus_histories` ADD COLUMN `record_type` VARCHAR(50) NOT NULL DEFAULT 'status_change' AFTER `status_new`",
             'action_description' => "ALTER TABLE `glpi_plugin_assetmgrstatus_histories` ADD COLUMN `action_description` LONGTEXT DEFAULT NULL AFTER `record_type`",
             'action_date'        => "ALTER TABLE `glpi_plugin_assetmgrstatus_histories` ADD COLUMN `action_date` DATE DEFAULT NULL AFTER `action_description`",

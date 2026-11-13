@@ -1080,3 +1080,94 @@ window.amToggleTheme = function() {
         window._amGridResizeTimer=setTimeout(amEnforceGridOnMobile, 300);
     });
 })();
+
+
+/* Histórico Manutenção: abre o card do Tralla (modo embed) sem sair da página do ativo */
+(function () {
+    'use strict';
+    function closeLayer() {
+        var layer = document.querySelector('.am-tralla-modal');
+        if (layer) { layer.remove(); }
+        document.body.style.overflow = '';
+    }
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-am-tralla-card]');
+        if (!button) { return; }
+        event.preventDefault();
+        closeLayer();
+        var layer = document.createElement('div');
+        layer.className = 'am-tralla-modal';
+        layer.style.cssText = 'position:fixed;inset:0;z-index:1090;';
+        var frame = document.createElement('iframe');
+        frame.title = 'Card do Tralla';
+        frame.setAttribute('allowtransparency', 'true');
+        frame.style.cssText = 'border:0;width:100%;height:100%;background:transparent;';
+        frame.src = button.getAttribute('data-am-tralla-card');
+        layer.appendChild(frame);
+        document.body.appendChild(layer);
+        document.body.style.overflow = 'hidden';
+    });
+    window.addEventListener('message', function (event) {
+        if (event.origin === window.location.origin && event.data && event.data.trallaEmbed === 'closed') {
+            closeLayer();
+        }
+    });
+})();
+
+
+/* Olhinho do inventário: abre o ativo (aba Histórico Manutenção) num modal grande, sem trocar de página */
+(function () {
+    'use strict';
+    function closeAssetModal() {
+        var layer = document.querySelector('.am-asset-modal');
+        if (layer) { layer.remove(); }
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', onKey, true);
+    }
+    function onKey(event) {
+        if (event.key === 'Escape' && !document.querySelector('.am-tralla-modal')) { closeAssetModal(); }
+    }
+    document.addEventListener('click', function (event) {
+        var link = event.target.closest('[data-am-asset-modal]');
+        if (!link || event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) { return; }
+        event.preventDefault();
+        event.stopPropagation();
+        closeAssetModal();
+        var layer = document.createElement('div');
+        layer.className = 'am-asset-modal';
+        layer.style.cssText = 'position:fixed;inset:0;z-index:1085;background:rgba(15,23,42,.6);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:2.5vh 3vw;';
+        var box = document.createElement('div');
+        box.style.cssText = 'background:#fff;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.45);display:flex;flex-direction:column;height:100%;max-width:1500px;overflow:hidden;width:100%;';
+        var head = document.createElement('div');
+        head.style.cssText = 'align-items:center;border-bottom:1px solid #e8eaf0;display:flex;gap:10px;padding:10px 16px;';
+        var title = document.createElement('strong');
+        title.style.cssText = 'flex:1;font-size:1rem;';
+        title.textContent = link.getAttribute('data-am-asset-title') || 'Ativo';
+        var open = document.createElement('a');
+        open.href = link.getAttribute('href');
+        open.target = '_blank';
+        open.rel = 'noopener';
+        open.textContent = 'Abrir em outra aba';
+        open.style.cssText = 'font-size:.85rem;';
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Fechar');
+        close.innerHTML = '&times;';
+        close.style.cssText = 'background:none;border:0;cursor:pointer;font-size:1.8rem;line-height:1;padding:0 6px;';
+        close.addEventListener('click', closeAssetModal);
+        head.appendChild(title);
+        head.appendChild(open);
+        head.appendChild(close);
+        var frame = document.createElement('iframe');
+        frame.title = 'Ativo';
+        frame.style.cssText = 'border:0;flex:1;width:100%;';
+        frame.src = link.getAttribute('data-am-asset-modal');
+        box.appendChild(head);
+        box.appendChild(frame);
+        layer.appendChild(box);
+        layer.addEventListener('click', function (e) { if (e.target === layer) { closeAssetModal(); } });
+        document.body.appendChild(layer);
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', onKey, true);
+    }, true);
+})();

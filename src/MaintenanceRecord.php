@@ -445,6 +445,9 @@ class MaintenanceRecord extends CommonDBTM
                     echo '<div style="display:flex;gap:7px;font-size:.88rem;color:#1f2937;margin-bottom:10px;background:#f9fafb;padding:10px 12px;border-radius:8px;border-left:3px solid '.$ic.';">';
                     echo '<i class="ti ti-'.$ii.'" style="flex-shrink:0;margin-top:2px;color:'.$ic.';"></i><span>'.htmlspecialchars($h['action_description']).'</span></div>';
                 }
+                if (!empty($h['tralla_cards_id'])) {
+                    echo self::trallaCardLine((int) $h['tralla_cards_id']);
+                }
                 if ($record_type === self::RECORD_BAIXA && !empty($h['action_date'])) {
                     echo '<div style="font-size:.82rem;color:#6b7280;margin-bottom:8px;"><i class="ti ti-calendar-event"></i> Data da baixa: <strong>'.date('d/m/Y', strtotime($h['action_date'])).'</strong></div>';
                 }
@@ -1016,25 +1019,71 @@ class MaintenanceRecord extends CommonDBTM
      * O Tralla vinculou/desvinculou este ativo a uma máquina de card de manutenção.
      * Fica no "Histórico Manutenção" do ativo sem alterar o status dele.
      */
-    public static function logTrallaLink(string $itemtype, int $items_id, string $description): bool
+    public static function logTrallaLink(string $itemtype, int $items_id, string $description, int $cardId = 0): bool
     {
-        return self::logTransferGeneric($itemtype, $items_id, self::RECORD_TRALLA_LINK, $description);
+        return self::insertTrallaEntry($itemtype, $items_id, self::RECORD_TRALLA_LINK, $description, $cardId);
     }
 
     /**
      * Manutenção concluída no Tralla: entra no histórico como "Manutenção Realizada"
      * (conta nas estatísticas e no "dias desde a última manutenção"), com o relatório técnico.
      */
-    public static function logTrallaMaintenance(string $itemtype, int $items_id, string $description): bool
+    public static function logTrallaMaintenance(string $itemtype, int $items_id, string $description, int $cardId = 0): bool
+    {
+        return self::insertTrallaEntry($itemtype, $items_id, self::RECORD_MANUTENCAO, $description, $cardId);
+    }
+
+    private static function insertTrallaEntry(string $itemtype, int $items_id, string $record_type, string $description, int $cardId): bool
     {
         global $DB;
         try {
-            self::saveManutencaoRealizada($itemtype, $items_id, $description, []);
+            $cur = $DB->request(['SELECT' => ['am_status'], 'FROM' => 'glpi_plugin_assetmgrstatus_records', 'WHERE' => ['itemtype' => $itemtype, 'items_id' => $items_id], 'LIMIT' => 1]);
+            $status = $cur->count() > 0 ? $cur->current()['am_status'] : self::STATUS_ESTOQUE;
+            $row = [
+                'items_id' => $items_id, 'itemtype' => $itemtype, 'item_name' => self::getItemName($items_id),
+                'status_old' => $status, 'status_new' => $status, 'record_type' => $record_type,
+                'reason' => null, 'action_description' => $description, 'action_date' => null,
+                'components' => null, 'photos' => null,
+                'users_id' => (int) Session::getLoginUserID(), 'date_creation' => date('Y-m-d H:i:s'),
+            ];
+            if ($cardId > 0 && $DB->fieldExists('glpi_plugin_assetmgrstatus_histories', 'tralla_cards_id')) {
+                $row['tralla_cards_id'] = $cardId;
+            }
+            $DB->insert('glpi_plugin_assetmgrstatus_histories', $row);
         } catch (\Throwable $e) {
-            error_log('[assetmgrstatus] logTrallaMaintenance: ' . $e->getMessage());
+            error_log('[assetmgrstatus] histórico do Tralla: ' . $e->getMessage());
             return false;
         }
         return true;
+    }
+
+    /** Linha "card" do Tralla (clicável) no histórico: dados do card + endereço do modal embutido. */
+    private static function trallaCardLine(int $cardId): string
+    {
+        global $DB, $CFG_GLPI;
+        if ($cardId <= 0 || !\Plugin::isPluginActive('tralla') || !Session::haveRight('plugin_tralla', READ)
+            || !$DB->tableExists('glpi_plugin_tralla_cards')) {
+            return '';
+        }
+        $card = $DB->request([
+            'SELECT' => ['id', 'name', 'plugin_tralla_boards_id', 'status', 'code_number'],
+            'FROM'   => 'glpi_plugin_tralla_cards', 'WHERE' => ['id' => $cardId], 'LIMIT' => 1,
+        ])->current();
+        if (!is_array($card)) {
+            return '<div style="font-size:.8rem;color:#9ca3af;margin-bottom:8px;">Card #' . $cardId . ' do Tralla (removido).</div>';
+        }
+        $board = $DB->request(['SELECT' => ['name'], 'FROM' => 'glpi_plugin_tralla_boards',
+            'WHERE' => ['id' => (int) $card['plugin_tralla_boards_id']], 'LIMIT' => 1])->current();
+        $url = $CFG_GLPI['root_doc'] . '/plugins/tralla/front/kanban.php?boards_id=' . (int) $card['plugin_tralla_boards_id']
+            . '&card=' . (int) $card['id'] . '&embed=1';
+        $code = (int) ($card['code_number'] ?? 0) > 0 ? '#' . (int) $card['code_number'] : '#' . (int) $card['id'];
+        return '<button type="button" class="am-tralla-card" data-am-tralla-card="' . htmlspecialchars($url, ENT_QUOTES) . '"'
+            . ' style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;background:#eef6ff;border:1.5px solid #b8d7f5;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
+            . '<i class="ti ti-layout-kanban" style="color:#2f6fb3;font-size:1.3rem;flex-shrink:0;"></i>'
+            . '<span style="display:flex;flex-direction:column;flex:1;min-width:0;"><strong style="color:#1f2937;">Card ' . htmlspecialchars($code)
+            . ' · ' . htmlspecialchars((string) $card['name']) . '</strong>'
+            . '<small style="color:#6b7280;">' . htmlspecialchars((string) ($board['name'] ?? 'Tralla')) . ' — clique para ver o que aconteceu</small></span>'
+            . '<i class="ti ti-arrow-up-right" style="color:#2f6fb3;"></i></button>';
     }
 
     // -------------------------------------------------------

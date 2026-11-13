@@ -822,7 +822,7 @@ if ($can_admin_entity) {
                 <?php endif; ?>
             </div>
             <div class="am-asset-card-footer" style="display:flex;gap:6px;flex-wrap:wrap;<?= $is_transferred ? 'opacity:.4;pointer-events:none;' : '' ?>">
-                <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" class="am-btn am-btn-secondary" style="padding:7px 10px;width:auto;" onclick="event.stopPropagation()" title="Ver ativo"><i class="ti ti-eye"></i></a>
+                <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" data-am-asset-modal="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>&_in_modal=1&forcetab=<?= rawurlencode('GlpiPlugin\\Assetmgrstatus\\MaintenanceRecord$1') ?>" data-am-asset-title="<?= htmlspecialchars((string) ($asset['name'] ?? 'Ativo'), ENT_QUOTES) ?>" class="am-btn am-btn-secondary" style="padding:7px 10px;width:auto;" onclick="event.stopPropagation()" title="Ver ativo"><i class="ti ti-eye"></i></a>
                 <button class="am-btn am-btn-note" style="padding:7px 10px;width:auto;" onclick="event.stopPropagation();amOpenNote(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')" title="Adicionar Observação"><i class="ti ti-note"></i></button>
                 <?php if ($can_tecnico): ?>
                 <button class="am-btn am-btn-green" style="flex:1;padding:7px 8px;font-size:.78rem;" onclick="event.stopPropagation();amOpenManutencao(<?= (int)$asset['id'] ?>,'<?= htmlspecialchars(addslashes($asset['itemtype'])) ?>','<?= htmlspecialchars(addslashes($asset['name'])) ?>')"><i class="ti ti-tools"></i> Manutenção</button>
@@ -896,7 +896,7 @@ if ($can_admin_entity) {
                 </td>
                 <td style="min-width:110px;padding:4px 6px;">
                     <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:4px;">
-                    <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" class="am-btn am-btn-secondary" style="padding:6px 8px;min-width:auto;justify-content:center;" title="Ver"><i class="ti ti-eye"></i></a>
+                    <a href="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>" data-am-asset-modal="<?= $CFG_GLPI['root_doc'] ?>/front/asset/asset.form.php?class=<?= htmlspecialchars($asset['asset_type_key']) ?>&id=<?= (int)$asset['id'] ?>&_in_modal=1&forcetab=<?= rawurlencode('GlpiPlugin\\Assetmgrstatus\\MaintenanceRecord$1') ?>" data-am-asset-title="<?= htmlspecialchars((string) ($asset['name'] ?? 'Ativo'), ENT_QUOTES) ?>" class="am-btn am-btn-secondary" style="padding:6px 8px;min-width:auto;justify-content:center;" title="Ver"><i class="ti ti-eye"></i></a>
                     <?php if ($is_transferred_row): ?>
                     <span style="font-size:.65rem;color:#f97316;font-weight:700;display:flex;align-items:center;gap:3px;padding:2px 4px;grid-column:span 2;justify-content:center;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;"><i class="ti ti-lock" style="font-size:.75rem;"></i> Em transferência</span>
                     <?php else: ?>

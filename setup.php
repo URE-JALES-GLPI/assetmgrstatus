@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/src/compat.php';
 
-define('PLUGIN_ASSETMGRSTATUS_VERSION', '2.1.1');
+define('PLUGIN_ASSETMGRSTATUS_VERSION', '2.2.0');
 define('PLUGIN_ASSETMGRSTATUS_MIN_GLPI', '10.0.0');
 define('PLUGIN_ASSETMGRSTATUS_MAX_GLPI', '12.0.99');
 
