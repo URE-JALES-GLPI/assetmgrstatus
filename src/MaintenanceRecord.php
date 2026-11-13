@@ -30,6 +30,7 @@ class MaintenanceRecord extends CommonDBTM
     const RECORD_NOTE          = 'note';
     const RECORD_TRANSFER      = 'transferencia';
     const RECORD_TRANSFER_RETURN = 'transferencia_retorno';
+    const RECORD_TRALLA_LINK     = 'tralla_vinculo';
 
     const RIGHT_VIEW    = 'plugin_assetmgrstatus';
     const RIGHT_TECNICO = 'plugin_assetmgrstatus_tecnico';
@@ -97,6 +98,7 @@ class MaintenanceRecord extends CommonDBTM
             self::RECORD_NOTE       => 'am-badge-note',
             self::RECORD_TRANSFER   => 'am-badge-transfer',
             self::RECORD_TRANSFER_RETURN => 'am-badge-transfer-return',
+            self::RECORD_TRALLA_LINK => 'am-badge-transfer',
             default                 => 'am-badge-estoque',
         };
     }
@@ -109,6 +111,7 @@ class MaintenanceRecord extends CommonDBTM
             self::RECORD_NOTE            => '📝 Observação',
             self::RECORD_TRANSFER        => '🚚 Transferência',
             self::RECORD_TRANSFER_RETURN => '↩️ Retorno de Transferência',
+            self::RECORD_TRALLA_LINK     => '🔗 Card de manutenção (Tralla)',
             default                      => '🔄 Alteração de Status',
         };
     }
@@ -121,6 +124,7 @@ class MaintenanceRecord extends CommonDBTM
             self::RECORD_NOTE            => '#f59e0b',
             self::RECORD_TRANSFER        => '#3b82f6',
             self::RECORD_TRANSFER_RETURN => '#8b5cf6',
+            self::RECORD_TRALLA_LINK     => '#0ea5e9',
             default                      => '#4f46e5',
         };
     }
@@ -133,6 +137,7 @@ class MaintenanceRecord extends CommonDBTM
             self::RECORD_NOTE            => 'note',
             self::RECORD_TRANSFER        => 'transfer',
             self::RECORD_TRANSFER_RETURN => 'arrow-back-up',
+            self::RECORD_TRALLA_LINK     => 'link',
             default                      => 'refresh',
         };
     }
@@ -998,6 +1003,35 @@ class MaintenanceRecord extends CommonDBTM
             ]);
         } catch (\Throwable $e) {
             error_log('[assetmgrstatus] logTransferGeneric: ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------
+    // Integração com o Tralla (cards de manutenção)
+    // -------------------------------------------------------
+
+    /**
+     * O Tralla vinculou/desvinculou este ativo a uma máquina de card de manutenção.
+     * Fica no "Histórico Manutenção" do ativo sem alterar o status dele.
+     */
+    public static function logTrallaLink(string $itemtype, int $items_id, string $description): bool
+    {
+        return self::logTransferGeneric($itemtype, $items_id, self::RECORD_TRALLA_LINK, $description);
+    }
+
+    /**
+     * Manutenção concluída no Tralla: entra no histórico como "Manutenção Realizada"
+     * (conta nas estatísticas e no "dias desde a última manutenção"), com o relatório técnico.
+     */
+    public static function logTrallaMaintenance(string $itemtype, int $items_id, string $description): bool
+    {
+        global $DB;
+        try {
+            self::saveManutencaoRealizada($itemtype, $items_id, $description, []);
+        } catch (\Throwable $e) {
+            error_log('[assetmgrstatus] logTrallaMaintenance: ' . $e->getMessage());
             return false;
         }
         return true;
