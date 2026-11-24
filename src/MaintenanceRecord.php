@@ -446,7 +446,7 @@ class MaintenanceRecord extends CommonDBTM
                     echo '<i class="ti ti-'.$ii.'" style="flex-shrink:0;margin-top:2px;color:'.$ic.';"></i><span>'.htmlspecialchars($h['action_description']).'</span></div>';
                 }
                 if (!empty($h['tralla_cards_id'])) {
-                    echo self::trallaCardLine((int) $h['tralla_cards_id']);
+                    echo self::trallaCardLine((int) $h['tralla_cards_id'], (string) ($h['itemtype'] ?? ''), (int) ($h['items_id'] ?? 0));
                 }
                 if ($record_type === self::RECORD_BAIXA && !empty($h['action_date'])) {
                     echo '<div style="font-size:.82rem;color:#6b7280;margin-bottom:8px;"><i class="ti ti-calendar-event"></i> Data da baixa: <strong>'.date('d/m/Y', strtotime($h['action_date'])).'</strong></div>';
@@ -1064,7 +1064,7 @@ class MaintenanceRecord extends CommonDBTM
     }
 
     /** Linha "card" do Tralla (clicável) no histórico: dados do card + endereço do modal embutido. */
-    private static function trallaCardLine(int $cardId): string
+    private static function trallaCardLine(int $cardId, string $itemtype = '', int $itemsId = 0): string
     {
         global $DB, $CFG_GLPI;
         if ($cardId <= 0 || !\Plugin::isPluginActive('tralla') || !Session::haveRight('plugin_tralla', READ)
@@ -1072,7 +1072,8 @@ class MaintenanceRecord extends CommonDBTM
             return '';
         }
         $card = $DB->request([
-            'SELECT' => ['id', 'name', 'plugin_tralla_boards_id', 'status', 'code_number'],
+            'SELECT' => ['id', 'name', 'plugin_tralla_boards_id', 'plugin_tralla_lists_id', 'status', 'code_number', 'priority',
+                'technician_id', 'is_deleted'],
             'FROM'   => 'glpi_plugin_tralla_cards', 'WHERE' => ['id' => $cardId], 'LIMIT' => 1,
         ])->current();
         if (!is_array($card)) {
@@ -1083,13 +1084,73 @@ class MaintenanceRecord extends CommonDBTM
         $url = $CFG_GLPI['root_doc'] . '/plugins/tralla/front/kanban.php?boards_id=' . (int) $card['plugin_tralla_boards_id']
             . '&card=' . (int) $card['id'] . '&embed=1';
         $code = (int) ($card['code_number'] ?? 0) > 0 ? '#' . (int) $card['code_number'] : '#' . (int) $card['id'];
+        $preview = self::trallaCardPreview($card, $itemtype, $itemsId);
         return '<button type="button" class="am-tralla-card" data-am-tralla-card="' . htmlspecialchars($url, ENT_QUOTES) . '"'
             . ' style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;cursor:pointer;background:#eef6ff;border:1.5px solid #b8d7f5;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
             . '<i class="ti ti-layout-kanban" style="color:#2f6fb3;font-size:1.3rem;flex-shrink:0;"></i>'
             . '<span style="display:flex;flex-direction:column;flex:1;min-width:0;"><strong style="color:#1f2937;">Card ' . htmlspecialchars($code)
             . ' · ' . htmlspecialchars((string) $card['name']) . '</strong>'
-            . '<small style="color:#6b7280;">' . htmlspecialchars((string) ($board['name'] ?? 'Tralla')) . ' — clique para ver o que aconteceu</small></span>'
+            . '<small style="color:#6b7280;">' . htmlspecialchars((string) ($board['name'] ?? 'Tralla')) . ' — clique para ver o que aconteceu</small>'
+            . $preview . '</span>'
             . '<i class="ti ti-arrow-up-right" style="color:#2f6fb3;"></i></button>';
+    }
+
+    /** Resumo do card para o histórico: lista, técnico e o resultado da máquina vinculada a este ativo. */
+    private static function trallaCardPreview(array $card, string $itemtype, int $itemsId): string
+    {
+        global $DB;
+        try {
+            $machineLabels = ['pending' => 'Pendente', 'in_progress' => 'Em andamento', 'done' => 'Concluído',
+                'not_repairable' => 'Inservível', 'warranty' => 'Garantia', '' => 'Em andamento'];
+            $machineColors = ['pending' => '#b45309', 'in_progress' => '#2563eb', 'done' => '#15803d',
+                'not_repairable' => '#4b5563', 'warranty' => '#1d4ed8', '' => '#2563eb'];
+            $chips = [];
+            $chip = static function (string $text, string $color = '#374151'): string {
+                return '<span style="display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;padding:2px 8px;'
+                    . 'border-radius:999px;background:#fff;border:1px solid #cfe0f3;color:' . $color . ';">' . $text . '</span>';
+            };
+
+            $machine = null;
+            if ($itemtype !== '' && $itemsId > 0) {
+                $machine = $DB->request([
+                    'FROM'  => 'glpi_plugin_tralla_machines',
+                    'WHERE' => ['plugin_tralla_cards_id' => (int) $card['id'], 'asset_itemtype' => $itemtype, 'inventory_items_id' => $itemsId],
+                    'ORDER' => 'id DESC', 'LIMIT' => 1,
+                ])->current();
+            }
+            if (is_array($machine)) {
+                $st = (string) ($machine['status'] ?? '');
+                $chips[] = $chip('Máquina: ' . htmlspecialchars($machineLabels[$st] ?? $st), $machineColors[$st] ?? '#374151');
+            }
+
+            $list = $DB->request(['SELECT' => ['name'], 'FROM' => 'glpi_plugin_tralla_lists',
+                'WHERE' => ['id' => (int) $card['plugin_tralla_lists_id']], 'LIMIT' => 1])->current();
+            if (!empty($card['is_deleted'])) {
+                $chips[] = $chip('Card excluído', '#b91c1c');
+            } elseif (is_array($list)) {
+                $chips[] = $chip('Card em: ' . htmlspecialchars((string) $list['name']));
+            }
+            if ((string) ($card['priority'] ?? '') !== '') {
+                $chips[] = $chip('Prioridade ' . htmlspecialchars(strtoupper((string) $card['priority'])));
+            }
+            if ((int) ($card['technician_id'] ?? 0) > 0) {
+                $name = trim((string) \User::getFriendlyNameById((int) $card['technician_id']));
+                if ($name !== '') {
+                    $chips[] = $chip('<i class="ti ti-user"></i> ' . htmlspecialchars($name));
+                }
+            }
+
+            $html = $chips !== [] ? '<span style="display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;">' . implode('', $chips) . '</span>' : '';
+            $report = is_array($machine) ? trim((string) ($machine['report'] ?? '')) : '';
+            if ($report !== '') {
+                $short = mb_strlen($report) > 180 ? mb_substr($report, 0, 177) . '…' : $report;
+                $html .= '<span style="display:block;margin-top:6px;font-size:.8rem;color:#374151;white-space:normal;">'
+                    . '<strong>Relatório técnico:</strong> ' . htmlspecialchars($short) . '</span>';
+            }
+            return $html;
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     // -------------------------------------------------------
